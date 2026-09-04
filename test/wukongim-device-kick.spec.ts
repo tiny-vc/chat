@@ -41,4 +41,38 @@ describe("WuKongImService device disconnect", () => {
       }),
     );
   });
+
+  it("kicks a selected set of devices while preserving the current device", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          total: 3,
+          connections: [
+            { id: 21, node_id: 1001, uid: "u1", device_id: "current" },
+            { id: 22, node_id: 1001, uid: "u1", device_id: "old-a" },
+            { id: 23, node_id: 1002, uid: "u1", device_id: "old-b" },
+          ],
+        }),
+      })
+      .mockResolvedValue({ ok: true, text: async () => "" });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const config = {
+      getOrThrow: jest.fn().mockReturnValue("http://wukongim:5001"),
+      get: jest.fn().mockReturnValue(undefined),
+    } as unknown as ConfigService;
+    const service = new WuKongImService(config);
+
+    await expect(
+      service.disconnectDevices("u1", ["old-a", "old-b"]),
+    ).resolves.toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "http://wukongim:5001/conn/kick",
+      expect.objectContaining({
+        body: expect.stringContaining('"conn_id":21'),
+      }),
+    );
+  });
 });

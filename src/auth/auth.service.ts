@@ -244,6 +244,15 @@ export class AuthService {
     if (await compare(newPassword, user.passwordHash)) {
       throw new ConflictException("New password must be different");
     }
+    const otherDevices = await this.prisma.deviceSession.findMany({
+      where: {
+        userId,
+        id: { not: currentSessionId },
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: { deviceId: true },
+    });
     const passwordHash = await hash(newPassword, 12);
     const now = new Date();
     const revoked = await this.prisma.$transaction(async (tx) => {
@@ -266,6 +275,10 @@ export class AuthService {
       });
       return result.count;
     });
+    await this.disconnectImDevices(
+      userId,
+      otherDevices.map((session) => session.deviceId),
+    );
     return { success: true, revokedSessions: revoked };
   }
 
@@ -310,6 +323,16 @@ export class AuthService {
     } catch (error) {
       this.logger.warn(
         `User sessions revoked but WuKongIM disconnect failed for ${userId}: ${String(error)}`,
+      );
+    }
+  }
+
+  private async disconnectImDevices(userId: string, deviceIds: string[]) {
+    try {
+      await this.wuKongIm.disconnectDevices(userId, deviceIds);
+    } catch (error) {
+      this.logger.warn(
+        `Device sessions revoked but WuKongIM disconnect failed for ${userId}: ${String(error)}`,
       );
     }
   }

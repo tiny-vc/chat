@@ -15,7 +15,12 @@ export class WuKongImService {
   }
 
   async disconnectDevice(uid: string, deviceId: string): Promise<number> {
-    return this.disconnectConnections(uid, deviceId);
+    return this.disconnectConnections(uid, new Set([deviceId]));
+  }
+
+  async disconnectDevices(uid: string, deviceIds: string[]): Promise<number> {
+    if (deviceIds.length === 0) return 0;
+    return this.disconnectConnections(uid, new Set(deviceIds));
   }
 
   async disconnectUser(uid: string): Promise<number> {
@@ -24,7 +29,7 @@ export class WuKongImService {
 
   private async disconnectConnections(
     uid: string,
-    deviceId?: string,
+    deviceIds?: ReadonlySet<string>,
   ): Promise<number> {
     const matches: Array<{ connId: number; nodeId: number }> = [];
     const limit = 100;
@@ -41,7 +46,10 @@ export class WuKongImService {
       for (const value of connections) {
         const connection = this.asRecord(value);
         if (connection.uid !== uid) continue;
-        if (deviceId !== undefined && connection.device_id !== deviceId)
+        if (
+          deviceIds !== undefined &&
+          !deviceIds.has(String(connection.device_id ?? ""))
+        )
           continue;
         const connId = Number(connection.conn_id ?? connection.id);
         const nodeId = Number(connection.node_id);
