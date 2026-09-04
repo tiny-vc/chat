@@ -1,0 +1,3 @@
+services:
+  api:
+    image: chat-api:join-inbox-local

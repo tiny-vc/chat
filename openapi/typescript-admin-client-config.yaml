@@ -1,0 +1,9 @@
+npmName: "@chat/admin-api-client"
+npmVersion: 0.1.0
+supportsES6: true
+withSeparateModelsAndApi: true
+apiPackage: api
+modelPackage: models
+useSingleRequestParameter: true
+stringEnums: true
+enumNameSuffix: Enum

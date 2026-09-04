@@ -1,0 +1,3 @@
+services:
+  api:
+    image: chat-api:server-settings-local

@@ -1,0 +1,376 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum DeviceType {
+  APP
+  WEB
+  DESKTOP
+}
+
+enum JobRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+enum GroupStatus {
+  ACTIVE
+  DISBANDED
+  SUSPENDED
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum GroupMemberStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum GroupJoinRequestType {
+  APPLY
+  INVITE
+}
+
+enum GroupJoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum FileStatus {
+  PENDING
+  UPLOADED
+  READY
+  REJECTED
+  DELETED
+}
+
+enum FileScope {
+  PRIVATE
+  DIRECT
+  GROUP
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  INVITING
+  RINGING
+  ACCEPTED
+  CONNECTED
+  REJECTED
+  CANCELLED
+  MISSED
+  ENDED
+  FAILED
+}
+
+model User {
+  id                   String                @id @default(uuid()) @db.Uuid
+  username             String                @unique @db.VarChar(40)
+  passwordHash         String                @map("password_hash") @db.VarChar(255)
+  nickname             String                @db.VarChar(80)
+  avatarUrl            String?               @map("avatar_url") @db.VarChar(500)
+  avatarFileId         String?               @unique @map("avatar_file_id") @db.Uuid
+  imTokenHash          String?               @map("im_token_hash") @db.VarChar(255)
+  status               UserStatus            @default(ACTIVE)
+  role                 UserRole              @default(USER)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  sentFriendships      Friendship[]          @relation("friendshipRequester")
+  receivedFriendships  Friendship[]          @relation("friendshipAddressee")
+  ownedGroups          Group[]
+  groupMemberships     GroupMember[]
+  files                StoredFile[]          @relation("ownedFiles")
+  initiatedCalls       CallSession[]         @relation("callInitiator")
+  messageReadCursors   MessageReadCursor[]
+  auditLogs            AuditLog[]            @relation("auditActor")
+  conversationSettings ConversationSetting[]
+  blockedUsers         UserBlock[]           @relation("blocker")
+  blockedByUsers       UserBlock[]           @relation("blocked")
+  deviceSessions       DeviceSession[]
+  avatarFile           StoredFile?           @relation("userAvatar", fields: [avatarFileId], references: [id])
+  groupJoinTargets     GroupJoinRequest[]    @relation("groupJoinTarget")
+  groupJoinRequesters  GroupJoinRequest[]    @relation("groupJoinRequester")
+  groupJoinDeciders    GroupJoinRequest[]    @relation("groupJoinDecider")
+
+  @@map("users")
+}
+
+model DeviceSession {
+  id               String     @id @default(uuid()) @db.Uuid
+  userId           String     @map("user_id") @db.Uuid
+  deviceId         String     @map("device_id") @db.VarChar(120)
+  deviceType       DeviceType @map("device_type")
+  deviceName       String     @map("device_name") @db.VarChar(120)
+  refreshTokenHash String     @map("refresh_token_hash") @db.VarChar(64)
+  ipAddress        String?    @map("ip_address") @db.VarChar(64)
+  userAgent        String?    @map("user_agent") @db.VarChar(500)
+  lastSeenAt       DateTime   @default(now()) @map("last_seen_at")
+  expiresAt        DateTime   @map("expires_at")
+  revokedAt        DateTime?  @map("revoked_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  user             User       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, deviceId])
+  @@index([userId, revokedAt, lastSeenAt])
+  @@map("device_sessions")
+}
+
+model LoginThrottle {
+  key           String    @id @db.VarChar(64)
+  usernameHash  String    @map("username_hash") @db.VarChar(64)
+  ipAddress     String    @map("ip_address") @db.VarChar(64)
+  failedCount   Int       @default(0) @map("failed_count")
+  firstFailedAt DateTime  @default(now()) @map("first_failed_at")
+  lastFailedAt  DateTime  @default(now()) @map("last_failed_at")
+  lockedUntil   DateTime? @map("locked_until")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([lockedUntil])
+  @@index([updatedAt])
+  @@map("login_throttles")
+}
+
+model JobRun {
+  id         String       @id @default(uuid()) @db.Uuid
+  jobName    String       @map("job_name") @db.VarChar(100)
+  status     JobRunStatus @default(RUNNING)
+  trigger    String       @db.VarChar(30)
+  metrics    Json?
+  error      String?      @db.VarChar(1000)
+  startedAt  DateTime     @default(now()) @map("started_at")
+  finishedAt DateTime?    @map("finished_at")
+
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
+  @@map("job_runs")
+}
+
+model ConversationSetting {
+  userId      String   @map("user_id") @db.Uuid
+  channelId   String   @map("channel_id") @db.VarChar(120)
+  channelType Int      @map("channel_type") @db.SmallInt
+  pinned      Boolean  @default(false)
+  muted       Boolean  @default(false)
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@id([userId, channelId, channelType])
+  @@index([userId, pinned, updatedAt])
+  @@map("conversation_settings")
+}
+
+model UserBlock {
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id])
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id])
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("user_blocks")
+}
+
+model WebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  source      String    @db.VarChar(40)
+  eventKey    String    @unique @map("event_key") @db.VarChar(128)
+  eventType   String    @map("event_type") @db.VarChar(120)
+  payload     Json
+  receivedAt  DateTime  @default(now()) @map("received_at")
+  processedAt DateTime? @map("processed_at")
+
+  @@index([source, eventType, receivedAt])
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String   @db.VarChar(100)
+  targetType  String   @map("target_type") @db.VarChar(60)
+  targetId    String   @map("target_id") @db.VarChar(120)
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  actor       User?    @relation("auditActor", fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@map("audit_logs")
+}
+
+model Friendship {
+  id          String           @id @default(uuid()) @db.Uuid
+  pairKey     String           @unique @map("pair_key") @db.VarChar(73)
+  requesterId String           @map("requester_id") @db.Uuid
+  addresseeId String           @map("addressee_id") @db.Uuid
+  status      FriendshipStatus @default(PENDING)
+  remark      String?          @db.VarChar(80)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  requester   User             @relation("friendshipRequester", fields: [requesterId], references: [id])
+  addressee   User             @relation("friendshipAddressee", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@map("friendships")
+}
+
+model Group {
+  id           String             @id @default(uuid()) @db.Uuid
+  name         String             @db.VarChar(120)
+  avatarUrl    String?            @map("avatar_url") @db.VarChar(500)
+  avatarFileId String?            @unique @map("avatar_file_id") @db.Uuid
+  ownerId      String             @map("owner_id") @db.Uuid
+  memberLimit  Int                @default(500) @map("member_limit")
+  muteAll      Boolean            @default(false) @map("mute_all")
+  status       GroupStatus        @default(ACTIVE)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  owner        User               @relation(fields: [ownerId], references: [id])
+  members      GroupMember[]
+  avatarFile   StoredFile?        @relation("groupAvatar", fields: [avatarFileId], references: [id])
+  joinRequests GroupJoinRequest[]
+
+  @@index([ownerId])
+  @@map("groups")
+}
+
+model GroupJoinRequest {
+  id            String                 @id @default(uuid()) @db.Uuid
+  groupId       String                 @map("group_id") @db.Uuid
+  userId        String                 @map("user_id") @db.Uuid
+  requestedById String                 @map("requested_by_id") @db.Uuid
+  decidedById   String?                @map("decided_by_id") @db.Uuid
+  type          GroupJoinRequestType
+  status        GroupJoinRequestStatus @default(PENDING)
+  activeKey     String?                @unique @map("active_key") @db.VarChar(100)
+  message       String?                @db.VarChar(500)
+  decisionNote  String?                @map("decision_note") @db.VarChar(500)
+  expiresAt     DateTime               @map("expires_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  decidedAt     DateTime?              @map("decided_at")
+  group         Group                  @relation(fields: [groupId], references: [id])
+  user          User                   @relation("groupJoinTarget", fields: [userId], references: [id])
+  requestedBy   User                   @relation("groupJoinRequester", fields: [requestedById], references: [id])
+  decidedBy     User?                  @relation("groupJoinDecider", fields: [decidedById], references: [id])
+
+  @@index([groupId, status, createdAt])
+  @@index([userId, status, createdAt])
+  @@index([expiresAt, status])
+  @@map("group_join_requests")
+}
+
+model GroupMember {
+  groupId    String            @map("group_id") @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  role       GroupRole         @default(MEMBER)
+  status     GroupMemberStatus @default(ACTIVE)
+  nickname   String?           @db.VarChar(80)
+  mutedUntil DateTime?         @map("muted_until")
+  joinedAt   DateTime          @default(now()) @map("joined_at")
+  group      Group             @relation(fields: [groupId], references: [id])
+  user       User              @relation(fields: [userId], references: [id])
+
+  @@id([groupId, userId])
+  @@index([userId, status])
+  @@map("group_members")
+}
+
+model StoredFile {
+  id              String       @id @default(uuid()) @db.Uuid
+  ownerUserId     String       @map("owner_user_id") @db.Uuid
+  objectKey       String       @unique @map("object_key") @db.VarChar(500)
+  originalName    String       @map("original_name") @db.VarChar(255)
+  mimeType        String       @map("mime_type") @db.VarChar(120)
+  sizeBytes       BigInt       @map("size_bytes")
+  sha256          String?      @db.VarChar(64)
+  purpose         String       @db.VarChar(40)
+  scope           FileScope    @default(PRIVATE)
+  scopeId         String?      @map("scope_id") @db.Uuid
+  status          FileStatus   @default(PENDING)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  uploadedAt      DateTime?    @map("uploaded_at")
+  thumbnailFileId String?      @map("thumbnail_file_id") @db.Uuid
+  owner           User         @relation("ownedFiles", fields: [ownerUserId], references: [id])
+  avatarFor       User?        @relation("userAvatar")
+  groupAvatarFor  Group?       @relation("groupAvatar")
+  thumbnail       StoredFile?  @relation("fileThumbnail", fields: [thumbnailFileId], references: [id])
+  thumbnailOf     StoredFile[] @relation("fileThumbnail")
+
+  @@index([ownerUserId, createdAt])
+  @@index([scope, scopeId])
+  @@index([thumbnailFileId])
+  @@map("files")
+}
+
+model CallSession {
+  id              String     @id @default(uuid()) @db.Uuid
+  initiatorUserId String     @map("initiator_user_id") @db.Uuid
+  targetUserId    String?    @map("target_user_id") @db.Uuid
+  groupId         String?    @map("group_id") @db.Uuid
+  livekitRoomName String     @unique @map("livekit_room_name") @db.VarChar(120)
+  type            CallType
+  status          CallStatus @default(INVITING)
+  startedAt       DateTime   @default(now()) @map("started_at")
+  answeredAt      DateTime?  @map("answered_at")
+  endedAt         DateTime?  @map("ended_at")
+  endReason       String?    @map("end_reason") @db.VarChar(80)
+  initiator       User       @relation("callInitiator", fields: [initiatorUserId], references: [id])
+
+  @@index([targetUserId, status])
+  @@index([groupId, status])
+  @@map("call_sessions")
+}
+
+model MessageReadCursor {
+  userId         String   @map("user_id") @db.Uuid
+  channelId      String   @map("channel_id") @db.Uuid
+  channelType    Int      @map("channel_type")
+  lastMessageSeq BigInt   @default(0) @map("last_message_seq")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, channelId, channelType])
+  @@index([channelId, channelType, lastMessageSeq])
+  @@map("message_read_cursors")
+}

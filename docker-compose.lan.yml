@@ -1,0 +1,12 @@
+# Local device testing only. LAN_HOST must be this Mac's reachable LAN IPv4.
+services:
+  api:
+    image: ${CHAT_API_IMAGE:-chat-api:latest}
+    environment:
+      API_PUBLIC_URL: http://${LAN_HOST:?Set LAN_HOST to your Mac LAN IPv4}:3000
+      WUKONGIM_WS_URL: ws://${LAN_HOST:?Set LAN_HOST}:5200
+      WUKONGIM_TCP_ADDR: ${LAN_HOST:?Set LAN_HOST}:5100
+      LIVEKIT_URL: ws://${LAN_HOST:?Set LAN_HOST}:7880
+      S3_PUBLIC_ENDPOINT: http://${LAN_HOST:?Set LAN_HOST}:9000
+  livekit:
+    command: ["--dev", "--bind", "0.0.0.0", "--node-ip", "${LAN_HOST:?Set LAN_HOST}"]

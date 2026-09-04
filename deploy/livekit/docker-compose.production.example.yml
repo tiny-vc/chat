@@ -1,0 +1,19 @@
+# Linux production example for a single LiveKit node.
+# Run from the repository root after creating livekit.production.yaml and certs/.
+services:
+  livekit:
+    image: livekit/livekit-server:v1.13.5
+    command: ["--config", "/etc/livekit/livekit.yaml"]
+    network_mode: host
+    volumes:
+      - ./deploy/livekit/livekit.production.yaml:/etc/livekit/livekit.yaml:ro
+      - ./deploy/livekit/certs:/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:7880"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+

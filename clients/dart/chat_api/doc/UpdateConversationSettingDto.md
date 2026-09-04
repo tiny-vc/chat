@@ -1,0 +1,19 @@
+# chat_api_client.model.UpdateConversationSettingDto
+
+## Load the model package
+```dart
+import 'package:chat_api_client/api.dart';
+```
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**channelId** | **String** |  | 
+**channelType** | **num** |  | 
+**pinned** | **bool** |  | [optional] 
+**muted** | **bool** |  | [optional] 
+**archived** | **bool** |  | [optional] 
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+

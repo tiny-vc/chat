@@ -1,0 +1,181 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  migrate:
+    build:
+      context: .
+      target: migration
+    environment:
+      DATABASE_URL: postgresql://chat:chat@postgres:5432/chat?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    logging: *default-logging
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      NODE_ENV: development
+      SERVER_NAME: ${SERVER_NAME:-Chat}
+      PORT: "3000"
+      DATABASE_URL: postgresql://chat:chat@postgres:5432/chat?schema=public
+      JWT_ACCESS_SECRET: local-development-secret-at-least-32-chars
+      JWT_ACCESS_TTL: 15m
+      REFRESH_TOKEN_TTL_DAYS: "30"
+      LOGIN_MAX_ATTEMPTS: "5"
+      LOGIN_WINDOW_MINUTES: "15"
+      JOBS_ENABLED: "true"
+      CLEANUP_INTERVAL_MINUTES: "60"
+      PENDING_UPLOAD_TTL_HOURS: "24"
+      SESSION_RETENTION_DAYS: "30"
+      LOGIN_THROTTLE_RETENTION_DAYS: "7"
+      SLOW_REQUEST_MS: "1000"
+      USER_STORAGE_QUOTA_MB: "1024"
+      GROUP_JOIN_REQUEST_TTL_HOURS: "168"
+      SWAGGER_ENABLED: "true"
+      API_PUBLIC_URL: http://localhost:3000
+      CORS_ALLOWED_ORIGINS: "*"
+      JSON_BODY_LIMIT: 1mb
+      WUKONGIM_API_URL: http://wukongim:5001
+      WUKONGIM_WS_URL: ws://localhost:5200
+      WUKONGIM_TCP_ADDR: localhost:5100
+      WUKONGIM_WEBHOOK_SECRET: local-webhook-secret-12345
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_HTTP_URL: http://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: chat-files
+      S3_ACCESS_KEY: chatminio
+      S3_SECRET_KEY: chatminiosecret
+      S3_FORCE_PATH_STYLE: "true"
+      S3_AUTO_CREATE_BUCKET: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      wukongim:
+        condition: service_healthy
+      livekit:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    init: true
+    logging: *default-logging
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: chat
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: chat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat -d chat"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    stop_grace_period: 30s
+    logging: *default-logging
+
+  wukongim:
+    image: ghcr.io/wukongim/wukongim:v2.2.5-20260422
+    environment:
+      WK_MODE: release
+      WK_CLUSTER_NODEID: "1001"
+      WK_TOKENAUTHON: "true"
+    ports:
+      - "5001:5001"
+      - "5100:5100"
+      - "5200:5200"
+      - "5300:5300"
+    volumes:
+      - wukongim_data:/home/wukongimdata
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -Y off -O /dev/null http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 30s
+    logging: *default-logging
+
+  livekit:
+    image: livekit/livekit-server:v1.13.5
+    command: ["--dev", "--bind", "0.0.0.0"]
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -Y off -O /dev/null http://localhost:7880"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 30s
+    logging: *default-logging
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: chatminio
+      MINIO_ROOT_PASSWORD: chatminiosecret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 30s
+    logging: *default-logging
+
+  minio-backup:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    profiles: ["tools"]
+    user: "${MINIO_BACKUP_UID:-1000}:${MINIO_BACKUP_GID:-1000}"
+    environment:
+      MC_CONFIG_DIR: /tmp/.mc
+      MC_HOST_source: http://chatminio:chatminiosecret@minio:9000
+      BACKUP_NAME: "${MINIO_BACKUP_NAME:-}"
+    volumes:
+      - "${MINIO_BACKUP_DIR:-./backups/minio}:/backup"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        test -n "$$BACKUP_NAME"
+        mkdir -p "/backup/$$BACKUP_NAME/objects"
+        mc mirror --overwrite source/chat-files "/backup/$$BACKUP_NAME/objects"
+    depends_on:
+      minio:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  wukongim_data:
+  minio_data:

@@ -1,0 +1,7 @@
+pubName: chat_api_client
+pubVersion: 0.1.0
+pubDescription: Generated Flutter API client for Chat Server
+serializationLibrary: built_value
+useOptional: false
+enumUnknownDefaultCase: true
+dateLibrary: core
