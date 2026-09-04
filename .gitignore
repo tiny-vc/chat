@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+!.env.production.example
+coverage/
+backups/
+*.log
+.DS_Store
+prisma/dev.db
+
+# Local editor and OS state
+.idea/
+.vscode/
+
+# Certificates, signing keys and provisioning profiles
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
+key.properties
+certs/
