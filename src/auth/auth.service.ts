@@ -224,6 +224,7 @@ export class AuthService {
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    await this.disconnectImUser(userId);
     return { success: true, revokedSessions: result.count };
   }
 
@@ -299,7 +300,18 @@ export class AuthService {
         },
       });
     });
+    await this.disconnectImUser(userId);
     return { success: true };
+  }
+
+  private async disconnectImUser(userId: string) {
+    try {
+      await this.wuKongIm.disconnectUser(userId);
+    } catch (error) {
+      this.logger.warn(
+        `User sessions revoked but WuKongIM disconnect failed for ${userId}: ${String(error)}`,
+      );
+    }
   }
 
   private async createSession(

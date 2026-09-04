@@ -22,6 +22,7 @@ describe("AdminService", () => {
   const wuKongIm = {
     updateChannelPolicy: jest.fn(),
     disconnectDevice: jest.fn(),
+    disconnectUser: jest.fn(),
   };
   const service = new AdminService(
     prisma as unknown as PrismaService,
@@ -31,6 +32,7 @@ describe("AdminService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     wuKongIm.disconnectDevice.mockResolvedValue(1);
+    wuKongIm.disconnectUser.mockResolvedValue(3);
     prisma.$transaction.mockImplementation(
       (operation: (client: typeof prisma) => unknown) => operation(prisma),
     );
@@ -151,6 +153,7 @@ describe("AdminService", () => {
       where: { userId: "user-1", revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+    expect(wuKongIm.disconnectUser).toHaveBeenCalledWith("user-1");
   });
 
   it("allows an administrator to revoke one user device", async () => {

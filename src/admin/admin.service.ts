@@ -350,6 +350,11 @@ export class AdminService {
       });
       return { ...updated, revokedSessions: revoked.count };
     });
+    if (suspended) {
+      await this.wuKongIm.disconnectUser(userId).catch(() => {
+        // The durable suspension remains successful when IM is unavailable.
+      });
+    }
     return user;
   }
 
