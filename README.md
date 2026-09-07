@@ -286,6 +286,8 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 默认的本地镜像发布可运行
 `sh scripts/build-upload-production.sh USER@HOST /opt/chat VERSION`，它会构建
 `linux/amd64` 三个业务镜像、压缩并连同部署文件上传；GHCR 工作流保留为手动备用。
+上传后可在服务器运行 `sh scripts/setup-production-interactive.sh`，通过交互完成
+DNS 解析之外的首次生产配置与启动。
 
 The compose file is for local development only. Production requires TLS, private access
 to WuKongIM management ports, durable backups, real LiveKit keys, public ICE/TURN

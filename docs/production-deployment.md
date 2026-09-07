@@ -58,6 +58,7 @@ API 与数据库迁移使用独立镜像：`chat-api` 只包含编译后的业�
 ```text
 docker-compose.production.yml
 scripts/deploy-production.sh
+scripts/setup-production-interactive.sh
 scripts/verify-livekit-production.mjs
 scripts/backup-postgres.sh
 scripts/verify-postgres-backup.sh
@@ -104,6 +105,18 @@ cat production-images-2026.09.07-1.env
 
 将最后一个命令显示的三个 `CHAT_*_IMAGE` 值写入 `.env.production`。服务器不需要
 GitHub Token，也不会收到应用源码。
+
+完成 DNS 解析后，可以在服务器使用交互式初始化脚本完成其余首次部署步骤：
+
+```sh
+cd /opt/chat
+sh scripts/setup-production-interactive.sh
+```
+
+脚本会选择已上传的镜像包、校验并导入镜像，询问根域名和各服务域名，生成全部
+随机密钥，创建 `.env.production`、Nginx 和 LiveKit 配置，引导放置 TLS 证书，
+拉取公开基础镜像、执行生产预检，并在最终确认后启动服务。已有配置不会被静默
+覆盖；证书尚未准备好时会保存配置后安全退出，可放置证书后再次运行。
 
 创建配置：
 

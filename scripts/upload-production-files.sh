@@ -62,6 +62,7 @@ cp "$project_dir/deploy/livekit/livekit.production.example.yaml" \
 
 for file in \
   deploy-production.sh \
+  setup-production-interactive.sh \
   verify-livekit-production.mjs \
   backup-postgres.sh \
   verify-postgres-backup.sh \
