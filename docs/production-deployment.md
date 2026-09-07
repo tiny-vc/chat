@@ -59,6 +59,7 @@ API 与数据库迁移使用独立镜像：`chat-api` 只包含编译后的业�
 docker-compose.production.yml
 scripts/deploy-production.sh
 scripts/setup-production-interactive.sh
+scripts/renew-production-certificate.sh
 scripts/verify-livekit-production.mjs
 scripts/backup-postgres.sh
 scripts/verify-postgres-backup.sh
@@ -114,9 +115,25 @@ sh scripts/setup-production-interactive.sh
 ```
 
 脚本会选择已上传的镜像包、校验并导入镜像，询问根域名和各服务域名，生成全部
-随机密钥，创建 `.env.production`、Nginx 和 LiveKit 配置，引导放置 TLS 证书，
+随机密钥，创建 `.env.production`、Nginx 和 LiveKit 配置，并可通过固定版本的
+Certbot 官方容器申请证书或复制已有证书，
 拉取公开基础镜像、执行生产预检，并在最终确认后启动服务。已有配置不会被静默
 覆盖；证书尚未准备好时会保存配置后安全退出，可放置证书后再次运行。
+
+Certbot 容器使用固定的 `certbot/certbot:v5.8.0` 镜像，HTTP-01 签发要求四个域名
+都已解析到服务器且 TCP 80 可从公网访问。脚本会在必要时征得确认后短暂停止
+gateway 释放端口。签发资料保存在 `deploy/letsencrypt/`，正式证书会复制到
+`deploy/certs/`；这些目录中的证书和账户资料都不会提交到 Git。
+
+使用交互脚本申请证书后，可为 root 添加每日续期检查：
+
+```cron
+17 3 * * * cd /opt/chat && sh scripts/renew-production-certificate.sh >> /var/log/chat-cert-renew.log 2>&1
+```
+
+续期脚本仅在证书剩余不足 30 天时才停止 gateway 并调用 Certbot，平时不会影响
+服务；续期成功后会复制新证书并恢复 gateway。使用外部证书或 DNS API 签发时，
+应使用对应服务商自己的续期机制，不运行此脚本。
 
 创建配置：
 

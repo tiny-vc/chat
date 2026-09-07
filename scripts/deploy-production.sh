@@ -119,6 +119,19 @@ key_public=$(openssl pkey -in deploy/certs/privkey.pem -pubout -outform DER 2>/d
 [ "$cert_public" = "$key_public" ] || fail "TLS certificate and private key do not match"
 openssl x509 -checkend 604800 -noout -in deploy/certs/fullchain.pem >/dev/null || \
   fail "TLS certificate expires within seven days"
+api_domain=$(env_value API_PUBLIC_URL)
+api_domain=${api_domain#https://}
+im_domain=$(env_value WUKONGIM_WS_URL)
+im_domain=${im_domain#wss://}
+rtc_domain=$(env_value LIVEKIT_URL)
+rtc_domain=${rtc_domain#wss://}
+turn_domain=$(sed -n 's/^[[:space:]]*domain:[[:space:]]*//p' \
+  deploy/livekit/livekit.production.yaml | head -n 1)
+for domain in "$api_domain" "$im_domain" "$rtc_domain" "$turn_domain"; do
+  [ -n "$domain" ] || fail "Unable to determine every TLS domain"
+  openssl x509 -checkhost "$domain" -noout -in deploy/certs/fullchain.pem >/dev/null || \
+    fail "TLS certificate does not cover $domain"
+done
 
 step "Checking LiveKit and Compose configuration"
 docker run --rm \

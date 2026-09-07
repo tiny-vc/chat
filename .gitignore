@@ -7,6 +7,8 @@ dist/
 coverage/
 backups/
 production-bundles/
+deploy/letsencrypt/
+deploy/letsencrypt-lib/
 *.log
 .DS_Store
 prisma/dev.db

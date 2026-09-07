@@ -4,6 +4,7 @@ set -eu
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 env_file="$project_dir/.env.production"
 compose_file="$project_dir/docker-compose.production.yml"
+certbot_image=certbot/certbot:v5.8.0
 
 say() {
   printf '\n==> %s\n' "$1"
@@ -43,6 +44,11 @@ replace_env() {
     END { if (!replaced) print key "=" value }
   ' "$env_file" > "$temporary"
   mv "$temporary" "$env_file"
+}
+
+env_value() {
+  key=$1
+  sed -n "s/^${key}=//p" "$env_file" | tail -n 1
 }
 
 valid_domain() {
@@ -161,16 +167,68 @@ fi
 mkdir -p deploy/certs
 if [ ! -s deploy/certs/fullchain.pem ] || [ ! -s deploy/certs/privkey.pem ]; then
   say 'TLS certificate is required'
-  cert_source=$(ask 'Existing fullchain.pem path (leave empty to configure later)')
-  if [ -n "$cert_source" ]; then
-    key_source=$(ask 'Existing privkey.pem path')
-    [ -r "$cert_source" ] || fail "Certificate is not readable: $cert_source"
-    [ -r "$key_source" ] || fail "Private key is not readable: $key_source"
-    cp "$cert_source" deploy/certs/fullchain.pem
-    cp "$key_source" deploy/certs/privkey.pem
-    chmod 644 deploy/certs/fullchain.pem
-    chmod 600 deploy/certs/privkey.pem
-  else
+  cat <<'EOF'
+1) Obtain a trusted certificate with the official Certbot container (HTTP-01)
+2) Copy an existing fullchain.pem and privkey.pem
+3) Configure the certificate later
+EOF
+  certificate_method=$(ask 'Certificate method' '1')
+  case "$certificate_method" in
+    1)
+      chat_domain=${chat_domain:-$(env_value API_PUBLIC_URL)}
+      chat_domain=${chat_domain#https://}
+      im_domain=${im_domain:-$(env_value WUKONGIM_WS_URL)}
+      im_domain=${im_domain#wss://}
+      rtc_domain=${rtc_domain:-$(env_value LIVEKIT_URL)}
+      rtc_domain=${rtc_domain#wss://}
+      turn_domain=${turn_domain:-$(sed -n 's/^[[:space:]]*domain:[[:space:]]*//p' deploy/livekit/livekit.production.yaml | head -n 1)}
+      for domain in "$chat_domain" "$im_domain" "$rtc_domain" "$turn_domain"; do
+        valid_domain "$domain" || fail "Cannot obtain a certificate for invalid domain: $domain"
+      done
+      email=$(ask "Let's Encrypt account email")
+      case "$email" in *@*.*) ;; *) fail 'Invalid email address.' ;; esac
+      confirm 'Have all four domains been resolved to this server and is TCP port 80 open?' || \
+        fail 'Complete DNS and firewall configuration before requesting the certificate.'
+
+      mkdir -p deploy/letsencrypt deploy/letsencrypt-lib
+      gateway_was_running=false
+      if [ -n "$(docker compose --env-file "$env_file" -f "$compose_file" ps --status running -q gateway 2>/dev/null)" ]; then
+        confirm 'The gateway must release port 80 briefly. Stop it now?' || \
+          fail 'Certbot standalone mode requires TCP port 80.'
+        docker compose --env-file "$env_file" -f "$compose_file" stop gateway
+        gateway_was_running=true
+      fi
+
+      if docker run --rm -p 80:80 \
+        -v "$project_dir/deploy/letsencrypt:/etc/letsencrypt" \
+        -v "$project_dir/deploy/letsencrypt-lib:/var/lib/letsencrypt" \
+        "$certbot_image" certonly --standalone --preferred-challenges http \
+        --non-interactive --agree-tos --no-eff-email --keep-until-expiring \
+        --email "$email" --cert-name "$chat_domain" \
+        -d "$chat_domain" -d "$im_domain" -d "$rtc_domain" -d "$turn_domain"; then
+        install -m 644 "deploy/letsencrypt/live/$chat_domain/fullchain.pem" \
+          deploy/certs/fullchain.pem
+        install -m 600 "deploy/letsencrypt/live/$chat_domain/privkey.pem" \
+          deploy/certs/privkey.pem
+      else
+        [ "$gateway_was_running" = false ] || \
+          docker compose --env-file "$env_file" -f "$compose_file" start gateway
+        fail 'Certbot could not obtain the certificate. Check DNS records and TCP port 80.'
+      fi
+      [ "$gateway_was_running" = false ] || \
+        docker compose --env-file "$env_file" -f "$compose_file" start gateway
+      ;;
+    2)
+      cert_source=$(ask 'Existing fullchain.pem path')
+      key_source=$(ask 'Existing privkey.pem path')
+      [ -r "$cert_source" ] || fail "Certificate is not readable: $cert_source"
+      [ -r "$key_source" ] || fail "Private key is not readable: $key_source"
+      cp "$cert_source" deploy/certs/fullchain.pem
+      cp "$key_source" deploy/certs/privkey.pem
+      chmod 644 deploy/certs/fullchain.pem
+      chmod 600 deploy/certs/privkey.pem
+      ;;
+    3)
     cat <<'EOF'
 
 Configuration has been saved. Obtain a trusted certificate covering the chat,
@@ -180,8 +238,10 @@ IM, RTC and TURN domains, then place it at:
 
 Run this script again afterward; it will preserve the existing configuration.
 EOF
-    exit 0
-  fi
+      exit 0
+      ;;
+    *) fail 'Certificate method must be 1, 2 or 3.' ;;
+  esac
 fi
 
 say 'Checking the TLS certificate and private key'
