@@ -7,113 +7,253 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #1d1b20;
-  background: #f6f5f9;
+  color: #24212a;
+  background: #f5f4f8;
+  --admin-bg: #f5f4f8;
+  --admin-surface: rgb(255 255 255 / 92%);
+  --admin-surface-solid: #fff;
+  --admin-text: #24212a;
+  --admin-muted: #716b7a;
+  --admin-border: rgb(36 31 44 / 8%);
+  --admin-shadow: 0 10px 34px rgb(36 31 44 / 6%);
+  --admin-header: rgb(255 255 255 / 88%);
+  --admin-soft: #f8f6fb;
+  --admin-code: #211f26;
+  --admin-code-text: #eaddff;
 }
+
+:root[data-theme="dark"] {
+  color: #ece8f0;
+  background: #121116;
+  --admin-bg: #121116;
+  --admin-surface: rgb(31 29 36 / 94%);
+  --admin-surface-solid: #1f1d24;
+  --admin-text: #ece8f0;
+  --admin-muted: #aaa3b2;
+  --admin-border: rgb(235 225 244 / 10%);
+  --admin-shadow: 0 14px 40px rgb(0 0 0 / 22%);
+  --admin-header: rgb(24 22 29 / 88%);
+  --admin-soft: #292630;
+  --admin-code: #0d0c10;
+  --admin-code-text: #eaddff;
+}
+
 * {
   box-sizing: border-box;
 }
-body {
-  margin: 0;
+html,
+body,
+#root {
   min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  background: var(--admin-bg);
+}
+body {
   min-height: 100vh;
+  color: var(--admin-text);
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
 }
 .center-screen {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  background: #f7f5fa;
+  background: var(--admin-bg);
+}
+.login-shell {
+  position: relative;
+  min-height: 100vh;
+}
+.login-theme-switcher {
+  position: fixed;
+  z-index: 20;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  padding: 3px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+  backdrop-filter: blur(16px);
 }
 .ant-pro-form-login-page {
   background:
-    radial-gradient(circle at 15% 15%, rgb(103 80 164 / 16%), transparent 34%),
-    radial-gradient(circle at 85% 85%, rgb(55 141 122 / 12%), transparent 36%),
-    #f6f5f9 !important;
+    radial-gradient(circle at 14% 12%, rgb(103 80 164 / 20%), transparent 34%),
+    radial-gradient(circle at 87% 84%, rgb(48 153 130 / 14%), transparent 36%),
+    var(--admin-bg) !important;
+}
+:root[data-theme="dark"] .ant-pro-form-login-page {
+  background:
+    radial-gradient(circle at 14% 12%, rgb(150 120 226 / 18%), transparent 34%),
+    radial-gradient(circle at 87% 84%, rgb(48 153 130 / 10%), transparent 36%),
+    var(--admin-bg) !important;
 }
 .ant-pro-form-login-page-left {
   display: none !important;
 }
 .ant-pro-form-login-page-container {
-  width: min(420px, calc(100vw - 40px)) !important;
+  width: min(430px, calc(100vw - 40px)) !important;
   min-width: 0 !important;
   height: auto !important;
   min-height: 0 !important;
   margin: auto !important;
-  padding: 44px 42px 40px !important;
-  border: 1px solid rgb(103 80 164 / 12%);
+  padding: 46px 42px 40px !important;
+  border: 1px solid var(--admin-border);
   border-radius: 24px;
-  background: rgb(255 255 255 / 92%) !important;
-  box-shadow: 0 24px 70px rgb(45 38 64 / 14%);
-  backdrop-filter: blur(18px);
+  background: var(--admin-surface) !important;
+  box-shadow: 0 26px 80px rgb(35 28 52 / 15%);
+  backdrop-filter: blur(20px);
+}
+:root[data-theme="dark"] .ant-pro-form-login-page-container {
+  box-shadow: 0 30px 90px rgb(0 0 0 / 34%);
 }
 .ant-pro-form-login-page-title {
-  color: #282331;
-  letter-spacing: -0.02em;
+  color: var(--admin-text) !important;
+  font-size: clamp(25px, 5vw, 30px) !important;
+  letter-spacing: -0.025em;
 }
 .ant-pro-form-login-page-desc {
-  color: #716b7a !important;
+  color: var(--admin-muted) !important;
 }
 .ant-pro-form-login-page-main {
   width: 100% !important;
 }
-.ant-pro-form-login-page .ant-input-affix-wrapper {
-  min-height: 44px;
+.ant-pro-form-login-page .ant-input-affix-wrapper,
+.ant-pro-form-login-page .ant-btn-primary {
+  min-height: 46px;
 }
 .ant-pro-form-login-page .ant-btn-primary {
-  min-height: 44px;
-  box-shadow: 0 8px 20px rgb(103 80 164 / 22%);
+  box-shadow: 0 8px 22px rgb(103 80 164 / 24%);
 }
 .ant-pro-layout {
   min-height: 100vh;
-  background: #f6f5f9 !important;
+  background: var(--admin-bg) !important;
 }
 .ant-pro-layout .ant-layout-header {
-  border-bottom: 1px solid rgb(36 31 44 / 8%);
-  background: rgb(255 255 255 / 88%) !important;
-  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-header) !important;
+  box-shadow: 0 1px 0 var(--admin-border);
+  backdrop-filter: blur(18px);
+}
+.ant-pro-layout .ant-pro-sider {
+  border-right: 1px solid var(--admin-border);
 }
 .ant-pro-layout .ant-pro-layout-content {
-  padding-block: 20px;
+  padding-block: 22px 32px;
 }
 .ant-pro-page-container .ant-pro-page-container-warp-page-header {
-  border-bottom: 1px solid rgb(36 31 44 / 6%);
+  border-bottom: 1px solid var(--admin-border);
   background: transparent;
+}
+.admin-page-container .ant-page-header-heading-title {
+  font-size: clamp(20px, 2vw, 26px);
+  letter-spacing: -0.02em;
 }
 .ant-card,
 .ant-pro-card {
-  border-color: rgb(36 31 44 / 8%) !important;
-  box-shadow: 0 8px 28px rgb(36 31 44 / 5%);
+  border-color: var(--admin-border) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--admin-shadow);
+}
+.ant-statistic-title {
+  color: var(--admin-muted) !important;
+}
+.ant-statistic-content {
+  letter-spacing: -0.025em;
 }
 .ant-table-wrapper {
   overflow: hidden;
-  border: 1px solid rgb(36 31 44 / 7%);
-  border-radius: 12px;
-  background: #fff;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface-solid);
+  box-shadow: var(--admin-shadow);
+}
+.ant-table-wrapper .ant-table-content {
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+}
+.ant-pro-table-search {
+  border: 1px solid var(--admin-border);
+  border-radius: 14px !important;
+  background: var(--admin-surface-solid) !important;
+  box-shadow: var(--admin-shadow);
+}
+.ant-drawer-content-wrapper {
+  max-width: 100vw;
+}
+.ant-drawer .ant-drawer-header {
+  border-bottom-color: var(--admin-border);
 }
 .policy-actions {
   width: 100%;
   margin: 16px 0 24px;
   padding: 16px;
-  border-radius: 10px;
-  background: #f7f5fa;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-soft);
 }
 .json-panel {
   max-height: 420px;
   overflow: auto;
   padding: 16px;
-  border-radius: 10px;
-  color: #eaddff;
-  background: #211f26;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  color: var(--admin-code-text);
+  background: var(--admin-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-@media (max-width: 640px) {
+
+@media (max-width: 767px) {
+  .login-theme-switcher {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+  }
   .ant-pro-form-login-page-container {
     width: calc(100vw - 24px) !important;
-    padding: 32px 24px 28px !important;
+    padding: 34px 24px 28px !important;
     border-radius: 20px;
   }
-  .ant-pro-page-container-children-container {
+  .ant-pro-layout .ant-pro-layout-content {
+    padding-block: 10px 20px;
+  }
+  .ant-pro-page-container-children-container,
+  .ant-pro-page-container .ant-pro-page-container-warp-page-header {
     padding-inline: 12px !important;
+  }
+  .ant-pro-table-search {
+    padding: 16px 12px 4px !important;
+  }
+  .ant-pro-table-list-toolbar-container {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  .ant-pro-table-list-toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .ant-table-wrapper .ant-pagination {
+    margin-inline: 12px;
+  }
+  .ant-modal {
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
+  }
+  .ant-descriptions-view {
+    overflow-x: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

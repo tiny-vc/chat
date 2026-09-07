@@ -1,6 +1,6 @@
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { LoginFormPage, ProFormText } from "@ant-design/pro-components";
-import { Alert, App as AntApp, ConfigProvider } from "antd";
+import { Alert, App as AntApp } from "antd";
 import { publicAuthApi } from "../api";
 import { adminDeviceId, authStore } from "../auth";
 import { LoginDtoDeviceTypeEnum } from "@chat/admin-api-client";
@@ -14,15 +14,7 @@ export function LoginPage({
   onSuccess: () => void;
   notice?: string;
 }) {
-  return (
-    <ConfigProvider
-      theme={{ token: { colorPrimary: "#6750a4", borderRadius: 10 } }}
-    >
-      <AntApp>
-        <LoginContent onSuccess={onSuccess} notice={notice} />
-      </AntApp>
-    </ConfigProvider>
-  );
+  return <LoginContent onSuccess={onSuccess} notice={notice} />;
 }
 
 function LoginContent({

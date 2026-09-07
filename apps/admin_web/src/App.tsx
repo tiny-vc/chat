@@ -1,5 +1,8 @@
 import {
+  DesktopOutlined,
   LogoutOutlined,
+  MoonOutlined,
+  SunOutlined,
   TeamOutlined,
   DashboardOutlined,
   UsergroupAddOutlined,
@@ -15,8 +18,10 @@ import {
   App as AntApp,
   Button,
   ConfigProvider,
+  Dropdown,
   Result,
   Spin,
+  Tooltip,
   theme,
 } from "antd";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -76,7 +81,107 @@ const titles: Record<RouteKey, string> = {
   settings: "运行配置",
 };
 
+type ThemeMode = "system" | "light" | "dark";
+
+const themeModeLabels: Record<ThemeMode, string> = {
+  system: "跟随系统",
+  light: "浅色模式",
+  dark: "深色模式",
+};
+
+function readThemeMode(): ThemeMode {
+  const saved = window.localStorage.getItem("chat-admin-theme");
+  return saved === "light" || saved === "dark" ? saved : "system";
+}
+
+function ThemeSwitcher({
+  mode,
+  onChange,
+}: {
+  mode: ThemeMode;
+  onChange: (mode: ThemeMode) => void;
+}) {
+  const icon =
+    mode === "dark" ? (
+      <MoonOutlined />
+    ) : mode === "light" ? (
+      <SunOutlined />
+    ) : (
+      <DesktopOutlined />
+    );
+  return (
+    <Dropdown
+      trigger={["click"]}
+      menu={{
+        selectedKeys: [mode],
+        onClick: ({ key }) => onChange(key as ThemeMode),
+        items: [
+          { key: "system", icon: <DesktopOutlined />, label: "跟随系统" },
+          { key: "light", icon: <SunOutlined />, label: "浅色模式" },
+          { key: "dark", icon: <MoonOutlined />, label: "深色模式" },
+        ],
+      }}
+    >
+      <Tooltip title={`外观：${themeModeLabels[mode]}`}>
+        <Button
+          type="text"
+          icon={icon}
+          aria-label={`切换外观，当前${themeModeLabels[mode]}`}
+        />
+      </Tooltip>
+    </Dropdown>
+  );
+}
+
 export function App() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode);
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  const dark = themeMode === "dark" || (themeMode === "system" && systemDark);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemDark(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("chat-admin-theme", themeMode);
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", dark ? "#121116" : "#6750a4");
+  }, [dark, themeMode]);
+
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: dark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+        token: {
+          colorPrimary: "#6750a4",
+          borderRadius: 10,
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        },
+      }}
+    >
+      <AntApp>
+        <AppContent themeMode={themeMode} onThemeModeChange={setThemeMode} />
+      </AntApp>
+    </ConfigProvider>
+  );
+}
+
+function AppContent({
+  themeMode,
+  onThemeModeChange,
+}: {
+  themeMode: ThemeMode;
+  onThemeModeChange: (mode: ThemeMode) => void;
+}) {
   const [authenticated, setAuthenticated] = useState(Boolean(authStore.read()));
   const [checking, setChecking] = useState(authenticated);
   const [loginNotice, setLoginNotice] = useState<string>();
@@ -146,14 +251,19 @@ export function App() {
 
   if (!authenticated) {
     return (
-      <LoginPage
-        notice={loginNotice}
-        onSuccess={() => {
-          setLoginNotice(undefined);
-          setChecking(true);
-          setAuthenticated(true);
-        }}
-      />
+      <div className="login-shell">
+        <div className="login-theme-switcher">
+          <ThemeSwitcher mode={themeMode} onChange={onThemeModeChange} />
+        </div>
+        <LoginPage
+          notice={loginNotice}
+          onSuccess={() => {
+            setLoginNotice(undefined);
+            setChecking(true);
+            setAuthenticated(true);
+          }}
+        />
+      </div>
     );
   }
   if (checking)
@@ -184,82 +294,79 @@ export function App() {
       <OverviewPage />
     );
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.defaultAlgorithm,
-        token: { colorPrimary: "#6750a4", borderRadius: 10 },
+    <ProLayout
+      title="Chat 管理平台"
+      logo={false}
+      layout="mix"
+      contentWidth="Fluid"
+      fixedHeader
+      breakpoint="lg"
+      route={{
+        routes: [
+          { path: "/overview", name: "概览", icon: <DashboardOutlined /> },
+          { path: "/users", name: "用户管理", icon: <TeamOutlined /> },
+          {
+            path: "/groups",
+            name: "群组管理",
+            icon: <UsergroupAddOutlined />,
+          },
+          { path: "/calls", name: "通话管理", icon: <PhoneOutlined /> },
+          { path: "/files", name: "文件管理", icon: <FolderOpenOutlined /> },
+          {
+            path: "/reports",
+            name: "举报处理",
+            icon: <SafetyCertificateOutlined />,
+          },
+          { path: "/audit", name: "审计日志", icon: <AuditOutlined /> },
+          { path: "/jobs", name: "后台任务", icon: <ToolOutlined /> },
+          {
+            path: "/settings",
+            name: "运行配置",
+            icon: <SettingOutlined />,
+          },
+        ],
       }}
-    >
-      <AntApp>
-        <ProLayout
-          title="Chat 管理平台"
-          logo={false}
-          layout="mix"
-          route={{
-            routes: [
-              { path: "/overview", name: "概览", icon: <DashboardOutlined /> },
-              { path: "/users", name: "用户管理", icon: <TeamOutlined /> },
-              {
-                path: "/groups",
-                name: "群组管理",
-                icon: <UsergroupAddOutlined />,
-              },
-              { path: "/calls", name: "通话管理", icon: <PhoneOutlined /> },
-              { path: "/files", name: "文件管理", icon: <FolderOpenOutlined /> },
-              {
-                path: "/reports",
-                name: "举报处理",
-                icon: <SafetyCertificateOutlined />,
-              },
-              { path: "/audit", name: "审计日志", icon: <AuditOutlined /> },
-              { path: "/jobs", name: "后台任务", icon: <ToolOutlined /> },
-              {
-                path: "/settings",
-                name: "运行配置",
-                icon: <SettingOutlined />,
-              },
-            ],
+      location={{ pathname: `/${route}` }}
+      menuItemRender={(item, dom) => {
+        const nextRoute = routeFromHash(`#${item.path ?? ""}`);
+        const href = hrefForRoute(nextRoute);
+        return (
+          <a
+            href={href}
+            onClick={(event) => {
+              event.preventDefault();
+              setRoute(nextRoute);
+              if (window.location.hash !== href) window.location.hash = href;
+            }}
+          >
+            {dom}
+          </a>
+        );
+      }}
+      actionsRender={() => [
+        <ThemeSwitcher
+          key="theme"
+          mode={themeMode}
+          onChange={onThemeModeChange}
+        />,
+        <Button
+          key="logout"
+          type="text"
+          icon={<LogoutOutlined />}
+          onClick={() => {
+            void logoutAdmin()
+              .catch(() => undefined)
+              .then(() => setAuthenticated(false));
           }}
-          location={{ pathname: `/${route}` }}
-          menuItemRender={(item, dom) => {
-            const nextRoute = routeFromHash(`#${item.path ?? ""}`);
-            const href = hrefForRoute(nextRoute);
-            return (
-              <a
-                href={href}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setRoute(nextRoute);
-                  if (window.location.hash !== href) window.location.hash = href;
-                }}
-              >
-                {dom}
-              </a>
-            );
-          }}
-          actionsRender={() => [
-            <Button
-              key="logout"
-              type="text"
-              icon={<LogoutOutlined />}
-              onClick={() => {
-                void logoutAdmin()
-                  .catch(() => undefined)
-                  .then(() => setAuthenticated(false));
-              }}
-            >
-              退出
-            </Button>,
-          ]}
         >
-          <PageContainer title={titles[route]}>
-            <Suspense fallback={<Spin tip="正在加载页面…" />}>
-              {content}
-            </Suspense>
-          </PageContainer>
-        </ProLayout>
-      </AntApp>
-    </ConfigProvider>
+          退出
+        </Button>,
+      ]}
+    >
+      <PageContainer title={titles[route]} className="admin-page-container">
+        <Suspense fallback={<Spin tip="正在加载页面…" />}>{content}</Suspense>
+      </PageContainer>
+    </ProLayout>
   );
 }
 
