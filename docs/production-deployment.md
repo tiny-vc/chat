@@ -69,6 +69,17 @@ deploy/livekit/livekit.production.example.yaml
 .env.production.example
 ```
 
+推荐在开发机仓库根目录运行上传脚本。它只上传上述部署文件和配置模板，不上传
+源码、Git 历史、`.env.production`、正式配置或 TLS 证书，也不会覆盖服务器上
+已经存在的这些敏感文件：
+
+```sh
+sh scripts/upload-production-files.sh root@服务器IP /opt/chat
+```
+
+SSH 不是 22 端口时使用 `SSH_PORT=端口号`。目标账户必须对 `/opt/chat` 有写权限；
+普通账户可先在服务器执行 `sudo mkdir -p /opt/chat` 并修改目录所有者。
+
 创建配置：
 
 ```sh
@@ -142,6 +153,17 @@ sh scripts/deploy-production.sh --check-only
 ```sh
 sh scripts/deploy-production.sh
 ```
+
+如果只想先下载三个业务镜像而不启动容器，在服务器执行：
+
+```sh
+docker compose --env-file .env.production -f docker-compose.production.yml \
+  pull api migrate admin
+```
+
+该命令根据 `.env.production` 中的 `CHAT_API_IMAGE`、`CHAT_MIGRATE_IMAGE` 和
+`CHAT_ADMIN_IMAGE` 下载镜像。若 GHCR 包是私有的，先用具有 `read:packages`
+权限的 GitHub Token 执行 `docker login ghcr.io -u tiny-vc`；公开包无需登录。
 
 使用其他环境文件时执行 `sh scripts/deploy-production.sh --env-file PATH`；如果镜像
 已经提前拉取，可加 `--skip-pull`。生产部署必须在 Linux 执行，因为 LiveKit使用

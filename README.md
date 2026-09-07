@@ -281,6 +281,8 @@ GitHub Actions 会将 API、数据库迁移和管理平台发布为固定 SHA �
 服务器无需源码构建。完成生产配置与证书后，可先运行
 `sh scripts/deploy-production.sh --check-only`，再运行
 `sh scripts/deploy-production.sh`。
+只上传部署文件时，可在本机运行
+`sh scripts/upload-production-files.sh USER@HOST /opt/chat`。
 
 The compose file is for local development only. Production requires TLS, private access
 to WuKongIM management ports, durable backups, real LiveKit keys, public ICE/TURN
