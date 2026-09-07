@@ -261,3 +261,10 @@ if confirm 'All checks passed. Start production services now?'; then
 else
   printf '%s\n' 'Configuration is ready. Run scripts/deploy-production.sh --skip-pull when ready.'
 fi
+
+if [ -n "$(docker compose --env-file "$env_file" -f "$compose_file" ps --status running -q api 2>/dev/null)" ] && \
+  confirm 'Initialize the first administrator now?'; then
+  [ -x scripts/bootstrap-admin-production.sh ] || \
+    fail 'scripts/bootstrap-admin-production.sh is missing or not executable.'
+  sh scripts/bootstrap-admin-production.sh
+fi
