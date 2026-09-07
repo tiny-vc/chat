@@ -175,7 +175,7 @@ export function ReportsPage() {
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
                 />
-                <Space>
+                <Space wrap className="drawer-actions">
                   <Button
                     type="primary"
                     loading={deciding}

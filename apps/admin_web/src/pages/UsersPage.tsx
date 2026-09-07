@@ -133,7 +133,7 @@ export function UsersPage() {
       title: "操作",
       valueType: "option",
       render: (_, row) => (
-        <Space>
+        <Space wrap size={4} className="row-actions">
           <Button
             type="link"
             loading={detailLoading}
@@ -217,7 +217,7 @@ export function UsersPage() {
         {selected && (
           <>
             <ProDescriptions
-              column={2}
+              column={{ xs: 1, sm: 2 }}
               dataSource={selected}
               columns={[
                 { title: "用户名", dataIndex: "username", copyable: true },

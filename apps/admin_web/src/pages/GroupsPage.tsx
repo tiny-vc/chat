@@ -132,7 +132,7 @@ export function GroupsPage() {
         {selected && (
           <>
             <ProDescriptions
-              column={2}
+              column={{ xs: 1, sm: 2 }}
               dataSource={selected}
               columns={[
                 { title: "群名称", dataIndex: "name" },

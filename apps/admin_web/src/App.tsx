@@ -81,6 +81,18 @@ const titles: Record<RouteKey, string> = {
   settings: "运行配置",
 };
 
+const descriptions: Record<RouteKey, string> = {
+  overview: "查看核心业务指标与依赖服务健康状态",
+  users: "管理用户状态、管理员权限与登录设备",
+  groups: "查看群组成员并调整群组运行策略",
+  calls: "查询语音、视频通话记录和连接结果",
+  files: "追踪上传文件的归属、用途与处理状态",
+  reports: "审核用户举报并记录处理结论",
+  audit: "追溯管理员和系统执行的关键操作",
+  jobs: "查看维护任务执行记录并按需手动触发",
+  settings: "控制客户端公开能力和服务降级策略",
+};
+
 type ThemeMode = "system" | "light" | "dark";
 
 const themeModeLabels: Record<ThemeMode, string> = {
@@ -363,7 +375,11 @@ function AppContent({
         </Button>,
       ]}
     >
-      <PageContainer title={titles[route]} className="admin-page-container">
+      <PageContainer
+        title={titles[route]}
+        subTitle={descriptions[route]}
+        className="admin-page-container"
+      >
         <Suspense fallback={<Spin tip="正在加载页面…" />}>{content}</Suspense>
       </PageContainer>
     </ProLayout>
