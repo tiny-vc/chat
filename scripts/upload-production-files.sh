@@ -64,6 +64,7 @@ for file in \
   deploy-production.sh \
   setup-production-interactive.sh \
   renew-production-certificate.sh \
+  bootstrap-admin-production.sh \
   verify-livekit-production.mjs \
   backup-postgres.sh \
   verify-postgres-backup.sh \

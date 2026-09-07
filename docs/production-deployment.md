@@ -60,6 +60,7 @@ docker-compose.production.yml
 scripts/deploy-production.sh
 scripts/setup-production-interactive.sh
 scripts/renew-production-certificate.sh
+scripts/bootstrap-admin-production.sh
 scripts/verify-livekit-production.mjs
 scripts/backup-postgres.sh
 scripts/verify-postgres-backup.sh
@@ -236,11 +237,21 @@ curl --fail https://chat.example.com/api/v1/ready
 docker compose --env-file .env.production -f docker-compose.production.yml logs --tail=200 api
 ```
 
-首次管理员仍通过受信任的服务器终端提升：
+首次部署不需要开放注册或先创建普通账号。系统尚无管理员时，在受信任的服务器
+终端运行一次初始化脚本：
+
+```sh
+sh scripts/bootstrap-admin-production.sh
+```
+
+脚本交互读取用户名、昵称和两次密码，输入密码时不会回显，也不会把密码写入命令
+历史。容器内 CLI 仅在系统不存在管理员时允许创建，并使用与正常注册相同的
+bcrypt cost 12 哈希，同时写入 `ADMIN_BOOTSTRAP_CLI` 审计记录。后续管理员应在
+管理平台内授权；已有普通账号需要提升时，仍可使用：
 
 ```sh
 docker compose --env-file .env.production -f docker-compose.production.yml \
-  run --rm --no-deps api node dist/cli/promote-admin.js admin_username
+  run --rm --no-deps api node dist/cli/promote-admin.js existing_username
 ```
 
 ## 6. 升级与回滚

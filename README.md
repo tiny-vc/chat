@@ -288,6 +288,8 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 `linux/amd64` 三个业务镜像、压缩并连同部署文件上传；GHCR 工作流保留为手动备用。
 上传后可在服务器运行 `sh scripts/setup-production-interactive.sh`，通过交互完成
 DNS 解析之外的首次生产配置与启动。
+服务启动后运行 `sh scripts/bootstrap-admin-production.sh` 可直接、安全地创建首个
+管理员，无需先开放注册。
 
 The compose file is for local development only. Production requires TLS, private access
 to WuKongIM management ports, durable backups, real LiveKit keys, public ICE/TURN
