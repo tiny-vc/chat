@@ -34,9 +34,29 @@ TURN 准备第二个公网 IP 或四层负载均衡。
 
 ## 2. 服务器准备
 
-建议 Ubuntu LTS、4 核 CPU、8 GB 内存和 100 GB SSD 起步。安装 Docker Engine
-和 Docker Compose plugin，将仓库放在 `/opt/chat`。生产部署应使用固定 Git
-提交或不可变镜像标签，不使用来源不明的 `latest` 镜像。
+建议 Ubuntu LTS、4 核 CPU、8 GB 内存和 100 GB SSD 起步。服务器只需安装
+Docker Engine、Docker Compose plugin、OpenSSL 和 curl。生产环境不构建源码，
+而是从 GHCR 拉取 GitHub Actions 发布的固定版本镜像。
+
+每次推送 `main` 或 `v*` 标签时，`.github/workflows/publish-production-images.yml`
+会发布三个多架构镜像：
+
+```text
+ghcr.io/tiny-vc/chat-api:sha-<完整提交SHA>
+ghcr.io/tiny-vc/chat-migrate:sha-<完整提交SHA>
+ghcr.io/tiny-vc/chat-admin:sha-<完整提交SHA>
+```
+
+服务器只需保存部署文件，可以克隆仓库，也可以仅复制以下内容：
+
+```text
+docker-compose.production.yml
+scripts/deploy-production.sh
+scripts/verify-livekit-production.mjs
+deploy/nginx/nginx.production.example.conf
+deploy/livekit/livekit.production.example.yaml
+.env.production.example
+```
 
 创建配置：
 
@@ -52,6 +72,11 @@ chmod 600 .env.production deploy/livekit/livekit.production.yaml
 ```sh
 openssl rand -base64 48
 ```
+
+把 `.env.production` 中三个 `CHAT_*_IMAGE` 设置成同一次构建产生的相同
+`sha-<完整提交SHA>` 或同一 `v*` 版本标签。禁止使用 `latest` 或 `main`，否则
+升级结果无法复现。私有 GHCR 包还需要先执行 `docker login ghcr.io`；也可以在
+GitHub 中把这三个容器包设为公开读取。
 
 `POSTGRES_PASSWORD` 如果含有 URL 特殊字符，Compose 会直接构造数据库 URL，
 因此建议使用只包含字母和数字的高强度随机值；否则必须进行 URL 编码。
@@ -101,18 +126,18 @@ LiveKit 密钥一致性、证书与私钥匹配、证书有效期、磁盘空间
 不会拉取镜像、构建或改变服务：
 
 ```sh
-npm run deploy:production:check
+sh scripts/deploy-production.sh --check-only
 ```
 
 检查通过后构建并启动；脚本会等待健康状态并检查 API readiness：
 
 ```sh
-npm run deploy:production
+sh scripts/deploy-production.sh
 ```
 
-使用其他环境文件时执行 `sh scripts/deploy-production.sh --env-file PATH`；确认应用
-镜像已经预先构建后，可加 `--no-build`。生产部署必须在 Linux 执行，因为 LiveKit
-使用 host networking；macOS 只允许运行 `--check-only` 做静态预检。
+使用其他环境文件时执行 `sh scripts/deploy-production.sh --env-file PATH`；如果镜像
+已经提前拉取，可加 `--skip-pull`。生产部署必须在 Linux 执行，因为 LiveKit使用
+host networking；macOS 只允许运行 `--check-only` 做静态预检。
 
 `migrate` 会等待 PostgreSQL 健康并执行 `prisma migrate deploy`；只有迁移成功后
 API 才会启动。`minio-init` 只负责幂等创建 bucket。不要在生产运行
@@ -141,7 +166,7 @@ docker compose --env-file .env.production -f docker-compose.production.yml \
 npm run backup:postgres
 npm run backup:minio
 npm run backup:wukongim
-docker compose --env-file .env.production -f docker-compose.production.yml up -d --build
+sh scripts/deploy-production.sh
 ```
 
 数据库迁移应设计为向前兼容。应用镜像可以回滚到上一固定版本，但已经执行的

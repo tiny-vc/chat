@@ -5,7 +5,7 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 env_file="$project_dir/.env.production"
 compose_file="$project_dir/docker-compose.production.yml"
 check_only=false
-skip_build=false
+skip_pull=false
 minimum_free_gb=${MINIMUM_FREE_GB:-10}
 
 usage() {
@@ -14,7 +14,7 @@ Usage: scripts/deploy-production.sh [options]
 
 Options:
   --check-only       Validate without pulling, building, or starting services
-  --no-build         Start using existing application images
+  --skip-pull        Start using images already present on the server
   --env-file PATH    Use a different production environment file
   -h, --help         Show this help
 EOF
@@ -23,7 +23,7 @@ EOF
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --check-only) check_only=true ;;
-    --no-build) skip_build=true ;;
+    --skip-pull) skip_pull=true ;;
     --env-file)
       [ "$#" -ge 2 ] || { printf '%s\n' 'Missing value for --env-file' >&2; exit 2; }
       env_file=$2
@@ -60,8 +60,6 @@ env_value() {
 
 cd "$project_dir"
 require_command docker
-require_command node
-require_command npm
 require_command openssl
 require_command curl
 [ -f "$compose_file" ] || fail "Missing docker-compose.production.yml"
@@ -86,7 +84,10 @@ fi
 [ "$(env_value SWAGGER_ENABLED)" = false ] || fail "SWAGGER_ENABLED must be false"
 [ "$(env_value S3_AUTO_CREATE_BUCKET)" = false ] || fail "S3_AUTO_CREATE_BUCKET must be false"
 
-node - "$env_file" deploy/livekit/livekit.production.yaml <<'NODE'
+docker run --rm -i \
+  -v "$env_file:/workspace/.env.production:ro" \
+  -v "$project_dir/deploy/livekit/livekit.production.yaml:/workspace/livekit.yaml:ro" \
+  node:24.11.1-alpine node - /workspace/.env.production /workspace/livekit.yaml <<'NODE'
 const fs = require('node:fs');
 const [envPath, livekitPath] = process.argv.slice(2);
 const env = Object.fromEntries(fs.readFileSync(envPath, 'utf8').split(/\r?\n/)
@@ -103,6 +104,11 @@ for (const [name, scheme] of [
 ]) {
   if (!env[name]?.startsWith(scheme)) throw new Error(`${name} must start with ${scheme}`);
 }
+for (const name of ['CHAT_API_IMAGE', 'CHAT_MIGRATE_IMAGE', 'CHAT_ADMIN_IMAGE']) {
+  const image = env[name] || '';
+  if (!image.includes(':') && !image.includes('@sha256:')) throw new Error(`${name} must include a tag or digest`);
+  if (/:(latest|main)$/i.test(image)) throw new Error(`${name} must use an immutable version or commit tag`);
+}
 NODE
 
 step "Checking certificates"
@@ -115,7 +121,11 @@ openssl x509 -checkend 604800 -noout -in deploy/certs/fullchain.pem >/dev/null |
   fail "TLS certificate expires within seven days"
 
 step "Checking LiveKit and Compose configuration"
-npm run verify:livekit-production
+docker run --rm \
+  -v "$project_dir:/workspace:ro" \
+  -w /workspace \
+  node:24.11.1-alpine \
+  node scripts/verify-livekit-production.mjs
 CHAT_ENV_FILE="$env_file" docker compose --env-file "$env_file" \
   -f "$compose_file" config --quiet
 
@@ -151,14 +161,15 @@ if [ "$check_only" = true ]; then
   exit 0
 fi
 
-step "Building and starting production services"
-if [ "$skip_build" = true ]; then
+if [ "$skip_pull" = false ]; then
+  step "Pulling immutable production images"
   CHAT_ENV_FILE="$env_file" docker compose --env-file "$env_file" \
-    -f "$compose_file" up -d --remove-orphans --wait
-else
-  CHAT_ENV_FILE="$env_file" docker compose --env-file "$env_file" \
-    -f "$compose_file" up -d --build --remove-orphans --wait
+    -f "$compose_file" pull
 fi
+
+step "Starting production services"
+CHAT_ENV_FILE="$env_file" docker compose --env-file "$env_file" \
+  -f "$compose_file" up -d --no-build --remove-orphans --wait
 
 step "Checking service readiness"
 public_url=$(env_value API_PUBLIC_URL)

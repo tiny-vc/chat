@@ -276,8 +276,10 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 第一阶段的单机生产拓扑、域名、端口、TLS、启动、升级和验收步骤见
 [生产部署文档](docs/production-deployment.md)。生产入口使用
 `docker-compose.production.yml`；根目录的 `docker-compose.yml` 仍只用于本地开发。
-完成生产配置与证书后，可先运行 `npm run deploy:production:check`，再运行
-`npm run deploy:production`。
+GitHub Actions 会将 API、数据库迁移和管理平台发布为固定 SHA 的 GHCR 镜像，
+服务器无需源码构建。完成生产配置与证书后，可先运行
+`sh scripts/deploy-production.sh --check-only`，再运行
+`sh scripts/deploy-production.sh`。
 
 The compose file is for local development only. Production requires TLS, private access
 to WuKongIM management ports, durable backups, real LiveKit keys, public ICE/TURN

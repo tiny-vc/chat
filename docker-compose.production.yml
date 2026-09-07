@@ -28,18 +28,14 @@ services:
     logging: *default-logging
 
   admin:
-    build:
-      context: .
-      dockerfile: apps/admin_web/Dockerfile
+    image: ${CHAT_ADMIN_IMAGE}
     expose:
       - "80"
     restart: unless-stopped
     logging: *default-logging
 
   migrate:
-    build:
-      context: .
-      target: migration
+    image: ${CHAT_MIGRATE_IMAGE}
     env_file: ${CHAT_ENV_FILE:-.env.production}
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
@@ -50,9 +46,7 @@ services:
     logging: *default-logging
 
   api:
-    build:
-      context: .
-      target: runtime
+    image: ${CHAT_API_IMAGE}
     env_file: ${CHAT_ENV_FILE:-.env.production}
     environment:
       NODE_ENV: production
