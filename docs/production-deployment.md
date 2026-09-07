@@ -240,7 +240,7 @@ docker compose --env-file .env.production -f docker-compose.production.yml logs 
 
 ```sh
 docker compose --env-file .env.production -f docker-compose.production.yml \
-  run --rm --no-deps api node dist/cli/promote-admin.js
+  run --rm --no-deps api node dist/cli/promote-admin.js admin_username
 ```
 
 ## 6. 升级与回滚
