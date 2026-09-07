@@ -1,0 +1,8 @@
+{
+  "name": "chat-database-migration",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "prisma": "6.12.0"
+  }
+}

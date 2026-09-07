@@ -47,6 +47,11 @@ ghcr.io/tiny-vc/chat-migrate:sha-<完整提交SHA>
 ghcr.io/tiny-vc/chat-admin:sha-<完整提交SHA>
 ```
 
+API 与数据库迁移使用独立镜像：`chat-api` 只包含编译后的业务服务和生产依赖；
+`chat-migrate` 只包含 Prisma CLI、schema 与迁移记录，不包含 API 源码或 NestJS
+运行依赖。这样迁移可以在新 API 启动前作为一次性任务执行，失败时阻止发布，并且
+不会让常驻 API 容器携带不需要的迁移工具。
+
 服务器只需保存部署文件，可以克隆仓库，也可以仅复制以下内容：
 
 ```text

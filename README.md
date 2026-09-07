@@ -277,6 +277,7 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 [生产部署文档](docs/production-deployment.md)。生产入口使用
 `docker-compose.production.yml`；根目录的 `docker-compose.yml` 仍只用于本地开发。
 GitHub Actions 会将 API、数据库迁移和管理平台发布为固定 SHA 的 GHCR 镜像，
+其中迁移镜像只携带 Prisma CLI、schema 和迁移记录，API 镜像不携带源码与迁移工具；
 服务器无需源码构建。完成生产配置与证书后，可先运行
 `sh scripts/deploy-production.sh --check-only`，再运行
 `sh scripts/deploy-production.sh`。

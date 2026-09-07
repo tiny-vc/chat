@@ -87,7 +87,7 @@ fi
 docker run --rm -i \
   -v "$env_file:/workspace/.env.production:ro" \
   -v "$project_dir/deploy/livekit/livekit.production.yaml:/workspace/livekit.yaml:ro" \
-  node:24.11.1-alpine node - /workspace/.env.production /workspace/livekit.yaml <<'NODE'
+  node:24.20.0-alpine node - /workspace/.env.production /workspace/livekit.yaml <<'NODE'
 const fs = require('node:fs');
 const [envPath, livekitPath] = process.argv.slice(2);
 const env = Object.fromEntries(fs.readFileSync(envPath, 'utf8').split(/\r?\n/)
@@ -124,7 +124,7 @@ step "Checking LiveKit and Compose configuration"
 docker run --rm \
   -v "$project_dir:/workspace:ro" \
   -w /workspace \
-  node:24.11.1-alpine \
+  node:24.20.0-alpine \
   node scripts/verify-livekit-production.mjs
 CHAT_ENV_FILE="$env_file" docker compose --env-file "$env_file" \
   -f "$compose_file" config --quiet

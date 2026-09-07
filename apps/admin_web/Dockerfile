@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24.11.1-alpine AS build
+FROM node:24.20.0-alpine AS build
 
 WORKDIR /workspace
 COPY clients/typescript/admin_api ./clients/typescript/admin_api
