@@ -6,6 +6,7 @@ dist/
 !.env.production.example
 coverage/
 backups/
+production-bundles/
 *.log
 .DS_Store
 prisma/dev.db

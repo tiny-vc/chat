@@ -276,13 +276,16 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 第一阶段的单机生产拓扑、域名、端口、TLS、启动、升级和验收步骤见
 [生产部署文档](docs/production-deployment.md)。生产入口使用
 `docker-compose.production.yml`；根目录的 `docker-compose.yml` 仍只用于本地开发。
-GitHub Actions 会将 API、数据库迁移和管理平台发布为固定 SHA 的 GHCR 镜像，
+手动运行 GitHub Actions 时会将 API、数据库迁移和管理平台发布为固定 SHA 的 GHCR 镜像，
 其中迁移镜像只携带 Prisma CLI、schema 和迁移记录，API 镜像不携带源码与迁移工具；
 服务器无需源码构建。完成生产配置与证书后，可先运行
 `sh scripts/deploy-production.sh --check-only`，再运行
 `sh scripts/deploy-production.sh`。
 只上传部署文件时，可在本机运行
 `sh scripts/upload-production-files.sh USER@HOST /opt/chat`。
+默认的本地镜像发布可运行
+`sh scripts/build-upload-production.sh USER@HOST /opt/chat VERSION`，它会构建
+`linux/amd64` 三个业务镜像、压缩并连同部署文件上传；GHCR 工作流保留为手动备用。
 
 The compose file is for local development only. Production requires TLS, private access
 to WuKongIM management ports, durable backups, real LiveKit keys, public ICE/TURN

@@ -35,11 +35,12 @@ TURN 准备第二个公网 IP 或四层负载均衡。
 ## 2. 服务器准备
 
 建议 Ubuntu LTS、4 核 CPU、8 GB 内存和 100 GB SSD 起步。服务器只需安装
-Docker Engine、Docker Compose plugin、OpenSSL 和 curl。生产环境不构建源码，
-而是从 GHCR 拉取 GitHub Actions 发布的固定版本镜像。
+Docker Engine、Docker Compose plugin、OpenSSL 和 curl。生产服务器不构建源码；
+业务镜像可以在开发机打包上传，也可以从 GHCR 拉取固定版本。
 
-每次推送 `main` 或 `v*` 标签时，`.github/workflows/publish-production-images.yml`
-会发布三个多架构镜像：
+默认发布方式是在开发机将三个 AMD64 业务镜像构建并上传到服务器。GHCR 仍作为
+备用方案，可从 GitHub Actions 手动运行 `.github/workflows/publish-production-images.yml`
+发布三个 AMD64 镜像：
 
 ```text
 ghcr.io/tiny-vc/chat-api:sha-<完整提交SHA>
@@ -79,6 +80,30 @@ sh scripts/upload-production-files.sh root@服务器IP /opt/chat
 
 SSH 不是 22 端口时使用 `SSH_PORT=端口号`。目标账户必须对 `/opt/chat` 有写权限；
 普通账户可先在服务器执行 `sudo mkdir -p /opt/chat` 并修改目录所有者。
+
+要在本机构建三个 AMD64 镜像，并把部署文件、镜像压缩包、SHA-256 校验文件和
+镜像变量清单一次上传到服务器，执行：
+
+```sh
+sh scripts/build-upload-production.sh root@服务器IP /opt/chat 2026.09.07-1
+```
+
+第三个参数是发布版本；省略时使用当前完整 Git 提交 SHA。脚本默认拒绝打包尚未
+提交的代码，防止镜像版本与源码记录不一致。Apple Silicon Mac 会通过 Buildx
+明确构建 `linux/amd64`，与 AMD64 服务器匹配。生成的本地压缩包保存在
+`production-bundles/`，该目录不会提交到 Git。
+
+上传完成后，在服务器校验并导入（文件名以脚本输出为准）：
+
+```sh
+cd /opt/chat
+sha256sum -c chat-production-images-2026.09.07-1-amd64.tar.gz.sha256
+gzip -dc chat-production-images-2026.09.07-1-amd64.tar.gz | docker load
+cat production-images-2026.09.07-1.env
+```
+
+将最后一个命令显示的三个 `CHAT_*_IMAGE` 值写入 `.env.production`。服务器不需要
+GitHub Token，也不会收到应用源码。
 
 创建配置：
 
