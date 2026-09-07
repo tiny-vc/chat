@@ -94,8 +94,12 @@ export function App() {
       }
     };
     window.addEventListener("hashchange", updateRoute);
+    window.addEventListener("popstate", updateRoute);
     updateRoute();
-    return () => window.removeEventListener("hashchange", updateRoute);
+    return () => {
+      window.removeEventListener("hashchange", updateRoute);
+      window.removeEventListener("popstate", updateRoute);
+    };
   }, []);
 
   useEffect(() => {
@@ -193,33 +197,46 @@ export function App() {
           layout="mix"
           route={{
             routes: [
-              { path: "overview", name: "概览", icon: <DashboardOutlined /> },
-              { path: "users", name: "用户管理", icon: <TeamOutlined /> },
+              { path: "/overview", name: "概览", icon: <DashboardOutlined /> },
+              { path: "/users", name: "用户管理", icon: <TeamOutlined /> },
               {
-                path: "groups",
+                path: "/groups",
                 name: "群组管理",
                 icon: <UsergroupAddOutlined />,
               },
-              { path: "calls", name: "通话管理", icon: <PhoneOutlined /> },
-              { path: "files", name: "文件管理", icon: <FolderOpenOutlined /> },
+              { path: "/calls", name: "通话管理", icon: <PhoneOutlined /> },
+              { path: "/files", name: "文件管理", icon: <FolderOpenOutlined /> },
               {
-                path: "reports",
+                path: "/reports",
                 name: "举报处理",
                 icon: <SafetyCertificateOutlined />,
               },
-              { path: "audit", name: "审计日志", icon: <AuditOutlined /> },
-              { path: "jobs", name: "后台任务", icon: <ToolOutlined /> },
+              { path: "/audit", name: "审计日志", icon: <AuditOutlined /> },
+              { path: "/jobs", name: "后台任务", icon: <ToolOutlined /> },
               {
-                path: "settings",
+                path: "/settings",
                 name: "运行配置",
                 icon: <SettingOutlined />,
               },
             ],
           }}
-          location={{ pathname: route }}
-          menuItemRender={(item, dom) => (
-            <a href={hrefForRoute(item.path as RouteKey)}>{dom}</a>
-          )}
+          location={{ pathname: `/${route}` }}
+          menuItemRender={(item, dom) => {
+            const nextRoute = routeFromHash(`#${item.path ?? ""}`);
+            const href = hrefForRoute(nextRoute);
+            return (
+              <a
+                href={href}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setRoute(nextRoute);
+                  if (window.location.hash !== href) window.location.hash = href;
+                }}
+              >
+                {dom}
+              </a>
+            );
+          }}
           actionsRender={() => [
             <Button
               key="logout"

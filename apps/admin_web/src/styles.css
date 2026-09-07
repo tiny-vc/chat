@@ -8,7 +8,7 @@
     "Segoe UI",
     sans-serif;
   color: #1d1b20;
-  background: #f7f5fa;
+  background: #f6f5f9;
 }
 * {
   box-sizing: border-box;
@@ -24,8 +24,71 @@ body {
   place-items: center;
   background: #f7f5fa;
 }
+.ant-pro-form-login-page {
+  background:
+    radial-gradient(circle at 15% 15%, rgb(103 80 164 / 16%), transparent 34%),
+    radial-gradient(circle at 85% 85%, rgb(55 141 122 / 12%), transparent 36%),
+    #f6f5f9 !important;
+}
+.ant-pro-form-login-page-left {
+  display: none !important;
+}
+.ant-pro-form-login-page-container {
+  width: min(420px, calc(100vw - 40px)) !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: auto !important;
+  padding: 44px 42px 40px !important;
+  border: 1px solid rgb(103 80 164 / 12%);
+  border-radius: 24px;
+  background: rgb(255 255 255 / 92%) !important;
+  box-shadow: 0 24px 70px rgb(45 38 64 / 14%);
+  backdrop-filter: blur(18px);
+}
+.ant-pro-form-login-page-title {
+  color: #282331;
+  letter-spacing: -0.02em;
+}
+.ant-pro-form-login-page-desc {
+  color: #716b7a !important;
+}
+.ant-pro-form-login-page-main {
+  width: 100% !important;
+}
+.ant-pro-form-login-page .ant-input-affix-wrapper {
+  min-height: 44px;
+}
+.ant-pro-form-login-page .ant-btn-primary {
+  min-height: 44px;
+  box-shadow: 0 8px 20px rgb(103 80 164 / 22%);
+}
+.ant-pro-layout {
+  min-height: 100vh;
+  background: #f6f5f9 !important;
+}
+.ant-pro-layout .ant-layout-header {
+  border-bottom: 1px solid rgb(36 31 44 / 8%);
+  background: rgb(255 255 255 / 88%) !important;
+  backdrop-filter: blur(16px);
+}
 .ant-pro-layout .ant-pro-layout-content {
   padding-block: 20px;
+}
+.ant-pro-page-container .ant-pro-page-container-warp-page-header {
+  border-bottom: 1px solid rgb(36 31 44 / 6%);
+  background: transparent;
+}
+.ant-card,
+.ant-pro-card {
+  border-color: rgb(36 31 44 / 8%) !important;
+  box-shadow: 0 8px 28px rgb(36 31 44 / 5%);
+}
+.ant-table-wrapper {
+  overflow: hidden;
+  border: 1px solid rgb(36 31 44 / 7%);
+  border-radius: 12px;
+  background: #fff;
 }
 .policy-actions {
   width: 100%;
@@ -45,6 +108,11 @@ body {
   overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
+  .ant-pro-form-login-page-container {
+    width: calc(100vw - 24px) !important;
+    padding: 32px 24px 28px !important;
+    border-radius: 20px;
+  }
   .ant-pro-page-container-children-container {
     padding-inline: 12px !important;
   }
