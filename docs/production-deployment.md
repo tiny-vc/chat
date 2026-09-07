@@ -53,6 +53,12 @@ ghcr.io/tiny-vc/chat-admin:sha-<完整提交SHA>
 docker-compose.production.yml
 scripts/deploy-production.sh
 scripts/verify-livekit-production.mjs
+scripts/backup-postgres.sh
+scripts/verify-postgres-backup.sh
+scripts/backup-minio.sh
+scripts/verify-minio-backup.sh
+scripts/backup-wukongim.sh
+scripts/verify-wukongim-backup.sh
 deploy/nginx/nginx.production.example.conf
 deploy/livekit/livekit.production.example.yaml
 .env.production.example
@@ -111,11 +117,8 @@ docker compose --env-file .env.production -f docker-compose.production.yml exec 
 - TURN 域名和证书正确；
 - 单公网 IP 使用 `tls_port: 5349`、`udp_port: 443`。
 
-启动前执行静态检查：
-
-```sh
-npm run verify:livekit-production
-```
+部署脚本会在启动前通过一次性 Node 容器执行 LiveKit 静态检查，服务器不需要
+安装 Node.js 或 npm。
 
 更完整的媒体网络说明见 [LiveKit 弱网与 TURN/TLS 部署](livekit-production-network.md)。
 
@@ -129,7 +132,7 @@ LiveKit 密钥一致性、证书与私钥匹配、证书有效期、磁盘空间
 sh scripts/deploy-production.sh --check-only
 ```
 
-检查通过后构建并启动；脚本会等待健康状态并检查 API readiness：
+检查通过后拉取镜像并启动；脚本会等待健康状态并检查 API readiness：
 
 ```sh
 sh scripts/deploy-production.sh
@@ -163,11 +166,18 @@ docker compose --env-file .env.production -f docker-compose.production.yml \
 升级前先完成三类备份，再拉取经过验证的版本：
 
 ```sh
-npm run backup:postgres
-npm run backup:minio
-npm run backup:wukongim
+export COMPOSE_FILE=docker-compose.production.yml
+export COMPOSE_ENV_FILES=.env.production
+export CHAT_ENV_FILE=.env.production
+sh scripts/backup-postgres.sh
+sh scripts/backup-minio.sh
+sh scripts/backup-wukongim.sh
 sh scripts/deploy-production.sh
 ```
+
+上述环境变量让备份脚本明确操作生产 Compose，避免误连本地开发栈。验证备份时
+分别执行 `verify-postgres-backup.sh`、`verify-minio-backup.sh` 和
+`verify-wukongim-backup.sh`，并传入对应备份路径。
 
 数据库迁移应设计为向前兼容。应用镜像可以回滚到上一固定版本，但已经执行的
 数据库迁移不会自动回滚。涉及破坏性迁移时必须另行制定维护窗口和恢复方案。
