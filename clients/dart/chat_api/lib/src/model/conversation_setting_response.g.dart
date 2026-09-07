@@ -6,83 +6,13 @@ part of 'conversation_setting_response.dart';
 // BuiltValueGenerator
 // **************************************************************************
 
-const ConversationSettingResponseChannelTypeEnum
-    _$conversationSettingResponseChannelTypeEnum_number1 =
-    const ConversationSettingResponseChannelTypeEnum._('number1');
-const ConversationSettingResponseChannelTypeEnum
-    _$conversationSettingResponseChannelTypeEnum_number2 =
-    const ConversationSettingResponseChannelTypeEnum._('number2');
-const ConversationSettingResponseChannelTypeEnum
-    _$conversationSettingResponseChannelTypeEnum_unknownDefaultOpenApi =
-    const ConversationSettingResponseChannelTypeEnum._('unknownDefaultOpenApi');
-
-ConversationSettingResponseChannelTypeEnum
-    _$conversationSettingResponseChannelTypeEnumValueOf(String name) {
-  switch (name) {
-    case 'number1':
-      return _$conversationSettingResponseChannelTypeEnum_number1;
-    case 'number2':
-      return _$conversationSettingResponseChannelTypeEnum_number2;
-    case 'unknownDefaultOpenApi':
-      return _$conversationSettingResponseChannelTypeEnum_unknownDefaultOpenApi;
-    default:
-      return _$conversationSettingResponseChannelTypeEnum_unknownDefaultOpenApi;
-  }
-}
-
-final BuiltSet<ConversationSettingResponseChannelTypeEnum>
-    _$conversationSettingResponseChannelTypeEnumValues = BuiltSet<
-        ConversationSettingResponseChannelTypeEnum>(const <ConversationSettingResponseChannelTypeEnum>[
-  _$conversationSettingResponseChannelTypeEnum_number1,
-  _$conversationSettingResponseChannelTypeEnum_number2,
-  _$conversationSettingResponseChannelTypeEnum_unknownDefaultOpenApi,
-]);
-
-Serializer<ConversationSettingResponseChannelTypeEnum>
-    _$conversationSettingResponseChannelTypeEnumSerializer =
-    _$ConversationSettingResponseChannelTypeEnumSerializer();
-
-class _$ConversationSettingResponseChannelTypeEnumSerializer
-    implements PrimitiveSerializer<ConversationSettingResponseChannelTypeEnum> {
-  static const Map<String, Object> _toWire = const <String, Object>{
-    'number1': 1,
-    'number2': 2,
-    'unknownDefaultOpenApi': 11184809,
-  };
-  static const Map<Object, String> _fromWire = const <Object, String>{
-    1: 'number1',
-    2: 'number2',
-    11184809: 'unknownDefaultOpenApi',
-  };
-
-  @override
-  final Iterable<Type> types = const <Type>[
-    ConversationSettingResponseChannelTypeEnum
-  ];
-  @override
-  final String wireName = 'ConversationSettingResponseChannelTypeEnum';
-
-  @override
-  Object serialize(Serializers serializers,
-          ConversationSettingResponseChannelTypeEnum object,
-          {FullType specifiedType = FullType.unspecified}) =>
-      _toWire[object.name] ?? object.name;
-
-  @override
-  ConversationSettingResponseChannelTypeEnum deserialize(
-          Serializers serializers, Object serialized,
-          {FullType specifiedType = FullType.unspecified}) =>
-      ConversationSettingResponseChannelTypeEnum.valueOf(
-          _fromWire[serialized] ?? (serialized is String ? serialized : ''));
-}
-
 class _$ConversationSettingResponse extends ConversationSettingResponse {
   @override
   final String userId;
   @override
   final String channelId;
   @override
-  final ConversationSettingResponseChannelTypeEnum channelType;
+  final int channelType;
   @override
   final bool pinned;
   @override
@@ -175,11 +105,9 @@ class ConversationSettingResponseBuilder
   String? get channelId => _$this._channelId;
   set channelId(String? channelId) => _$this._channelId = channelId;
 
-  ConversationSettingResponseChannelTypeEnum? _channelType;
-  ConversationSettingResponseChannelTypeEnum? get channelType =>
-      _$this._channelType;
-  set channelType(ConversationSettingResponseChannelTypeEnum? channelType) =>
-      _$this._channelType = channelType;
+  int? _channelType;
+  int? get channelType => _$this._channelType;
+  set channelType(int? channelType) => _$this._channelType = channelType;
 
   bool? _pinned;
   bool? get pinned => _$this._pinned;

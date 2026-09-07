@@ -338,7 +338,7 @@ class MessageDB {
   }
 
   var requestCount = 0;
-  void getOrSyncHistoryMessages(
+  Future<void> getOrSyncHistoryMessages(
       String channelId,
       int channelType,
       int oldestOrderSeq,

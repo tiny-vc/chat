@@ -13,17 +13,17 @@ part 'sync_im_receipts_dto.g.dart';
 /// SyncImReceiptsDto
 ///
 /// Properties:
-/// * [channelId] 
 /// * [channelType] 
+/// * [channelId] 
 /// * [messages] 
 @BuiltValue()
 abstract class SyncImReceiptsDto implements Built<SyncImReceiptsDto, SyncImReceiptsDtoBuilder> {
-  @BuiltValueField(wireName: r'channelId')
-  String get channelId;
-
   @BuiltValueField(wireName: r'channelType')
   SyncImReceiptsDtoChannelTypeEnum get channelType;
   // enum channelTypeEnum {  1,  2,  };
+
+  @BuiltValueField(wireName: r'channelId')
+  String get channelId;
 
   @BuiltValueField(wireName: r'messages')
   BuiltList<ReceiptMessageDto> get messages;
@@ -51,15 +51,16 @@ class _$SyncImReceiptsDtoSerializer implements PrimitiveSerializer<SyncImReceipt
     SyncImReceiptsDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    yield r'channelType';
+    yield object.channelType == SyncImReceiptsDtoChannelTypeEnum.n1
+        ? 1
+        : object.channelType == SyncImReceiptsDtoChannelTypeEnum.n2
+        ? 2
+        : throw StateError('Unsupported channelType enum value');
     yield r'channelId';
     yield serializers.serialize(
       object.channelId,
       specifiedType: const FullType(String),
-    );
-    yield r'channelType';
-    yield serializers.serialize(
-      object.channelType,
-      specifiedType: const FullType(SyncImReceiptsDtoChannelTypeEnum),
     );
     yield r'messages';
     yield serializers.serialize(
@@ -89,19 +90,19 @@ class _$SyncImReceiptsDtoSerializer implements PrimitiveSerializer<SyncImReceipt
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
-        case r'channelId':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.channelId = valueDes;
-          break;
         case r'channelType':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(SyncImReceiptsDtoChannelTypeEnum),
           ) as SyncImReceiptsDtoChannelTypeEnum;
           result.channelType = valueDes;
+          break;
+        case r'channelId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.channelId = valueDes;
           break;
         case r'messages':
           final valueDes = serializers.deserialize(

@@ -6,6 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **active** | **number** |  | [default to undefined]
+**failed24h** | **number** |  | [default to undefined]
 
 ## Example
 
@@ -14,6 +15,7 @@ import { AdminOverviewResponseCalls } from '@chat/admin-api-client';
 
 const instance: AdminOverviewResponseCalls = {
     active,
+    failed24h,
 };
 ```
 

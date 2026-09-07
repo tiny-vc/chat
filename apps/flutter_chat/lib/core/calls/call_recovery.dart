@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:livekit_client/livekit_client.dart';
 
 /// UI state only. LiveKit remains responsible for reconnecting media transports.
@@ -36,11 +38,45 @@ class CallRecovery {
   }
 }
 
-/// Never wait for the API before leaving a call. The page's disposal stops media;
-/// server reconciliation handles reports that cannot reach the API while offline.
-void reportCallEnd(Future<void> Function() report, void Function() leave) {
-  leave();
-  Future<void>.sync(
-    report,
-  ).timeout(const Duration(seconds: 8)).catchError((_) {});
+/// Persist the terminal action before leaving, then deliver it in the
+/// background. Persistence failure must never trap the user on the call page.
+Future<void> reportCallEnd(
+  Future<void> Function() persist,
+  Future<void> Function() deliver,
+  void Function() leave, {
+  int attempts = 3,
+  Duration attemptTimeout = const Duration(seconds: 2),
+  Duration retryDelay = const Duration(milliseconds: 300),
+}) async {
+  try {
+    await Future<void>.sync(persist);
+  } catch (_) {
+    // Server media reconciliation remains the final fallback.
+  } finally {
+    leave();
+  }
+  unawaited(
+    _retryCallEndReport(
+      deliver,
+      attempts: attempts,
+      attemptTimeout: attemptTimeout,
+      retryDelay: retryDelay,
+    ),
+  );
+}
+
+Future<void> _retryCallEndReport(
+  Future<void> Function() report, {
+  required int attempts,
+  required Duration attemptTimeout,
+  required Duration retryDelay,
+}) async {
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await Future<void>.sync(report).timeout(attemptTimeout);
+      return;
+    } catch (_) {
+      if (attempt + 1 < attempts) await Future<void>.delayed(retryDelay);
+    }
+  }
 }

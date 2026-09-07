@@ -51,6 +51,7 @@ class _Controller extends HomeController {
   bool fail = false;
   int calls = 0;
   String? lastAction;
+  String? lastMessage;
   Completer<void>? pending;
   @override
   Future<List<GroupJoinRequestResponse>> groupJoinRequests({
@@ -68,6 +69,7 @@ class _Controller extends HomeController {
   }) async {
     calls++;
     lastAction = action;
+    lastMessage = message;
     await pending?.future;
     rows = [
       for (final row in rows)
@@ -181,6 +183,20 @@ void main() {
       expect(c.calls, 1);
     },
   );
+  testWidgets('rejection accepts an optional trimmed reason', (tester) async {
+    final c = _Controller()..rows = [item(invite: true, requestedBy: 'admin')];
+    await _mount(tester, c);
+
+    await tester.tap(find.text('拒绝邀请'));
+    await tester.pumpAndSettle();
+    expect(find.text('拒绝原因（选填）'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '  暂时不加入  ');
+    await tester.tap(find.widgetWithText(FilledButton, '拒绝邀请'));
+    await tester.pumpAndSettle();
+
+    expect(c.lastAction, 'reject');
+    expect(c.lastMessage, '暂时不加入');
+  });
   testWidgets('failed loads are retryable and expired rows have no actions', (
     tester,
   ) async {

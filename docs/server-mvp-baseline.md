@@ -27,6 +27,8 @@ This document freezes the first server milestone. New work should preserve these
 - Prometheus, multi-node high availability and automated remote backup scheduling
 - React management UI and Flutter product UI
 
+该列表是最初冻结范围，不代表当前实现状态。后续已经交付 React 管理平台和 Flutter MVP UI，并新增举报处理、运行能力开关及基于 WuKongIM 本地消息库的会话内全文搜索。端到端加密仍未实现；最终品牌、正式条款、真机音视频和生产网络部署仍未完成。
+
 ## Contract
 
 - REST prefix: `/api/v1`
@@ -51,6 +53,8 @@ With the Compose stack running and the documented smoke accounts present:
 npm run smoke
 npm run smoke:settings
 npm run smoke:media
+npm run smoke:livekit-webhook
+npm run smoke:livekit-integration
 npm run smoke:groups
 npm run smoke:group-joins
 npm run smoke:security

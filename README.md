@@ -45,7 +45,7 @@ docker compose up -d --build --wait
 docker compose ps
 ```
 
-API 地址为 `http://localhost:3000/api/v1`。停止容器但保留数据库和文件：
+API 地址为 `http://localhost:3000/api/v1`，管理平台地址为 `http://localhost:8080`。管理平台由 Nginx 提供静态文件，并将同源的 `/api` 请求反向代理到 API；可通过 `ADMIN_WEB_PORT` 修改宿主机端口。停止容器但保留数据库和文件：
 
 ```bash
 docker compose down
@@ -107,6 +107,15 @@ npm run start:dev
 ```
 
 The API is available at `http://localhost:3000/api/v1`.
+
+管理平台本地开发：
+
+```bash
+npm --prefix apps/admin_web install
+npm --prefix apps/admin_web run dev
+```
+
+开发服务器默认运行在 `http://localhost:5173`，并将 `/api` 代理到本机 3000 端口。若管理平台和 API 分别部署在不同域名，可在构建管理端前设置 `VITE_API_ORIGIN=https://api.example.com`；该值只填写 Origin，不要附加 `/api/v1`。
 
 ## Useful endpoints
 
@@ -264,6 +273,12 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 
 ## Production notes
 
+第一阶段的单机生产拓扑、域名、端口、TLS、启动、升级和验收步骤见
+[生产部署文档](docs/production-deployment.md)。生产入口使用
+`docker-compose.production.yml`；根目录的 `docker-compose.yml` 仍只用于本地开发。
+完成生产配置与证书后，可先运行 `npm run deploy:production:check`，再运行
+`npm run deploy:production`。
+
 The compose file is for local development only. Production requires TLS, private access
 to WuKongIM management ports, durable backups, real LiveKit keys, public ICE/TURN
 configuration and firewall rules for media traffic. Do not expose WuKongIM port 5001 or
@@ -284,3 +299,7 @@ It verifies friendship, group subscriber synchronization, direct file upload/dow
 WuKongIM call signaling and LiveKit token generation.
 
 管理员账号完成提升后，可执行 `npm run smoke:admin`。默认使用 `admin_smoke` 和 `bob_test`，也可通过 `SMOKE_ADMIN_USERNAME`、`SMOKE_ADMIN_PASSWORD`、`SMOKE_TARGET_USERNAME`、`SMOKE_TARGET_PASSWORD` 覆盖。该检查会验证概览、查询、临时设备强制下线、群策略、审计日志和清理任务。
+
+管理平台使用独立的管理员登录接口。管理员刷新会话默认有效 12 小时，可通过 `ADMIN_REFRESH_TOKEN_TTL_HOURS` 调整；普通 App 会话仍使用 `REFRESH_TOKEN_TTL_DAYS`。刷新令牌轮换不会延长最初的管理员会话到期时间。
+
+管理平台连续 30 分钟没有操作会主动退出，可在构建管理端时通过 `VITE_ADMIN_IDLE_MINUTES` 设置为 1–480 分钟；服务端管理员会话期限仍是不可越过的绝对上限。

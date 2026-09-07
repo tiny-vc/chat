@@ -15,6 +15,7 @@ Method | HTTP request | Description
 [**callsCreate**](CallsApi.md#callscreate) | **POST** /api/v1/calls | 
 [**callsCreateToken**](CallsApi.md#callscreatetoken) | **POST** /api/v1/calls/{callId}/token | 
 [**callsEnd**](CallsApi.md#callsend) | **POST** /api/v1/calls/{callId}/end | 
+[**callsGet**](CallsApi.md#callsget) | **GET** /api/v1/calls/{callId} | 
 [**callsList**](CallsApi.md#callslist) | **GET** /api/v1/calls | 
 [**callsMiss**](CallsApi.md#callsmiss) | **POST** /api/v1/calls/{callId}/miss | 
 [**callsReject**](CallsApi.md#callsreject) | **POST** /api/v1/calls/{callId}/reject | 
@@ -62,7 +63,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **callsBusy**
-> BuiltMap<String, JsonObject> callsBusy(callId)
+> CallSessionResponse callsBusy(callId)
 
 
 
@@ -89,7 +90,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**CallSessionResponse**](CallSessionResponse.md)
 
 ### Authorization
 
@@ -266,8 +267,8 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **callsList**
-> BuiltMap<String, JsonObject> callsList()
+# **callsGet**
+> CallSessionResponse callsGet(callId)
 
 
 
@@ -276,9 +277,52 @@ Name | Type | Description  | Notes
 import 'package:chat_api_client/api.dart';
 
 final api = ChatApiClient().getCallsApi();
+final String callId = callId_example; // String | 
 
 try {
-    final response = api.callsList();
+    final response = api.callsGet(callId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling CallsApi->callsGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **callId** | **String**|  | 
+
+### Return type
+
+[**CallSessionResponse**](CallSessionResponse.md)
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **callsList**
+> BuiltList<CallHistoryResponse> callsList(before, beforeId)
+
+
+
+### Example
+```dart
+import 'package:chat_api_client/api.dart';
+
+final api = ChatApiClient().getCallsApi();
+final String before = before_example; // String | 
+final String beforeId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+
+try {
+    final response = api.callsList(before, beforeId);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling CallsApi->callsList: $e\n');
@@ -286,11 +330,15 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **before** | **String**|  | [optional] 
+ **beforeId** | **String**|  | [optional] 
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**BuiltList&lt;CallHistoryResponse&gt;**](CallHistoryResponse.md)
 
 ### Authorization
 
@@ -304,7 +352,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **callsMiss**
-> BuiltMap<String, JsonObject> callsMiss(callId)
+> CallSessionResponse callsMiss(callId)
 
 
 
@@ -331,7 +379,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**CallSessionResponse**](CallSessionResponse.md)
 
 ### Authorization
 

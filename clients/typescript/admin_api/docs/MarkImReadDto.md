@@ -5,8 +5,8 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**channelId** | **string** |  | [default to undefined]
 **channelType** | **number** |  | [default to undefined]
+**channelId** | **string** |  | [default to undefined]
 **messageSeq** | **number** |  | [default to undefined]
 
 ## Example
@@ -15,8 +15,8 @@ Name | Type | Description | Notes
 import { MarkImReadDto } from '@chat/admin-api-client';
 
 const instance: MarkImReadDto = {
-    channelId,
     channelType,
+    channelId,
     messageSeq,
 };
 ```

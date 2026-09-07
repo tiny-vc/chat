@@ -44,10 +44,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private normalize(detail: string | object | undefined, statusCode: number) {
     if (typeof detail === 'string') return { code: this.defaultCode(statusCode), message: detail };
     if (detail && 'message' in detail) {
-      const value = detail as { message: string | string[]; error?: string; [key: string]: unknown };
-      const { message, error, ...rest } = value;
+      const value = detail as {
+        message: string | string[];
+        error?: string;
+        code?: string;
+        [key: string]: unknown;
+      };
+      const { message, error, code, ...rest } = value;
       return {
-        code: (error ?? this.defaultCode(statusCode)).toUpperCase().replaceAll(' ', '_'),
+        code: (code ?? error ?? this.defaultCode(statusCode))
+          .toUpperCase()
+          .replaceAll(' ', '_'),
         message: Array.isArray(message) ? 'Request validation failed' : message,
         details: Array.isArray(message) ? { issues: message } : Object.keys(rest).length ? rest : undefined,
       };

@@ -24,7 +24,9 @@ export * from './api/friends-api';
 export * from './api/groups-api';
 export * from './api/health-api';
 export * from './api/im-sync-api';
+export * from './api/livekit-webhook-api';
 export * from './api/messages-api';
+export * from './api/server-info-api';
 export * from './api/users-api';
 export * from './api/wukong-webhook-api';
 

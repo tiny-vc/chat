@@ -6,6 +6,8 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **pendingGroupJoinRequests** | **number** |  | [default to undefined]
+**pendingReports** | **number** |  | [default to undefined]
+**abnormalFiles** | **number** |  | [default to undefined]
 
 ## Example
 
@@ -14,6 +16,8 @@ import { AdminOverviewResponseModeration } from '@chat/admin-api-client';
 
 const instance: AdminOverviewResponseModeration = {
     pendingGroupJoinRequests,
+    pendingReports,
+    abnormalFiles,
 };
 ```
 

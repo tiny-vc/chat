@@ -1,7 +1,11 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ReportUserDto } from './dto/report-user.dto';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { ReportUserDto } from "./dto/report-user.dto";
 
 const publicUserSelect = {
   id: true,
@@ -21,10 +25,10 @@ export class UsersService {
 
   async getById(userId: string) {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, status: 'ACTIVE' },
+      where: { id: userId, status: "ACTIVE" },
       select: publicUserSelect,
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException("User not found");
     return user;
   }
 
@@ -38,11 +42,17 @@ export class UsersService {
 
   async setAvatar(userId: string, fileId: string) {
     const file = await this.prisma.storedFile.findFirst({
-      where: { id: fileId, ownerUserId: userId, status: 'READY' },
+      where: { id: fileId, ownerUserId: userId, status: "READY" },
     });
-    if (!file) throw new NotFoundException('Avatar file not found');
-    if (file.purpose !== 'AVATAR' || file.scope !== 'PRIVATE' || !file.mimeType.startsWith('image/')) {
-      throw new ForbiddenException('Avatar must be a private image uploaded for avatar use');
+    if (!file) throw new NotFoundException("Avatar file not found");
+    if (
+      file.purpose !== "AVATAR" ||
+      file.scope !== "PRIVATE" ||
+      !file.mimeType.startsWith("image/")
+    ) {
+      throw new ForbiddenException(
+        "Avatar must be a private image uploaded for avatar use",
+      );
     }
     return this.prisma.user.update({
       where: { id: userId },
@@ -65,10 +75,15 @@ export class UsersService {
     return this.prisma.user.findMany({
       where: {
         id: { not: currentUserId },
-        status: 'ACTIVE',
+        status: "ACTIVE",
         OR: [
-          { username: { contains: normalized.toLowerCase(), mode: 'insensitive' } },
-          { nickname: { contains: normalized, mode: 'insensitive' } },
+          {
+            username: {
+              contains: normalized.toLowerCase(),
+              mode: "insensitive",
+            },
+          },
+          { nickname: { contains: normalized, mode: "insensitive" } },
         ],
       },
       select: publicUserSelect,
@@ -77,20 +92,31 @@ export class UsersService {
   }
 
   async report(reporterId: string, targetUserId: string, input: ReportUserDto) {
-    if (reporterId === targetUserId) throw new ForbiddenException('Cannot report yourself');
+    if (reporterId === targetUserId)
+      throw new ForbiddenException("Cannot report yourself");
     const target = await this.prisma.user.findFirst({
-      where: { id: targetUserId, status: 'ACTIVE' },
+      where: { id: targetUserId, status: "ACTIVE" },
       select: { id: true },
     });
-    if (!target) throw new NotFoundException('User not found');
-    await this.prisma.auditLog.create({
-      data: {
-        actorUserId: reporterId,
-        action: 'USER_REPORT',
-        targetType: 'USER',
-        targetId: targetUserId,
-        metadata: { reason: input.reason, details: input.details ?? null },
-      },
+    if (!target) throw new NotFoundException("User not found");
+    await this.prisma.$transaction(async (tx) => {
+      const report = await tx.userReport.create({
+        data: {
+          reporterUserId: reporterId,
+          targetUserId,
+          reason: input.reason,
+          details: input.details,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: reporterId,
+          action: "USER_REPORT",
+          targetType: "USER_REPORT",
+          targetId: report.id,
+          metadata: { targetUserId, reason: input.reason },
+        },
+      });
     });
     return { success: true };
   }

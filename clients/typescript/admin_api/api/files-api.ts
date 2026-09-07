@@ -374,7 +374,7 @@ export const FilesApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async filesForward(fileId: string, forwardFileDto: ForwardFileDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async filesForward(fileId: string, forwardFileDto: ForwardFileDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<StoredFileResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.filesForward(fileId, forwardFileDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['FilesApi.filesForward']?.[localVarOperationServerIndex]?.url;
@@ -455,7 +455,7 @@ export const FilesApiFactory = function (configuration?: Configuration, basePath
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        filesForward(requestParameters: FilesApiFilesForwardRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        filesForward(requestParameters: FilesApiFilesForwardRequest, options?: RawAxiosRequestConfig): AxiosPromise<StoredFileResponse> {
             return localVarFp.filesForward(requestParameters.fileId, requestParameters.forwardFileDto, options).then((request) => request(axios, basePath));
         },
         /**

@@ -5,6 +5,24 @@ x-logging: &default-logging
     max-file: "3"
 
 services:
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin_web/Dockerfile
+    ports:
+      - "${ADMIN_WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    logging: *default-logging
+
   migrate:
     build:
       context: .
@@ -29,6 +47,7 @@ services:
       JWT_ACCESS_SECRET: local-development-secret-at-least-32-chars
       JWT_ACCESS_TTL: 15m
       REFRESH_TOKEN_TTL_DAYS: "30"
+      ADMIN_REFRESH_TOKEN_TTL_HOURS: "12"
       LOGIN_MAX_ATTEMPTS: "5"
       LOGIN_WINDOW_MINUTES: "15"
       JOBS_ENABLED: "true"
@@ -50,7 +69,8 @@ services:
       LIVEKIT_URL: ws://localhost:7880
       LIVEKIT_HTTP_URL: http://livekit:7880
       LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: secret
+      LIVEKIT_API_SECRET: local-livekit-secret-at-least-32-chars
+      LIVEKIT_JOIN_TOKEN_TTL_SECONDS: "600"
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_REGION: us-east-1
@@ -71,7 +91,15 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/v1/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "-O",
+          "/dev/null",
+          "http://localhost:3000/api/v1/health",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -113,7 +141,11 @@ services:
     volumes:
       - wukongim_data:/home/wukongimdata
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -Y off -O /dev/null http://localhost:5001/health"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -Y off -O /dev/null http://localhost:5001/health",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -122,7 +154,9 @@ services:
 
   livekit:
     image: livekit/livekit-server:v1.13.5
-    command: ["--dev", "--bind", "0.0.0.0"]
+    command: ["--config", "/etc/livekit/livekit.yaml", "--bind", "0.0.0.0"]
+    volumes:
+      - ./deploy/livekit/livekit.local.yaml:/etc/livekit/livekit.yaml:ro
     ports:
       - "7880:7880"
       - "7881:7881"

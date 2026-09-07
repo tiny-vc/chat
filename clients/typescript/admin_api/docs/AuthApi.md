@@ -4,6 +4,7 @@ All URIs are relative to *http://localhost:3000*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
+|[**authAdminLogin**](#authadminlogin) | **POST** /api/v1/auth/admin-login | |
 |[**authChangePassword**](#authchangepassword) | **POST** /api/v1/auth/change-password | |
 |[**authDeactivateAccount**](#authdeactivateaccount) | **DELETE** /api/v1/auth/account | |
 |[**authDevices**](#authdevices) | **GET** /api/v1/auth/devices | |
@@ -13,6 +14,61 @@ All URIs are relative to *http://localhost:3000*
 |[**authRefresh**](#authrefresh) | **POST** /api/v1/auth/refresh | |
 |[**authRegister**](#authregister) | **POST** /api/v1/auth/register | |
 |[**authRevokeDevice**](#authrevokedevice) | **DELETE** /api/v1/auth/devices/{sessionId} | |
+
+# **authAdminLogin**
+> AuthSessionResponse authAdminLogin(loginDto)
+
+
+### Example
+
+```typescript
+import {
+    AuthApi,
+    Configuration,
+    LoginDto
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AuthApi(configuration);
+
+let loginDto: LoginDto; //
+
+const { status, data } = await apiInstance.authAdminLogin(
+    loginDto
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **loginDto** | **LoginDto**|  | |
+
+
+### Return type
+
+**AuthSessionResponse**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**201** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authChangePassword**
 > SuccessResponse authChangePassword(changePasswordDto)
@@ -70,7 +126,7 @@ const { status, data } = await apiInstance.authChangePassword(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authDeactivateAccount**
-> { [key: string]: any; } authDeactivateAccount(deactivateAccountDto)
+> SuccessResponse authDeactivateAccount(deactivateAccountDto)
 
 
 ### Example
@@ -101,7 +157,7 @@ const { status, data } = await apiInstance.authDeactivateAccount(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**SuccessResponse**
 
 ### Authorization
 
@@ -116,7 +172,7 @@ const { status, data } = await apiInstance.authDeactivateAccount(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** |  |  -  |
+|**200** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |

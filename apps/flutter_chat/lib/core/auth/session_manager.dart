@@ -29,7 +29,13 @@ class SessionManager {
   String? get accessToken => _tokens?.accessToken;
 
   Future<bool> restore() async {
-    _tokens = await _tokenStore.read();
+    try {
+      _tokens = await _tokenStore.read();
+      if (_tokens != null) validateImAddress(_tokens!.imAddress);
+    } on FormatException {
+      _tokens = null;
+      await _tokenStore.clear();
+    }
     _applyAccessToken();
     await onSessionChanged?.call(_tokens);
     return hasSession;
@@ -46,7 +52,7 @@ class SessionManager {
       refreshToken: session.refreshToken,
       imUid: session.im.uid,
       imToken: session.im.token,
-      imAddress: session.im.address,
+      imAddress: validateImAddress(session.im.address),
     );
     await _tokenStore.write(tokens);
     _tokens = tokens;
@@ -63,6 +69,17 @@ class SessionManager {
   Future<bool> refreshOnce() => _refreshing ??= _refresh().whenComplete(() {
     _refreshing = null;
   });
+
+  /// Re-applies the complete persisted session to integrations such as IM.
+  ///
+  /// A server policy disconnect is indistinguishable from a logout packet at
+  /// the SDK layer and clears its in-memory identity. A normal credential
+  /// update cannot recover from that state, so callers use this after the
+  /// policy is enabled again.
+  Future<void> reapplySession() async {
+    final current = _tokens;
+    if (current != null) await onSessionChanged?.call(current);
+  }
 
   Future<bool> _refresh() async {
     final current = _tokens;
@@ -88,6 +105,9 @@ class SessionManager {
       onCredentialsRefreshed?.call(_tokens!);
       return true;
     } on DioException {
+      await clear();
+      return false;
+    } on FormatException {
       await clear();
       return false;
     }

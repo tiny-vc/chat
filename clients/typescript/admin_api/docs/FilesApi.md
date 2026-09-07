@@ -230,7 +230,7 @@ const { status, data } = await apiInstance.filesDownload(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **filesForward**
-> { [key: string]: any; } filesForward(forwardFileDto)
+> StoredFileResponse filesForward(forwardFileDto)
 
 
 ### Example
@@ -264,7 +264,7 @@ const { status, data } = await apiInstance.filesForward(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**StoredFileResponse**
 
 ### Authorization
 
@@ -279,7 +279,7 @@ const { status, data } = await apiInstance.filesForward(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |

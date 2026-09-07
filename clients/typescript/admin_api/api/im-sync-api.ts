@@ -24,9 +24,17 @@ import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError
 // @ts-ignore
 import type { ErrorResponse } from '../models';
 // @ts-ignore
+import type { ImSyncConversationResponse } from '../models';
+// @ts-ignore
+import type { ImSyncMessagesResponse } from '../models';
+// @ts-ignore
 import type { MarkImReadDto } from '../models';
 // @ts-ignore
+import type { MessageReceiptResponse } from '../models';
+// @ts-ignore
 import type { RevokeImMessageDto } from '../models';
+// @ts-ignore
+import type { SuccessResponse } from '../models';
 // @ts-ignore
 import type { SyncImChannelMessagesDto } from '../models';
 // @ts-ignore
@@ -243,7 +251,7 @@ export const ImSyncApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async imSyncMarkRead(markImReadDto: MarkImReadDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async imSyncMarkRead(markImReadDto: MarkImReadDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SuccessResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.imSyncMarkRead(markImReadDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ImSyncApi.imSyncMarkRead']?.[localVarOperationServerIndex]?.url;
@@ -255,7 +263,7 @@ export const ImSyncApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async imSyncReceipts(syncImReceiptsDto: SyncImReceiptsDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async imSyncReceipts(syncImReceiptsDto: SyncImReceiptsDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<MessageReceiptResponse>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.imSyncReceipts(syncImReceiptsDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ImSyncApi.imSyncReceipts']?.[localVarOperationServerIndex]?.url;
@@ -267,7 +275,7 @@ export const ImSyncApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async imSyncRevokeMessage(revokeImMessageDto: RevokeImMessageDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async imSyncRevokeMessage(revokeImMessageDto: RevokeImMessageDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SuccessResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.imSyncRevokeMessage(revokeImMessageDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ImSyncApi.imSyncRevokeMessage']?.[localVarOperationServerIndex]?.url;
@@ -279,7 +287,7 @@ export const ImSyncApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async imSyncSyncConversations(syncImConversationsDto: SyncImConversationsDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async imSyncSyncConversations(syncImConversationsDto: SyncImConversationsDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ImSyncConversationResponse>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.imSyncSyncConversations(syncImConversationsDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ImSyncApi.imSyncSyncConversations']?.[localVarOperationServerIndex]?.url;
@@ -291,7 +299,7 @@ export const ImSyncApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async imSyncSyncMessages(syncImChannelMessagesDto: SyncImChannelMessagesDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async imSyncSyncMessages(syncImChannelMessagesDto: SyncImChannelMessagesDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ImSyncMessagesResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.imSyncSyncMessages(syncImChannelMessagesDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ImSyncApi.imSyncSyncMessages']?.[localVarOperationServerIndex]?.url;
@@ -312,7 +320,7 @@ export const ImSyncApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        imSyncMarkRead(requestParameters: ImSyncApiImSyncMarkReadRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        imSyncMarkRead(requestParameters: ImSyncApiImSyncMarkReadRequest, options?: RawAxiosRequestConfig): AxiosPromise<SuccessResponse> {
             return localVarFp.imSyncMarkRead(requestParameters.markImReadDto, options).then((request) => request(axios, basePath));
         },
         /**
@@ -321,7 +329,7 @@ export const ImSyncApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        imSyncReceipts(requestParameters: ImSyncApiImSyncReceiptsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        imSyncReceipts(requestParameters: ImSyncApiImSyncReceiptsRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<MessageReceiptResponse>> {
             return localVarFp.imSyncReceipts(requestParameters.syncImReceiptsDto, options).then((request) => request(axios, basePath));
         },
         /**
@@ -330,7 +338,7 @@ export const ImSyncApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        imSyncRevokeMessage(requestParameters: ImSyncApiImSyncRevokeMessageRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        imSyncRevokeMessage(requestParameters: ImSyncApiImSyncRevokeMessageRequest, options?: RawAxiosRequestConfig): AxiosPromise<SuccessResponse> {
             return localVarFp.imSyncRevokeMessage(requestParameters.revokeImMessageDto, options).then((request) => request(axios, basePath));
         },
         /**
@@ -339,7 +347,7 @@ export const ImSyncApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        imSyncSyncConversations(requestParameters: ImSyncApiImSyncSyncConversationsRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        imSyncSyncConversations(requestParameters: ImSyncApiImSyncSyncConversationsRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<ImSyncConversationResponse>> {
             return localVarFp.imSyncSyncConversations(requestParameters.syncImConversationsDto, options).then((request) => request(axios, basePath));
         },
         /**
@@ -348,7 +356,7 @@ export const ImSyncApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        imSyncSyncMessages(requestParameters: ImSyncApiImSyncSyncMessagesRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        imSyncSyncMessages(requestParameters: ImSyncApiImSyncSyncMessagesRequest, options?: RawAxiosRequestConfig): AxiosPromise<ImSyncMessagesResponse> {
             return localVarFp.imSyncSyncMessages(requestParameters.syncImChannelMessagesDto, options).then((request) => request(axios, basePath));
         },
     };

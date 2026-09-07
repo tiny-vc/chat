@@ -12,14 +12,18 @@ part 'sync_im_channel_messages_dto.g.dart';
 /// SyncImChannelMessagesDto
 ///
 /// Properties:
+/// * [channelType] 
 /// * [startMessageSeq] 
 /// * [endMessageSeq] 
 /// * [limit] 
 /// * [channelId] 
-/// * [channelType] 
 /// * [pullMode] 
 @BuiltValue()
 abstract class SyncImChannelMessagesDto implements Built<SyncImChannelMessagesDto, SyncImChannelMessagesDtoBuilder> {
+  @BuiltValueField(wireName: r'channelType')
+  SyncImChannelMessagesDtoChannelTypeEnum get channelType;
+  // enum channelTypeEnum {  1,  2,  };
+
   @BuiltValueField(wireName: r'startMessageSeq')
   num? get startMessageSeq;
 
@@ -31,10 +35,6 @@ abstract class SyncImChannelMessagesDto implements Built<SyncImChannelMessagesDt
 
   @BuiltValueField(wireName: r'channelId')
   String get channelId;
-
-  @BuiltValueField(wireName: r'channelType')
-  SyncImChannelMessagesDtoChannelTypeEnum get channelType;
-  // enum channelTypeEnum {  1,  2,  };
 
   @BuiltValueField(wireName: r'pullMode')
   SyncImChannelMessagesDtoPullModeEnum get pullMode;
@@ -67,6 +67,12 @@ class _$SyncImChannelMessagesDtoSerializer implements PrimitiveSerializer<SyncIm
     SyncImChannelMessagesDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    yield r'channelType';
+    yield object.channelType == SyncImChannelMessagesDtoChannelTypeEnum.n1
+        ? 1
+        : object.channelType == SyncImChannelMessagesDtoChannelTypeEnum.n2
+        ? 2
+        : throw StateError('Unsupported channelType enum value');
     if (object.startMessageSeq != null) {
       yield r'startMessageSeq';
       yield serializers.serialize(
@@ -93,16 +99,12 @@ class _$SyncImChannelMessagesDtoSerializer implements PrimitiveSerializer<SyncIm
       object.channelId,
       specifiedType: const FullType(String),
     );
-    yield r'channelType';
-    yield serializers.serialize(
-      object.channelType,
-      specifiedType: const FullType(SyncImChannelMessagesDtoChannelTypeEnum),
-    );
     yield r'pullMode';
-    yield serializers.serialize(
-      object.pullMode,
-      specifiedType: const FullType(SyncImChannelMessagesDtoPullModeEnum),
-    );
+    yield object.pullMode == SyncImChannelMessagesDtoPullModeEnum.n0
+        ? 0
+        : object.pullMode == SyncImChannelMessagesDtoPullModeEnum.n1
+        ? 1
+        : throw StateError('Unsupported pullMode enum value');
   }
 
   @override
@@ -126,6 +128,13 @@ class _$SyncImChannelMessagesDtoSerializer implements PrimitiveSerializer<SyncIm
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
+        case r'channelType':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(SyncImChannelMessagesDtoChannelTypeEnum),
+          ) as SyncImChannelMessagesDtoChannelTypeEnum;
+          result.channelType = valueDes;
+          break;
         case r'startMessageSeq':
           final valueDes = serializers.deserialize(
             value,
@@ -156,13 +165,6 @@ class _$SyncImChannelMessagesDtoSerializer implements PrimitiveSerializer<SyncIm
             specifiedType: const FullType(String),
           ) as String;
           result.channelId = valueDes;
-          break;
-        case r'channelType':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(SyncImChannelMessagesDtoChannelTypeEnum),
-          ) as SyncImChannelMessagesDtoChannelTypeEnum;
-          result.channelType = valueDes;
           break;
         case r'pullMode':
           final valueDes = serializers.deserialize(
@@ -233,3 +235,4 @@ class SyncImChannelMessagesDtoPullModeEnum extends EnumClass {
   static BuiltSet<SyncImChannelMessagesDtoPullModeEnum> get values => _$syncImChannelMessagesDtoPullModeEnumValues;
   static SyncImChannelMessagesDtoPullModeEnum valueOf(String name) => _$syncImChannelMessagesDtoPullModeEnumValueOf(name);
 }
+

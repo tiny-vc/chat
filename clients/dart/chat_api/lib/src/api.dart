@@ -19,7 +19,9 @@ import 'package:chat_api_client/src/api/friends_api.dart';
 import 'package:chat_api_client/src/api/groups_api.dart';
 import 'package:chat_api_client/src/api/health_api.dart';
 import 'package:chat_api_client/src/api/im_sync_api.dart';
+import 'package:chat_api_client/src/api/livekit_webhook_api.dart';
 import 'package:chat_api_client/src/api/messages_api.dart';
+import 'package:chat_api_client/src/api/server_info_api.dart';
 import 'package:chat_api_client/src/api/users_api.dart';
 import 'package:chat_api_client/src/api/wukong_webhook_api.dart';
 
@@ -177,10 +179,22 @@ class ChatApiClient {
     return ImSyncApi(dio, serializers);
   }
 
+  /// Get LivekitWebhookApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  LivekitWebhookApi getLivekitWebhookApi() {
+    return LivekitWebhookApi(dio, serializers);
+  }
+
   /// Get MessagesApi instance, base route and serializer can be overridden by a given but be careful,
   /// by doing that all interceptors will not be executed
   MessagesApi getMessagesApi() {
     return MessagesApi(dio, serializers);
+  }
+
+  /// Get ServerInfoApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  ServerInfoApi getServerInfoApi() {
+    return ServerInfoApi(dio, serializers);
   }
 
   /// Get UsersApi instance, base route and serializer can be overridden by a given but be careful,

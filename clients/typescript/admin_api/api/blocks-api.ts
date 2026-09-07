@@ -22,6 +22,8 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
+import type { BlockedUserResponse } from '../models';
+// @ts-ignore
 import type { ErrorResponse } from '../models';
 // @ts-ignore
 import type { SuccessResponse } from '../models';
@@ -152,7 +154,7 @@ export const BlocksApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async blocksBlock(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<object>> {
+        async blocksBlock(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<BlockedUserResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.blocksBlock(userId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['BlocksApi.blocksBlock']?.[localVarOperationServerIndex]?.url;
@@ -163,7 +165,7 @@ export const BlocksApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async blocksList(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async blocksList(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<BlockedUserResponse>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.blocksList(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['BlocksApi.blocksList']?.[localVarOperationServerIndex]?.url;
@@ -196,7 +198,7 @@ export const BlocksApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        blocksBlock(requestParameters: BlocksApiBlocksBlockRequest, options?: RawAxiosRequestConfig): AxiosPromise<object> {
+        blocksBlock(requestParameters: BlocksApiBlocksBlockRequest, options?: RawAxiosRequestConfig): AxiosPromise<BlockedUserResponse> {
             return localVarFp.blocksBlock(requestParameters.userId, options).then((request) => request(axios, basePath));
         },
         /**
@@ -204,7 +206,7 @@ export const BlocksApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        blocksList(options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        blocksList(options?: RawAxiosRequestConfig): AxiosPromise<Array<BlockedUserResponse>> {
             return localVarFp.blocksList(options).then((request) => request(axios, basePath));
         },
         /**

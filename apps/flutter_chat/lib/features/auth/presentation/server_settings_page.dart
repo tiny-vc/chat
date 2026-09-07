@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../config/server_settings.dart';
+import '../../../core/files/file_size.dart';
 
 class ServerSettingsPage extends StatefulWidget {
   const ServerSettingsPage({
@@ -59,7 +60,7 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
         title: const Text('使用此服务器？'),
         content: SingleChildScrollView(
           child: Text(
-            '${info.name}\n${info.address}\n\n登录凭据将发送到此地址，请只使用你信任的服务器。不同服务器的账号和聊天数据相互独立。',
+            '${info.name}\n${info.address}\n\n保存后将连接这台服务器，并需要在新服务器重新登录。登录凭据只会发送到此地址，请仅使用你信任的服务器。不同服务器的账号、本地缓存和聊天数据相互隔离。',
           ),
         ),
         actions: [
@@ -137,8 +138,91 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
                   if (_info case final info?)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        '检测成功：${info.name}\n协议版本：1\n注册：${info.registrationEnabled ? "开放" : "关闭"}',
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.verified_outlined,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      info.name,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  const Text('连接正常'),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SelectableText(info.address),
+                              const SizedBox(height: 8),
+                              Text(
+                                'API v${info.apiVersion} · 注册${info.registrationEnabled ? "开放" : "关闭"}',
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: info.capabilities.availability.entries
+                                    .map(
+                                      (entry) => Chip(
+                                        avatar: Icon(
+                                          entry.value
+                                              ? Icons.check_circle_outline
+                                              : Icons.remove_circle_outline,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          '${entry.key} · ${entry.value ? "支持" : "未提供"}',
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '上传大小上限',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              _LimitRow(
+                                label: '头像',
+                                bytes: info.uploadLimits.avatar,
+                              ),
+                              _LimitRow(
+                                label: '聊天图片',
+                                bytes: info.uploadLimits.chatImage,
+                              ),
+                              _LimitRow(
+                                label: '语音消息',
+                                bytes: info.uploadLimits.chatVoice,
+                              ),
+                              _LimitRow(
+                                label: '聊天视频',
+                                bytes: info.uploadLimits.chatVideo,
+                              ),
+                              _LimitRow(
+                                label: '普通文件',
+                                bytes: info.uploadLimits.chatFile,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   if (_error != null)
@@ -161,6 +245,30 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
           ),
         ),
       ),
+    ),
+  );
+}
+
+class _LimitRow extends StatelessWidget {
+  const _LimitRow({required this.label, required this.bytes});
+
+  final String label;
+  final int bytes;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Expanded(child: Text(label)),
+        Text(
+          formatFileSize(bytes),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     ),
   );
 }

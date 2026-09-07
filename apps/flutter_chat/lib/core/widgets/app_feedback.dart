@@ -20,6 +20,8 @@ class AppFeedback {
     BuildContext context,
     String message, {
     FeedbackKind kind = FeedbackKind.info,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     final colors = Theme.of(context).colorScheme;
     final icon = switch (kind) {
@@ -56,6 +58,15 @@ class AppFeedback {
           ],
         ),
         showCloseIcon: true,
+        action: actionLabel == null || onAction == null
+            ? null
+            : SnackBarAction(
+                label: actionLabel,
+                textColor: kind == FeedbackKind.error
+                    ? colors.onErrorContainer
+                    : colors.inversePrimary,
+                onPressed: onAction,
+              ),
         closeIconColor: kind == FeedbackKind.error
             ? colors.onErrorContainer
             : colors.onInverseSurface,
@@ -67,9 +78,38 @@ class AppFeedback {
     BuildContext context,
     Object error, {
     String fallback = '操作失败，请稍后重试',
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final message = messageForError(error, fallback: fallback);
+    // Do not display raw exceptions, request URLs or internal server details.
+    show(
+      context,
+      message,
+      kind: FeedbackKind.error,
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
+  }
+
+  static String messageForError(
+    Object error, {
+    String fallback = '操作失败，请稍后重试',
   }) {
     String message = fallback;
     if (error is DioException) {
+      final capability = _disabledCapability(error.response?.data);
+      if (capability != null) {
+        return switch (capability) {
+          'registration' => '服务器暂时关闭了用户注册',
+          'messaging' => '服务器暂时停止了消息发送',
+          'files' => '服务器暂时停止了图片和文件发送',
+          'groups' => '服务器暂时关闭了群组操作',
+          'audioCalls' => '服务器暂时关闭了语音通话',
+          'videoCalls' => '服务器暂时关闭了视频通话',
+          _ => '服务器暂时关闭了此功能',
+        };
+      }
       message = switch (error.type) {
         DioExceptionType.connectionTimeout ||
         DioExceptionType.sendTimeout ||
@@ -83,8 +123,15 @@ class AppFeedback {
         },
       };
     }
-    // Do not display raw exceptions, request URLs or internal server details.
-    show(context, message, kind: FeedbackKind.error);
+    return message;
+  }
+
+  static String? _disabledCapability(Object? data) {
+    if (data is! Map || data['code'] != 'CAPABILITY_DISABLED') return null;
+    final details = data['details'];
+    return details is Map && details['capability'] is String
+        ? details['capability'] as String
+        : null;
   }
 
   static Future<bool> confirm(

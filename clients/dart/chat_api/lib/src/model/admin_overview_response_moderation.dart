@@ -12,10 +12,18 @@ part 'admin_overview_response_moderation.g.dart';
 ///
 /// Properties:
 /// * [pendingGroupJoinRequests] 
+/// * [pendingReports] 
+/// * [abnormalFiles] 
 @BuiltValue()
 abstract class AdminOverviewResponseModeration implements Built<AdminOverviewResponseModeration, AdminOverviewResponseModerationBuilder> {
   @BuiltValueField(wireName: r'pendingGroupJoinRequests')
   int get pendingGroupJoinRequests;
+
+  @BuiltValueField(wireName: r'pendingReports')
+  int get pendingReports;
+
+  @BuiltValueField(wireName: r'abnormalFiles')
+  int get abnormalFiles;
 
   AdminOverviewResponseModeration._();
 
@@ -43,6 +51,16 @@ class _$AdminOverviewResponseModerationSerializer implements PrimitiveSerializer
     yield r'pendingGroupJoinRequests';
     yield serializers.serialize(
       object.pendingGroupJoinRequests,
+      specifiedType: const FullType(int),
+    );
+    yield r'pendingReports';
+    yield serializers.serialize(
+      object.pendingReports,
+      specifiedType: const FullType(int),
+    );
+    yield r'abnormalFiles';
+    yield serializers.serialize(
+      object.abnormalFiles,
       specifiedType: const FullType(int),
     );
   }
@@ -74,6 +92,20 @@ class _$AdminOverviewResponseModerationSerializer implements PrimitiveSerializer
             specifiedType: const FullType(int),
           ) as int;
           result.pendingGroupJoinRequests = valueDes;
+          break;
+        case r'pendingReports':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(int),
+          ) as int;
+          result.pendingReports = valueDes;
+          break;
+        case r'abnormalFiles':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(int),
+          ) as int;
+          result.abnormalFiles = valueDes;
           break;
         default:
           unhandled.add(key);

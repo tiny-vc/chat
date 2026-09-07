@@ -7,12 +7,11 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DeviceType, User } from "@prisma/client";
+import { DeviceType, User, UserRole } from "@prisma/client";
 import { JwtService } from "@nestjs/jwt";
 import { compare, hash } from "bcryptjs";
 import {
   createHash,
-  createHmac,
   randomBytes,
   randomUUID,
   timingSafeEqual,
@@ -21,6 +20,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { WuKongImService } from "../integrations/wukongim/wukongim.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { createDisabledWuKongImToken, createWuKongImToken } from "../integrations/wukongim/wukongim-token";
 
 type RequestContext = { ipAddress?: string; userAgent?: string };
 type DeviceInput = {
@@ -67,6 +67,18 @@ export class AuthService {
   }
 
   async login(input: LoginDto, context: RequestContext = {}) {
+    return this.loginWithRequiredRole(input, context);
+  }
+
+  async adminLogin(input: LoginDto, context: RequestContext = {}) {
+    return this.loginWithRequiredRole(input, context, UserRole.ADMIN);
+  }
+
+  private async loginWithRequiredRole(
+    input: LoginDto,
+    context: RequestContext,
+    requiredRole?: UserRole,
+  ) {
     const throttleKey = this.loginThrottleKey(
       input.username,
       context.ipAddress,
@@ -79,7 +91,12 @@ export class AuthService {
       input.password,
       user?.passwordHash ?? DUMMY_PASSWORD_HASH,
     );
-    if (!user || user.status !== "ACTIVE" || !passwordMatches) {
+    if (
+      !user ||
+      user.status !== "ACTIVE" ||
+      !passwordMatches ||
+      (requiredRole != null && user.role !== requiredRole)
+    ) {
       await this.recordLoginFailure(
         throttleKey,
         input.username,
@@ -88,14 +105,27 @@ export class AuthService {
       );
       throw new UnauthorizedException("Invalid credentials");
     }
-    const response = await this.createSession(user, input, context);
+    const refreshTtlMs =
+      requiredRole === UserRole.ADMIN
+        ? this.config.getOrThrow<number>("ADMIN_REFRESH_TOKEN_TTL_HOURS") *
+          3_600_000
+        : undefined;
+    const response = await this.createSession(
+      user,
+      input,
+      context,
+      refreshTtlMs,
+    );
     await this.prisma
       .$transaction([
         this.prisma.loginThrottle.deleteMany({ where: { key: throttleKey } }),
         this.prisma.auditLog.create({
           data: {
             actorUserId: user.id,
-            action: "LOGIN_SUCCESS",
+            action:
+              requiredRole === UserRole.ADMIN
+                ? "ADMIN_LOGIN_SUCCESS"
+                : "LOGIN_SUCCESS",
             targetType: "DEVICE_SESSION",
             targetId:
               input.deviceId ??
@@ -128,7 +158,7 @@ export class AuthService {
     const imToken = this.createImToken(session.userId, session.deviceType);
     await this.wuKongIm.upsertUserToken(
       session.userId,
-      imToken,
+      (await this.messagingEnabled()) ? imToken : createDisabledWuKongImToken(),
       this.deviceFlag(session.deviceType),
     );
     await this.prisma.$transaction(async (tx) => {
@@ -341,6 +371,7 @@ export class AuthService {
     user: User,
     device: DeviceInput,
     context: RequestContext,
+    refreshTtlMs?: number,
   ) {
     const deviceType = device.deviceType ?? DeviceType.APP;
     const deviceId = device.deviceId ?? `${deviceType.toLowerCase()}-default`;
@@ -349,7 +380,9 @@ export class AuthService {
       (deviceType === DeviceType.APP ? "Flutter App" : deviceType);
     const expiresAt = new Date(
       Date.now() +
-        this.config.getOrThrow<number>("REFRESH_TOKEN_TTL_DAYS") * 86_400_000,
+        (refreshTtlMs ??
+          this.config.getOrThrow<number>("REFRESH_TOKEN_TTL_DAYS") *
+            86_400_000),
     );
     const existing = await this.prisma.deviceSession.findUnique({
       where: { userId_deviceId: { userId: user.id, deviceId } },
@@ -360,7 +393,7 @@ export class AuthService {
     const imToken = this.createImToken(user.id, deviceType);
     await this.wuKongIm.upsertUserToken(
       user.id,
-      imToken,
+      (await this.messagingEnabled()) ? imToken : createDisabledWuKongImToken(),
       this.deviceFlag(deviceType),
     );
     const session = await this.prisma.deviceSession.upsert({
@@ -427,12 +460,18 @@ export class AuthService {
   // device session. A stable derived token lets two phones reconnect without a
   // later login invalidating the earlier phone's credentials.
   private createImToken(userId: string, type: DeviceType) {
-    return createHmac(
-      "sha256",
+    return createWuKongImToken(
       this.config.getOrThrow<string>("JWT_ACCESS_SECRET"),
-    )
-      .update(`wukong-im\0${userId}\0${this.deviceFlag(type)}`)
-      .digest("base64url");
+      userId,
+      this.deviceFlag(type),
+    );
+  }
+  private async messagingEnabled() {
+    const settings = await this.prisma.runtimeSettings.findUnique({
+      where: { id: 1 },
+      select: { messagingEnabled: true },
+    });
+    return settings?.messagingEnabled ?? true;
   }
   private createRefreshToken(sessionId: string) {
     return `${sessionId}.${randomBytes(48).toString("base64url")}`;

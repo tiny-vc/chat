@@ -74,9 +74,9 @@ class _$RevokeImMessageDtoChannelTypeEnumSerializer
 
 class _$RevokeImMessageDto extends RevokeImMessageDto {
   @override
-  final String channelId;
-  @override
   final RevokeImMessageDtoChannelTypeEnum channelType;
+  @override
+  final String channelId;
   @override
   final String clientMsgNo;
 
@@ -85,8 +85,8 @@ class _$RevokeImMessageDto extends RevokeImMessageDto {
       (RevokeImMessageDtoBuilder()..update(updates))._build();
 
   _$RevokeImMessageDto._(
-      {required this.channelId,
-      required this.channelType,
+      {required this.channelType,
+      required this.channelId,
       required this.clientMsgNo})
       : super._();
   @override
@@ -102,16 +102,16 @@ class _$RevokeImMessageDto extends RevokeImMessageDto {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is RevokeImMessageDto &&
-        channelId == other.channelId &&
         channelType == other.channelType &&
+        channelId == other.channelId &&
         clientMsgNo == other.clientMsgNo;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
-    _$hash = $jc(_$hash, channelId.hashCode);
     _$hash = $jc(_$hash, channelType.hashCode);
+    _$hash = $jc(_$hash, channelId.hashCode);
     _$hash = $jc(_$hash, clientMsgNo.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -120,8 +120,8 @@ class _$RevokeImMessageDto extends RevokeImMessageDto {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'RevokeImMessageDto')
-          ..add('channelId', channelId)
           ..add('channelType', channelType)
+          ..add('channelId', channelId)
           ..add('clientMsgNo', clientMsgNo))
         .toString();
   }
@@ -131,14 +131,14 @@ class RevokeImMessageDtoBuilder
     implements Builder<RevokeImMessageDto, RevokeImMessageDtoBuilder> {
   _$RevokeImMessageDto? _$v;
 
-  String? _channelId;
-  String? get channelId => _$this._channelId;
-  set channelId(String? channelId) => _$this._channelId = channelId;
-
   RevokeImMessageDtoChannelTypeEnum? _channelType;
   RevokeImMessageDtoChannelTypeEnum? get channelType => _$this._channelType;
   set channelType(RevokeImMessageDtoChannelTypeEnum? channelType) =>
       _$this._channelType = channelType;
+
+  String? _channelId;
+  String? get channelId => _$this._channelId;
+  set channelId(String? channelId) => _$this._channelId = channelId;
 
   String? _clientMsgNo;
   String? get clientMsgNo => _$this._clientMsgNo;
@@ -151,8 +151,8 @@ class RevokeImMessageDtoBuilder
   RevokeImMessageDtoBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
-      _channelId = $v.channelId;
       _channelType = $v.channelType;
+      _channelId = $v.channelId;
       _clientMsgNo = $v.clientMsgNo;
       _$v = null;
     }
@@ -175,10 +175,10 @@ class RevokeImMessageDtoBuilder
   _$RevokeImMessageDto _build() {
     final _$result = _$v ??
         _$RevokeImMessageDto._(
-          channelId: BuiltValueNullFieldError.checkNotNull(
-              channelId, r'RevokeImMessageDto', 'channelId'),
           channelType: BuiltValueNullFieldError.checkNotNull(
               channelType, r'RevokeImMessageDto', 'channelType'),
+          channelId: BuiltValueNullFieldError.checkNotNull(
+              channelId, r'RevokeImMessageDto', 'channelId'),
           clientMsgNo: BuiltValueNullFieldError.checkNotNull(
               clientMsgNo, r'RevokeImMessageDto', 'clientMsgNo'),
         );

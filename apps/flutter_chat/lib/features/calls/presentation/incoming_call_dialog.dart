@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/im/chat_message_content.dart';
 
-enum IncomingCallResult { accept, reject, ended, timedOut }
+enum IncomingCallResult { accept, reject, answeredElsewhere, ended, timedOut }
 
 Future<IncomingCallResult?> showIncomingCallDialog({
   required BuildContext context,
@@ -46,8 +46,16 @@ Future<IncomingCallResult?> showIncomingCallDialog({
     ),
   );
   final subscription = signals.listen((signal) {
-    if (signal.callId == callId &&
-        ['cancel', 'miss', 'end', 'reject', 'busy'].contains(signal.action)) {
+    if (signal.callId != callId) return;
+    if (signal.action == 'answered_elsewhere') {
+      finish(IncomingCallResult.answeredElsewhere);
+    } else if ([
+      'cancel',
+      'miss',
+      'end',
+      'reject',
+      'busy',
+    ].contains(signal.action)) {
       finish(IncomingCallResult.ended);
     }
   });

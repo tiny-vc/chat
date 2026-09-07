@@ -84,7 +84,7 @@ describe("IM synchronization", () => {
       msgCount: 20,
       version: 0,
     });
-    expect((result[0] as Record<string, unknown>).unread).toBe(0);
+    expect(result[0].unread).toBe(0);
   });
 
   it("refuses message history for an unauthorized personal channel", async () => {

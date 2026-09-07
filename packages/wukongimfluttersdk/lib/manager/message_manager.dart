@@ -419,7 +419,7 @@ class WKMessageManager {
         contain = true;
       }
     }
-    MessageDB.shared.getOrSyncHistoryMessages(
+    await MessageDB.shared.getOrSyncHistoryMessages(
         channelId,
         channelType,
         oldestOrderSeq,

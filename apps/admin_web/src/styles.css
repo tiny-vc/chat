@@ -1,0 +1,51 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #1d1b20;
+  background: #f7f5fa;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+.center-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #f7f5fa;
+}
+.ant-pro-layout .ant-pro-layout-content {
+  padding-block: 20px;
+}
+.policy-actions {
+  width: 100%;
+  margin: 16px 0 24px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #f7f5fa;
+}
+.json-panel {
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 10px;
+  color: #eaddff;
+  background: #211f26;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .ant-pro-page-container-children-container {
+    padding-inline: 12px !important;
+  }
+}

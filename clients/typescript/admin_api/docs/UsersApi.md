@@ -161,7 +161,7 @@ This endpoint does not have any parameters.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersReport**
-> { [key: string]: any; } usersReport(reportUserDto)
+> SuccessResponse usersReport(reportUserDto)
 
 
 ### Example
@@ -195,7 +195,7 @@ const { status, data } = await apiInstance.usersReport(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**SuccessResponse**
 
 ### Authorization
 
@@ -210,7 +210,7 @@ const { status, data } = await apiInstance.usersReport(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -233,7 +233,7 @@ import {
 const configuration = new Configuration();
 const apiInstance = new UsersApi(configuration);
 
-let q: any; // (optional) (default to undefined)
+let q: string; // (optional) (default to undefined)
 
 const { status, data } = await apiInstance.usersSearch(
     q
@@ -244,7 +244,7 @@ const { status, data } = await apiInstance.usersSearch(
 
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
-| **q** | **any** |  | (optional) defaults to undefined|
+| **q** | [**string**] |  | (optional) defaults to undefined|
 
 
 ### Return type

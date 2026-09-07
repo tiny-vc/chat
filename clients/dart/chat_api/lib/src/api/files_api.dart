@@ -8,8 +8,6 @@ import 'package:built_value/json_object.dart';
 import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
-import 'package:built_collection/built_collection.dart';
-import 'package:built_value/json_object.dart';
 import 'package:chat_api_client/src/api_util.dart';
 import 'package:chat_api_client/src/model/create_upload_dto.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
@@ -386,9 +384,9 @@ class FilesApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [StoredFileResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> filesForward({ 
+  Future<Response<StoredFileResponse>> filesForward({ 
     required String fileId,
     required ForwardFileDto forwardFileDto,
     CancelToken? cancelToken,
@@ -445,14 +443,14 @@ class FilesApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    StoredFileResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(StoredFileResponse),
+      ) as StoredFileResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -464,7 +462,7 @@ class FilesApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<StoredFileResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

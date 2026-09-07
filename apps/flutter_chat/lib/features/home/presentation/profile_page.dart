@@ -3,12 +3,15 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../config/app_config.dart';
+import '../../../config/server_settings.dart';
 import '../../../core/widgets/about_page.dart';
 import '../../../core/files/file_transfer_service.dart';
+import '../../../core/files/file_size.dart';
 import '../../../core/calls/call_service.dart';
 import '../../calls/presentation/call_history_page.dart';
 import 'blocked_users_page.dart';
 import 'security_privacy_page.dart';
+import 'storage_page.dart';
 import '../../auth/data/auth_repository.dart';
 import 'home_controller.dart';
 import '../../../core/widgets/app_feedback.dart';
@@ -22,6 +25,8 @@ class ProfilePage extends StatefulWidget {
     required this.authRepository,
     required this.onDeactivated,
     required this.onLogout,
+    this.onRedial,
+    this.allowAvatarUpload = true,
   });
 
   final HomeController controller;
@@ -30,6 +35,8 @@ class ProfilePage extends StatefulWidget {
   final AuthRepository authRepository;
   final VoidCallback onDeactivated;
   final Future<void> Function() onLogout;
+  final Future<void> Function(CallHistoryItem item)? onRedial;
+  final bool allowAvatarUpload;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -40,6 +47,9 @@ class _ProfilePageState extends State<ProfilePage> {
   double? _uploadProgress;
   Future<ResolvedUrl?>? _avatar;
   String? _avatarFileId;
+  bool get _allowAvatarUpload =>
+      ServerCapabilitiesScope.maybeOf(context)?.files ??
+      widget.allowAvatarUpload;
 
   UserResponse? get _user => widget.controller.snapshot?.me;
 
@@ -72,8 +82,28 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _pickAvatar() async {
+    if (!_allowAvatarUpload) return;
     final file = await FilePicker.pickFile(type: FileType.image);
     if (file == null || !mounted) return;
+    int size;
+    try {
+      size = await file.length();
+    } catch (error) {
+      if (mounted) {
+        AppFeedback.error(context, error, fallback: '无法读取头像大小，请重新选择');
+      }
+      return;
+    }
+    if (!mounted) return;
+    final limit = ServerCapabilitiesScope.uploadLimitsOf(context).avatar;
+    if (size > limit) {
+      AppFeedback.show(
+        context,
+        '头像大小为 ${formatFileSize(size)}，服务器上限为 ${formatFileSize(limit)}',
+        kind: FeedbackKind.error,
+      );
+      return;
+    }
     await _run(() async {
       setState(() => _uploadProgress = 0);
       final uploaded = await widget.fileTransferService.uploadAvatar(
@@ -250,8 +280,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       avatar: _avatar,
                     ),
                     IconButton.filled(
-                      tooltip: '更换头像',
-                      onPressed: _working ? null : _pickAvatar,
+                      tooltip: _allowAvatarUpload ? '更换头像' : '服务器未提供文件上传功能',
+                      onPressed: _working || !_allowAvatarUpload
+                          ? null
+                          : _pickAvatar,
                       icon: const Icon(Icons.camera_alt_outlined),
                     ),
                   ],
@@ -259,6 +291,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 if (_uploadProgress != null) ...[
                   const SizedBox(height: 12),
                   LinearProgressIndicator(value: _uploadProgress),
+                ],
+                if (!_allowAvatarUpload) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    '当前服务器未开放头像上传',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
                 const SizedBox(height: 16),
                 Text(
@@ -282,7 +321,10 @@ class _ProfilePageState extends State<ProfilePage> {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => CallHistoryPage(callService: widget.callService),
+              builder: (_) => CallHistoryPage(
+                callService: widget.callService,
+                onRedial: widget.onRedial,
+              ),
             ),
           ),
         ),
@@ -321,6 +363,16 @@ class _ProfilePageState extends State<ProfilePage> {
           title: const Text('修改密码'),
           trailing: const Icon(Icons.chevron_right),
           onTap: _working ? null : _changePassword,
+        ),
+        ListTile(
+          leading: const Icon(Icons.storage_outlined),
+          title: const Text('存储空间'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => StoragePage(files: widget.fileTransferService),
+            ),
+          ),
         ),
         const Divider(),
         ListTile(

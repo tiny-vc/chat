@@ -46,6 +46,40 @@ export const AuthApiAxiosParamCreator = function (configuration?: Configuration)
     return {
         /**
          * 
+         * @param {LoginDto} loginDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        authAdminLogin: async (loginDto: LoginDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'loginDto' is not null or undefined
+            assertParamExists('authAdminLogin', 'loginDto', loginDto)
+            const localVarPath = `/api/v1/auth/admin-login`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(loginDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @param {ChangePasswordDto} changePasswordDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -369,6 +403,18 @@ export const AuthApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
+         * @param {LoginDto} loginDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async authAdminLogin(loginDto: LoginDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthSessionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.authAdminLogin(loginDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AuthApi.authAdminLogin']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @param {ChangePasswordDto} changePasswordDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -385,7 +431,7 @@ export const AuthApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async authDeactivateAccount(deactivateAccountDto: DeactivateAccountDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async authDeactivateAccount(deactivateAccountDto: DeactivateAccountDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SuccessResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.authDeactivateAccount(deactivateAccountDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AuthApi.authDeactivateAccount']?.[localVarOperationServerIndex]?.url;
@@ -483,6 +529,15 @@ export const AuthApiFactory = function (configuration?: Configuration, basePath?
     return {
         /**
          * 
+         * @param {AuthApiAuthAdminLoginRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        authAdminLogin(requestParameters: AuthApiAuthAdminLoginRequest, options?: RawAxiosRequestConfig): AxiosPromise<AuthSessionResponse> {
+            return localVarFp.authAdminLogin(requestParameters.loginDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {AuthApiAuthChangePasswordRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -496,7 +551,7 @@ export const AuthApiFactory = function (configuration?: Configuration, basePath?
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        authDeactivateAccount(requestParameters: AuthApiAuthDeactivateAccountRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        authDeactivateAccount(requestParameters: AuthApiAuthDeactivateAccountRequest, options?: RawAxiosRequestConfig): AxiosPromise<SuccessResponse> {
             return localVarFp.authDeactivateAccount(requestParameters.deactivateAccountDto, options).then((request) => request(axios, basePath));
         },
         /**
@@ -563,6 +618,13 @@ export const AuthApiFactory = function (configuration?: Configuration, basePath?
 };
 
 /**
+ * Request parameters for authAdminLogin operation in AuthApi.
+ */
+export interface AuthApiAuthAdminLoginRequest {
+    readonly loginDto: LoginDto
+}
+
+/**
  * Request parameters for authChangePassword operation in AuthApi.
  */
 export interface AuthApiAuthChangePasswordRequest {
@@ -608,6 +670,16 @@ export interface AuthApiAuthRevokeDeviceRequest {
  * AuthApi - object-oriented interface
  */
 export class AuthApi extends BaseAPI {
+    /**
+     * 
+     * @param {AuthApiAuthAdminLoginRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public authAdminLogin(requestParameters: AuthApiAuthAdminLoginRequest, options?: RawAxiosRequestConfig) {
+        return AuthApiFp(this.configuration).authAdminLogin(requestParameters.loginDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @param {AuthApiAuthChangePasswordRequest} requestParameters Request parameters.

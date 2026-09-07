@@ -64,10 +64,11 @@ class _$UpdateConversationSettingDtoSerializer implements PrimitiveSerializer<Up
       specifiedType: const FullType(String),
     );
     yield r'channelType';
-    yield serializers.serialize(
-      object.channelType,
-      specifiedType: const FullType(UpdateConversationSettingDtoChannelTypeEnum),
-    );
+    yield object.channelType == UpdateConversationSettingDtoChannelTypeEnum.n1
+        ? 1
+        : object.channelType == UpdateConversationSettingDtoChannelTypeEnum.n2
+        ? 2
+        : throw StateError('Unsupported channelType enum value');
     if (object.pinned != null) {
       yield r'pinned';
       yield serializers.serialize(

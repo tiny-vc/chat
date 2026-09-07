@@ -215,7 +215,39 @@ class _GroupJoinPageState extends State<GroupJoinPage> {
       return;
     }
     final title = _actionLabel(item, action);
-    if (!await AppFeedback.confirm(
+    var message = '';
+    if (action == 'reject') {
+      final reason = TextEditingController();
+      final result = await showAppFormDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: reason,
+            autofocus: true,
+            maxLength: 500,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: '拒绝原因（选填）',
+              hintText: '说明原因有助于对方理解处理结果',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, reason.text.trim()),
+              child: Text(title),
+            ),
+          ],
+        ),
+      );
+      reason.dispose();
+      if (result == null) return;
+      message = result;
+    } else if (!await AppFeedback.confirm(
       context,
       title: title,
       message: '确定$title吗？操作后将更新该入群记录。',
@@ -229,7 +261,8 @@ class _GroupJoinPageState extends State<GroupJoinPage> {
       return;
     }
     await _run(
-      () => widget.controller.decideGroupJoin(item.id, action),
+      () =>
+          widget.controller.decideGroupJoin(item.id, action, message: message),
       '操作成功',
     );
   }

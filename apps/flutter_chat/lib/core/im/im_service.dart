@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:chat_api_client/chat_api_client.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart' show Dio;
 import 'package:wukongimfluttersdk/common/options.dart';
@@ -17,6 +18,7 @@ import 'read_receipt_outbox.dart';
 enum ImConnectionState {
   disconnected,
   connecting,
+  syncing,
   connected,
   noNetwork,
   kicked,
@@ -48,10 +50,12 @@ class ConversationSetting {
 
 class ImService extends ChangeNotifier {
   ImService(
-    this._dio, {
+    Dio dio, {
     PendingReadStore? pendingReadStore,
     InstallationIdStore? installationIdStore,
-  }) : _installationIdStore = installationIdStore ?? InstallationIdStore() {
+  }) : _dio = dio,
+       _api = ChatApiClient(dio: dio, interceptors: const []),
+       _installationIdStore = installationIdStore ?? InstallationIdStore() {
     _readOutbox = ReadReceiptOutbox(
       namespace: storageNamespace,
       store: pendingReadStore,
@@ -61,9 +65,12 @@ class ImService extends ChangeNotifier {
 
   static const _listenerKey = 'flutter-chat-app';
   final Dio _dio;
+  final ChatApiClient _api;
   final InstallationIdStore _installationIdStore;
   late final ReadReceiptOutbox _readOutbox;
   bool _reconciling = false;
+  bool get isReconciling => _reconciling;
+  DateTime? lastReconciledAt;
   String get storageNamespace => _dio.options.baseUrl.isEmpty
       ? 'default'
       : serverNamespace(_dio.options.baseUrl);
@@ -212,14 +219,21 @@ class ImService extends ChangeNotifier {
     required int channelType,
     required String clientMsgNo,
   }) async {
-    await _dio.post<Object>(
-      '/api/v1/im/messages/revoke',
-      data: {
-        'channelId': channelId,
-        'channelType': channelType,
-        'clientMsgNo': clientMsgNo,
-      },
+    final response = await _api.getImSyncApi().imSyncRevokeMessage(
+      revokeImMessageDto: RevokeImMessageDto(
+        (builder) => builder
+          ..channelId = channelId
+          ..channelType = channelType == 1
+              ? RevokeImMessageDtoChannelTypeEnum.n1
+              : channelType == 2
+              ? RevokeImMessageDtoChannelTypeEnum.n2
+              : throw ArgumentError.value(channelType, 'channelType')
+          ..clientMsgNo = clientMsgNo,
+      ),
     );
+    if (response.data?.success != true) {
+      throw StateError('服务器未确认消息撤回');
+    }
   }
 
   Future<void> markRead(
@@ -247,34 +261,44 @@ class ImService extends ChangeNotifier {
     int channelType,
     int messageSeq,
   ) async {
-    await _dio.post<Object>(
-      '/api/v1/im/conversations/read',
-      data: {
-        'channelId': channelId,
-        'channelType': channelType,
-        'messageSeq': messageSeq,
-      },
+    final response = await _api.getImSyncApi().imSyncMarkRead(
+      markImReadDto: MarkImReadDto(
+        (builder) => builder
+          ..channelId = channelId
+          ..channelType = channelType == 1
+              ? MarkImReadDtoChannelTypeEnum.n1
+              : channelType == 2
+              ? MarkImReadDtoChannelTypeEnum.n2
+              : throw ArgumentError.value(channelType, 'channelType')
+          ..messageSeq = messageSeq,
+      ),
     );
+    if (response.data?.success != true) {
+      throw StateError('服务器未确认已读状态');
+    }
   }
 
   /// Pulls server-owned state and retries durable operations after reconnect or
   /// foreground resume. Calls are collapsed to avoid concurrent reconciliation.
-  Future<void> reconcileRemoteState() async {
-    if (_disposed || _reconciling) return;
+  Future<bool> reconcileRemoteState() async {
+    if (_disposed || _reconciling) return false;
     final uid = WKIM.shared.options.uid ?? '';
-    if (uid.isEmpty) return;
+    if (uid.isEmpty) return false;
     _reconciling = true;
+    notifyListeners();
     try {
       await _readOutbox.flush(uid);
       await _loadConversationSettings();
       await _loadConversations();
       error = null;
-      notifyListeners();
+      lastReconciledAt = DateTime.now();
+      return true;
     } catch (caught) {
       error = caught;
-      notifyListeners();
+      return false;
     } finally {
       _reconciling = false;
+      notifyListeners();
     }
   }
 
@@ -296,14 +320,21 @@ class ImService extends ChangeNotifier {
     if (!_updatingSettings.add(key)) return;
     notifyListeners();
     try {
-      final data = <String, Object>{
-        'channelId': channelId,
-        'channelType': channelType,
-      };
-      if (pinned != null) data['pinned'] = pinned;
-      if (muted != null) data['muted'] = muted;
-      if (archived != null) data['archived'] = archived;
-      await _dio.patch<Object>('/api/v1/conversations/settings', data: data);
+      final response = await _api.getConversationsApi().conversationsUpdate(
+        updateConversationSettingDto: UpdateConversationSettingDto(
+          (builder) => builder
+            ..channelId = channelId
+            ..channelType = channelType == 1
+                ? UpdateConversationSettingDtoChannelTypeEnum.n1
+                : channelType == 2
+                ? UpdateConversationSettingDtoChannelTypeEnum.n2
+                : throw ArgumentError.value(channelType, 'channelType')
+            ..pinned = pinned
+            ..muted = muted
+            ..archived = archived,
+        ),
+      );
+      if (response.data == null) throw StateError('服务器未返回会话设置');
       await refreshConversationSettings();
     } finally {
       _updatingSettings.remove(key);
@@ -318,9 +349,13 @@ class ImService extends ChangeNotifier {
   }
 
   Future<void> deleteConversation(String channelId, int channelType) async {
-    await _dio.delete<Object>(
-      '/api/v1/conversations/settings/$channelType/$channelId',
+    final response = await _api.getConversationsApi().conversationsRemove(
+      channelType: channelType,
+      channelId: channelId,
     );
+    if (response.data?.success != true) {
+      throw StateError('服务器未确认删除会话');
+    }
     await WKIM.shared.conversationManager.deleteMsg(channelId, channelType);
     conversationSettings.remove(_conversationKey(channelId, channelType));
     await _loadConversations();
@@ -338,28 +373,33 @@ class ImService extends ChangeNotifier {
         .take(100)
         .toList();
     if (eligible.isEmpty) return const [];
-    final response = await _dio.post<Object>(
-      '/api/v1/im/messages/receipts',
-      data: {
-        'channelId': channelId,
-        'channelType': channelType,
-        'messages': [
-          for (final message in eligible)
-            {'messageId': message.messageID, 'messageSeq': message.messageSeq},
-        ],
-      },
+    final response = await _api.getImSyncApi().imSyncReceipts(
+      syncImReceiptsDto: SyncImReceiptsDto(
+        (builder) => builder
+          ..channelId = channelId
+          ..channelType = channelType == 1
+              ? SyncImReceiptsDtoChannelTypeEnum.n1
+              : channelType == 2
+              ? SyncImReceiptsDtoChannelTypeEnum.n2
+              : throw ArgumentError.value(channelType, 'channelType')
+          ..messages.addAll([
+            for (final message in eligible)
+              ReceiptMessageDto(
+                (item) => item
+                  ..messageId = message.messageID
+                  ..messageSeq = message.messageSeq,
+              ),
+          ]),
+      ),
     );
-    final rows = response.data;
-    if (rows is! List) return const [];
-    return rows
-        .map((value) {
-          final row = _asMap(value);
-          return MessageReceipt(
-            messageId: row['messageId']?.toString() ?? '',
-            readCount: _asInt(row['readCount']),
-            unreadCount: _asInt(row['unreadCount']),
-          );
-        })
+    return (response.data ?? const Iterable<MessageReceiptResponse>.empty())
+        .map(
+          (row) => MessageReceipt(
+            messageId: row.messageId,
+            readCount: row.readCount.toInt(),
+            unreadCount: row.unreadCount.toInt(),
+          ),
+        )
         .where((item) => item.messageId.isNotEmpty)
         .toList();
   }
@@ -381,23 +421,22 @@ class ImService extends ChangeNotifier {
   }
 
   Future<void> _loadConversationSettings() async {
-    final response = await _dio.get<Object>('/api/v1/conversations/settings');
+    final response = await _api.getConversationsApi().conversationsList();
     final next = <String, ConversationSetting>{};
-    if (response.data is! List) {
+    final rows = response.data;
+    if (rows == null) {
       throw const FormatException('Invalid conversation settings response');
     }
-    if (response.data case final List rows) {
-      for (final value in rows) {
-        final row = _asMap(value);
-        final channelId = row['channelId']?.toString() ?? '';
-        final channelType = _asInt(row['channelType']);
-        if (channelId.isEmpty || channelType == 0) continue;
-        next[_conversationKey(channelId, channelType)] = ConversationSetting(
-          pinned: row['pinned'] == true,
-          muted: row['muted'] == true,
-          archived: row['archived'] == true,
-        );
-      }
+    for (final row in rows) {
+      if (row.channelId.isEmpty) continue;
+      next[_conversationKey(
+        row.channelId,
+        row.channelType,
+      )] = ConversationSetting(
+        pinned: row.pinned,
+        muted: row.muted,
+        archived: row.archived,
+      );
     }
     conversationSettings
       ..clear()
@@ -412,6 +451,7 @@ class ImService extends ChangeNotifier {
     ) {
       connectionState = switch (status) {
         WKConnectStatus.connecting => ImConnectionState.connecting,
+        WKConnectStatus.syncMsg => ImConnectionState.syncing,
         WKConnectStatus.success ||
         WKConnectStatus.syncCompleted => ImConnectionState.connected,
         WKConnectStatus.noNetwork => ImConnectionState.noNetwork,
@@ -455,30 +495,27 @@ class ImService extends ChangeNotifier {
     Function(WKSyncConversation) complete,
   ) async {
     try {
-      final response = await _dio.post<Object>(
-        '/api/v1/im/conversations/sync',
-        data: {
-          'lastMsgSeqs': lastMsgSeqs,
-          'msgCount': msgCount.clamp(0, 200),
-          'version': version,
-        },
+      final response = await _api.getImSyncApi().imSyncSyncConversations(
+        syncImConversationsDto: SyncImConversationsDto(
+          (builder) => builder
+            ..lastMsgSeqs = lastMsgSeqs
+            ..msgCount = msgCount.clamp(0, 200)
+            ..version = version,
+        ),
       );
       final result = WKSyncConversation()..conversations = [];
-      final rows = response.data is List
-          ? response.data! as List<Object?>
-          : const [];
+      final rows = response.data ?? const <ImSyncConversationResponse>[];
       if (_disposed) return;
-      for (final value in rows) {
-        final row = _asMap(value);
+      for (final row in rows) {
         final conversation = WKSyncConvMsg()
-          ..channelID = row['channel_id']?.toString() ?? ''
-          ..channelType = _asInt(row['channel_type'])
-          ..unread = _asInt(row['unread'])
-          ..timestamp = _asInt(row['timestamp'])
-          ..lastMsgSeq = _asInt(row['last_msg_seq'])
-          ..lastClientMsgNO = row['last_client_msg_no']?.toString() ?? ''
-          ..version = _asInt(row['version'])
-          ..recents = _messagesFrom(row['recents']);
+          ..channelID = row.channelId
+          ..channelType = row.channelType
+          ..unread = row.unread
+          ..timestamp = row.timestamp
+          ..lastMsgSeq = row.lastMsgSeq
+          ..lastClientMsgNO = row.lastClientMsgNo
+          ..version = row.version
+          ..recents = _messagesFrom(row.recents);
         result.conversations!.add(conversation);
       }
       complete(result);
@@ -505,32 +542,41 @@ class ImService extends ChangeNotifier {
     Function(WKSyncChannelMsg?) complete,
   ) async {
     try {
-      final response = await _dio.post<Object>(
-        '/api/v1/im/messages/sync',
-        data: {
-          'channelId': channelId,
-          'channelType': channelType,
-          // SDK 1.7.9 subtracts one from the zero (latest) cursor when
-          // filling an incomplete local page. API cursors are nonnegative.
-          'startMessageSeq': startMessageSeq == -1 && pullMode == 0
-              ? 0
-              : startMessageSeq,
-          'endMessageSeq': endMessageSeq,
-          'limit': limit.clamp(1, 100),
-          'pullMode': pullMode,
-        },
+      final response = await _api.getImSyncApi().imSyncSyncMessages(
+        syncImChannelMessagesDto: SyncImChannelMessagesDto(
+          (builder) => builder
+            ..channelId = channelId
+            ..channelType = channelType == 1
+                ? SyncImChannelMessagesDtoChannelTypeEnum.n1
+                : channelType == 2
+                ? SyncImChannelMessagesDtoChannelTypeEnum.n2
+                : throw ArgumentError.value(channelType, 'channelType')
+            // SDK 1.7.9 subtracts one from the zero (latest) cursor when
+            // filling an incomplete local page. API cursors are nonnegative.
+            ..startMessageSeq = startMessageSeq == -1 && pullMode == 0
+                ? 0
+                : startMessageSeq
+            ..endMessageSeq = endMessageSeq
+            ..limit = limit.clamp(1, 100)
+            ..pullMode = pullMode == 0
+                ? SyncImChannelMessagesDtoPullModeEnum.n0
+                : pullMode == 1
+                ? SyncImChannelMessagesDtoPullModeEnum.n1
+                : throw ArgumentError.value(pullMode, 'pullMode'),
+        ),
       );
-      final row = _asMap(response.data);
+      final row = response.data;
+      if (row == null) throw StateError('服务器未返回消息历史');
       if (_disposed) {
         complete(null);
         return;
       }
       complete(
         WKSyncChannelMsg()
-          ..startMessageSeq = _asInt(row['start_message_seq'])
-          ..endMessageSeq = _asInt(row['end_message_seq'])
-          ..more = _asInt(row['more'])
-          ..messages = _messagesFrom(row['messages']),
+          ..startMessageSeq = row.startMessageSeq
+          ..endMessageSeq = row.endMessageSeq
+          ..more = row.more
+          ..messages = _messagesFrom(row.messages),
       );
     } catch (caught) {
       error = caught;
@@ -540,32 +586,23 @@ class ImService extends ChangeNotifier {
     }
   }
 
-  List<WKSyncMsg> _messagesFrom(Object? value) {
-    if (value is! List) return [];
-    return value.map((item) {
-      final row = _asMap(item);
+  List<WKSyncMsg> _messagesFrom(Iterable<ImSyncMessageResponse> messages) {
+    return messages.map((row) {
       return WKSyncMsg()
-        ..channelID = row['channel_id']?.toString() ?? ''
-        ..channelType = _asInt(row['channel_type'])
-        ..messageID = row['message_id']?.toString() ?? ''
-        ..messageSeq = _asInt(row['message_seq'])
-        ..clientMsgNO = row['client_msg_no']?.toString() ?? ''
-        ..fromUID = row['from_uid']?.toString() ?? ''
-        ..timestamp = _asInt(row['timestamp'])
-        ..setting = _asInt(row['setting'])
-        ..payload = row['payload'];
+        ..channelID = row.channelId
+        ..channelType = row.channelType
+        ..messageID = row.messageId
+        ..messageSeq = row.messageSeq
+        ..clientMsgNO = row.clientMsgNo
+        ..fromUID = row.fromUid
+        ..timestamp = row.timestamp
+        ..setting = row.setting
+        ..payload = {
+          for (final entry in row.payload.entries)
+            entry.key: entry.value?.value,
+        };
     }).toList();
   }
-
-  Map<String, dynamic> _asMap(Object? value) =>
-      value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
-
-  int _asInt(Object? value) => switch (value) {
-    int number => number,
-    num number => number.toInt(),
-    String text => int.tryParse(text) ?? 0,
-    _ => 0,
-  };
 
   void _removeListeners() {
     WKIM.shared.connectionManager.removeOnConnectionStatus(_listenerKey);

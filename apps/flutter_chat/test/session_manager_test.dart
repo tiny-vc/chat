@@ -222,4 +222,25 @@ void main() {
       expect(manager.hasSession, isFalse);
     },
   );
+
+  test(
+    'persisted session can fully reinitialize IM after policy pause',
+    () async {
+      final api = ChatApiClient();
+      addTearDown(() => api.dio.close(force: true));
+      final changes = <StoredTokens?>[];
+      final manager = SessionManager(
+        api: api,
+        tokenStore: _Store(),
+        onSessionChanged: (tokens) async => changes.add(tokens),
+      );
+
+      await manager.saveSession(_response());
+      await manager.reapplySession();
+
+      expect(changes, hasLength(2));
+      expect(changes.last?.imUid, 'user-id');
+      expect(changes.last?.imToken, 'im-token');
+    },
+  );
 }

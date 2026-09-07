@@ -9,7 +9,7 @@ All URIs are relative to *http://localhost:3000*
 |[**blocksUnblock**](#blocksunblock) | **DELETE** /api/v1/blocks/{userId} | |
 
 # **blocksBlock**
-> object blocksBlock()
+> BlockedUserResponse blocksBlock()
 
 
 ### Example
@@ -39,7 +39,7 @@ const { status, data } = await apiInstance.blocksBlock(
 
 ### Return type
 
-**object**
+**BlockedUserResponse**
 
 ### Authorization
 
@@ -54,7 +54,7 @@ const { status, data } = await apiInstance.blocksBlock(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -63,7 +63,7 @@ const { status, data } = await apiInstance.blocksBlock(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **blocksList**
-> { [key: string]: any; } blocksList()
+> Array<BlockedUserResponse> blocksList()
 
 
 ### Example
@@ -86,7 +86,7 @@ This endpoint does not have any parameters.
 
 ### Return type
 
-**{ [key: string]: any; }**
+**Array<BlockedUserResponse>**
 
 ### Authorization
 
@@ -101,7 +101,7 @@ This endpoint does not have any parameters.
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** |  |  -  |
+|**200** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |

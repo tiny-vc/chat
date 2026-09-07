@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -14,10 +15,13 @@ import { LiveKitService } from "../integrations/livekit/livekit.service";
 import { WuKongImService } from "../integrations/wukongim/wukongim.service";
 import { FriendsService } from "../friends/friends.service";
 import { CreateCallDto } from "./dto/create-call.dto";
+import { CallHistoryPageDto } from "./dto/call-history-page.dto";
 import {
   MessageType,
   callSignalMessageSchema,
 } from "../messages/message-protocol";
+
+const CALL_MAINTENANCE_JOB = "maintenance.calls";
 
 @Injectable()
 export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -26,7 +30,19 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
   private sweeping = false;
   private static readonly inviteTimeoutMs = 45_000;
   private static readonly mediaGraceMs = 90_000;
-  private readonly missingSince = new Map<string, number>();
+
+  private publicCall<
+    T extends {
+      initiatorSessionId?: string | null;
+      targetSessionId?: string | null;
+    },
+  >(call: T): Omit<T, "initiatorSessionId" | "targetSessionId"> {
+    const { initiatorSessionId, targetSessionId, ...publicCall } = call;
+    void initiatorSessionId;
+    void targetSessionId;
+    return publicCall;
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly liveKit: LiveKitService,
@@ -48,20 +64,30 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     if (this.sweeping) return;
     this.sweeping = true;
     try {
-      await this.expireInvitations();
-      await this.reconcileMediaSessions();
-    } catch {
-      this.logger.warn(
-        "Call maintenance failed; will retry on the next sweep",
+      await this.prisma.$transaction(
+        async (tx) => {
+          const [lock] = await tx.$queryRaw<Array<{ acquired: boolean }>>`
+            SELECT pg_try_advisory_xact_lock(hashtext(${CALL_MAINTENANCE_JOB})) AS acquired
+          `;
+          if (!lock?.acquired) return;
+          await this.expireInvitations(undefined, tx);
+          await this.reconcileMediaSessions(tx);
+        },
+        { timeout: 120_000 },
       );
+    } catch {
+      this.logger.warn("Call maintenance failed; will retry on the next sweep");
     } finally {
       this.sweeping = false;
     }
   }
 
-  async expireInvitations(participants?: string[]) {
+  async expireInvitations(
+    participants?: string[],
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
     const now = new Date();
-    return this.prisma.callSession.updateMany({
+    return db.callSession.updateMany({
       where: {
         status: { in: ["INVITING", "RINGING"] },
         startedAt: {
@@ -80,50 +106,127 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     });
   }
 
-  async reconcileMediaSessions() {
-    const calls = await this.prisma.callSession.findMany({
+  async reconcileMediaSessions(
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
+    const calls = await db.callSession.findMany({
       where: { status: { in: ["ACCEPTED", "CONNECTED"] } },
-      select: { id: true, initiatorUserId: true, targetUserId: true,
-        livekitRoomName: true, type: true },
+      select: {
+        id: true,
+        initiatorUserId: true,
+        targetUserId: true,
+        livekitRoomName: true,
+        type: true,
+        mediaMissingSince: true,
+      },
     });
-    const activeIds = new Set(calls.map((call) => call.id));
-    for (const id of this.missingSince.keys()) {
-      if (!activeIds.has(id)) this.missingSince.delete(id);
-    }
     for (const call of calls) {
       try {
-        const participants = await this.liveKit.participantIdentities(call.livekitRoomName);
-        if (participants.includes(call.initiatorUserId) &&
-            call.targetUserId && participants.includes(call.targetUserId)) {
-          this.missingSince.delete(call.id);
+        const participants = await this.liveKit.participantIdentities(
+          call.livekitRoomName,
+        );
+        if (
+          this.hasUserParticipant(participants, call.initiatorUserId) &&
+          call.targetUserId &&
+          this.hasUserParticipant(participants, call.targetUserId)
+        ) {
+          if (call.mediaMissingSince) {
+            await db.callSession.updateMany({
+              where: { id: call.id, status: { in: ["ACCEPTED", "CONNECTED"] } },
+              data: { mediaMissingSince: null },
+            });
+          }
           continue;
         }
         const now = Date.now();
-        const missingAt = this.missingSince.get(call.id);
+        const missingAt = call.mediaMissingSince?.getTime();
         if (missingAt === undefined) {
-          this.missingSince.set(call.id, now);
+          await db.callSession.updateMany({
+            where: {
+              id: call.id,
+              status: { in: ["ACCEPTED", "CONNECTED"] },
+              mediaMissingSince: null,
+            },
+            data: { mediaMissingSince: new Date(now) },
+          });
           continue;
         }
         if (now - missingAt < CallsService.mediaGraceMs) continue;
-        const result = await this.prisma.callSession.updateMany({
+        const result = await db.callSession.updateMany({
           where: { id: call.id, status: { in: ["ACCEPTED", "CONNECTED"] } },
-          data: { status: "ENDED", endedAt: new Date(now), endReason: "MEDIA_DISCONNECTED" },
+          data: {
+            status: "ENDED",
+            endedAt: new Date(now),
+            endReason: "MEDIA_DISCONNECTED",
+            mediaMissingSince: null,
+          },
         });
-        this.missingSince.delete(call.id);
         if (!result.count) continue;
-        await this.liveKit.deleteRoom(call.livekitRoomName).catch(() => undefined);
+        await this.liveKit
+          .deleteRoom(call.livekitRoomName)
+          .catch(() => undefined);
         if (call.targetUserId) {
           await Promise.all([
-            this.sendSignal(call, call.initiatorUserId, call.targetUserId, "end").catch(() => undefined),
-            this.sendSignal(call, call.targetUserId, call.initiatorUserId, "end").catch(() => undefined),
+            this.sendSignal(
+              call,
+              call.initiatorUserId,
+              call.targetUserId,
+              "end",
+            ).catch(() => undefined),
+            this.sendSignal(
+              call,
+              call.targetUserId,
+              call.initiatorUserId,
+              "end",
+            ).catch(() => undefined),
           ]);
         }
       } catch {
         // Require a fresh grace window after an unobservable interval.
-        this.missingSince.delete(call.id);
-        this.logger.warn("Unable to reconcile call media; preserving active state");
+        await db.callSession
+          .updateMany({
+            where: { id: call.id, status: { in: ["ACCEPTED", "CONNECTED"] } },
+            data: { mediaMissingSince: null },
+          })
+          .catch(() => undefined);
+        this.logger.warn(
+          "Unable to reconcile call media; preserving active state",
+        );
       }
     }
+  }
+
+  async endFromMedia(roomName: string) {
+    const call = await this.prisma.callSession.findUnique({
+      where: { livekitRoomName: roomName },
+    });
+    if (!call || !call.targetUserId) return false;
+
+    let shouldNotify =
+      call.status === "ENDED" && call.endReason === "MEDIA_DISCONNECTED";
+    if (["ACCEPTED", "CONNECTED"].includes(call.status)) {
+      const result = await this.prisma.callSession.updateMany({
+        where: {
+          id: call.id,
+          status: { in: ["ACCEPTED", "CONNECTED"] },
+        },
+        data: {
+          status: "ENDED",
+          endedAt: new Date(),
+          endReason: "MEDIA_DISCONNECTED",
+        },
+      });
+      shouldNotify = result.count > 0;
+    }
+    if (!shouldNotify) return false;
+
+    // Send in both directions so every device of both accounts receives the
+    // authoritative terminal state. Re-delivery is intentionally harmless.
+    await Promise.all([
+      this.sendSignal(call, call.initiatorUserId, call.targetUserId, "end"),
+      this.sendSignal(call, call.targetUserId, call.initiatorUserId, "end"),
+    ]);
+    return true;
   }
 
   private async transitionInvitation(
@@ -143,7 +246,11 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     return this.requireCall(id);
   }
 
-  async create(initiatorUserId: string, input: CreateCallDto) {
+  async create(
+    initiatorUserId: string,
+    initiatorSessionId: string,
+    input: CreateCallDto,
+  ) {
     if (initiatorUserId === input.targetUserId) {
       throw new ForbiddenException("Cannot call yourself");
     }
@@ -173,6 +280,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     const call = await this.prisma.callSession.create({
       data: {
         initiatorUserId,
+        initiatorSessionId,
         targetUserId: input.targetUserId,
         type: input.type,
         livekitRoomName: `call_${randomUUID()}`,
@@ -195,7 +303,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
         },
         data: { status: "RINGING" },
       });
-      return await this.requireCall(call.id);
+      return this.publicCall(await this.requireCall(call.id));
     } catch (error) {
       await this.prisma.callSession.updateMany({
         where: { id: call.id, status: "INVITING" },
@@ -209,11 +317,34 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  async list(userId: string) {
+  async list(userId: string, page: CallHistoryPageDto = {}) {
     await this.expireInvitations([userId]);
+    if (Boolean(page.before) !== Boolean(page.beforeId)) {
+      throw new BadRequestException(
+        "before and beforeId must be supplied together",
+      );
+    }
+    const before = page.before ? new Date(page.before) : null;
+    if (before && !Number.isFinite(before.getTime())) {
+      throw new BadRequestException("Invalid before");
+    }
     const calls = await this.prisma.callSession.findMany({
-      where: { OR: [{ initiatorUserId: userId }, { targetUserId: userId }] },
-      orderBy: { startedAt: "desc" },
+      where: {
+        AND: [
+          { OR: [{ initiatorUserId: userId }, { targetUserId: userId }] },
+          ...(before && page.beforeId
+            ? [
+                {
+                  OR: [
+                    { startedAt: { lt: before } },
+                    { startedAt: before, id: { lt: page.beforeId } },
+                  ],
+                },
+              ]
+            : []),
+        ],
+      },
+      orderBy: [{ startedAt: "desc" }, { id: "desc" }],
       take: 100,
     });
     const participantIds = [
@@ -236,19 +367,26 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       },
     });
     const usersById = new Map(users.map((user) => [user.id, user]));
-    return calls.map((call) => ({
-      ...call,
-      outgoing: call.initiatorUserId === userId,
-      peer:
-        usersById.get(
-          call.initiatorUserId === userId
-            ? call.targetUserId!
-            : call.initiatorUserId,
-        ) ?? null,
-    }));
+    return calls.map((call) => {
+      const publicCall = this.publicCall(call);
+      return {
+        ...publicCall,
+        outgoing: call.initiatorUserId === userId,
+        peer:
+          usersById.get(
+            call.initiatorUserId === userId
+              ? call.targetUserId!
+              : call.initiatorUserId,
+          ) ?? null,
+      };
+    });
   }
 
-  async createToken(callId: string, userId: string) {
+  async get(callId: string, userId: string) {
+    return this.publicCall(await this.requireParticipant(callId, userId));
+  }
+
+  async createToken(callId: string, userId: string, sessionId: string) {
     await this.expireInvitations([userId]);
     const call = await this.prisma.callSession.findUnique({
       where: { id: callId },
@@ -264,6 +402,21 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     ) {
       throw new ForbiddenException("Call is no longer active");
     }
+    if (
+      call.targetUserId === userId &&
+      !["ACCEPTED", "CONNECTED"].includes(call.status)
+    ) {
+      throw new ForbiddenException(
+        "The recipient must accept before joining media",
+      );
+    }
+    const assignedSessionId =
+      call.initiatorUserId === userId
+        ? call.initiatorSessionId
+        : call.targetSessionId;
+    if (assignedSessionId !== sessionId) {
+      throw new ForbiddenException("Call belongs to another device session");
+    }
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: { nickname: true },
@@ -271,18 +424,26 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     return this.liveKit.createJoinToken({
       roomName: call.livekitRoomName,
       userId,
+      sessionId,
       displayName: user.nickname,
+      callType: call.type,
     });
   }
 
-  async accept(callId: string, userId: string) {
+  async accept(callId: string, userId: string, sessionId: string) {
     const call = await this.requireCall(callId);
     if (call.targetUserId !== userId)
       throw new ForbiddenException("Only the recipient can accept");
     if (["ACCEPTED", "CONNECTED"].includes(call.status)) {
+      if (call.targetSessionId !== sessionId) {
+        throw new ForbiddenException("Call was accepted on another device");
+      }
       // Safe retry when the original HTTP response or accept signal was lost.
-      await this.sendSignal(call, userId, call.initiatorUserId, "accept");
-      return call;
+      await Promise.all([
+        this.sendSignal(call, userId, call.initiatorUserId, "accept"),
+        this.sendSignal(call, userId, userId, "answered_elsewhere"),
+      ]);
+      return this.publicCall(call);
     }
     if (!["INVITING", "RINGING"].includes(call.status)) {
       throw new ForbiddenException(
@@ -292,15 +453,23 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     const updated = await this.transitionInvitation(call.id, {
       status: "ACCEPTED",
       answeredAt: new Date(),
+      targetSessionId: sessionId,
     });
-    await this.sendSignal(updated, userId, call.initiatorUserId, "accept");
-    return updated;
+    await Promise.all([
+      this.sendSignal(updated, userId, call.initiatorUserId, "accept"),
+      this.sendSignal(updated, userId, userId, "answered_elsewhere"),
+    ]);
+    return this.publicCall(updated);
   }
 
   async reject(callId: string, userId: string) {
     const call = await this.requireCall(callId);
     if (call.targetUserId !== userId)
       throw new ForbiddenException("Only the recipient can reject");
+    if (call.status === "REJECTED" && call.endReason === "REJECTED") {
+      await this.sendSignal(call, userId, call.initiatorUserId, "reject");
+      return this.publicCall(call);
+    }
     if (!["INVITING", "RINGING"].includes(call.status)) {
       throw new ForbiddenException(
         "Call cannot be rejected in its current state",
@@ -312,27 +481,36 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       endReason: "REJECTED",
     });
     await this.sendSignal(updated, userId, call.initiatorUserId, "reject");
-    return updated;
+    return this.publicCall(updated);
   }
 
   async busy(callId: string, userId: string) {
     const call = await this.requireCall(callId);
     if (call.targetUserId !== userId)
       throw new ForbiddenException("Only the recipient can be busy");
-    if (!["INVITING", "RINGING"].includes(call.status)) return call;
+    if (call.status === "REJECTED" && call.endReason === "BUSY") {
+      await this.sendSignal(call, userId, call.initiatorUserId, "busy");
+      return this.publicCall(call);
+    }
+    if (!["INVITING", "RINGING"].includes(call.status))
+      return this.publicCall(call);
     const updated = await this.transitionInvitation(call.id, {
       status: "REJECTED",
       endedAt: new Date(),
       endReason: "BUSY",
     });
     await this.sendSignal(updated, userId, call.initiatorUserId, "busy");
-    return updated;
+    return this.publicCall(updated);
   }
 
   async cancel(callId: string, userId: string) {
     const call = await this.requireCall(callId);
     if (call.initiatorUserId !== userId)
       throw new ForbiddenException("Only the caller can cancel");
+    if (call.status === "CANCELLED") {
+      await this.sendSignal(call, userId, call.targetUserId!, "cancel");
+      return this.publicCall(call);
+    }
     if (!["INVITING", "RINGING"].includes(call.status)) {
       throw new ForbiddenException(
         "Call cannot be cancelled in its current state",
@@ -344,7 +522,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       endReason: "CANCELLED",
     });
     await this.sendSignal(updated, userId, call.targetUserId!, "cancel");
-    return updated;
+    return this.publicCall(updated);
   }
 
   async miss(callId: string, userId: string) {
@@ -352,43 +530,108 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     if (call.initiatorUserId !== userId) {
       throw new ForbiddenException("Only the caller can mark a call as missed");
     }
-    if (!["INVITING", "RINGING"].includes(call.status)) return call;
+    if (call.status === "MISSED") {
+      await this.sendSignal(call, userId, call.targetUserId!, "miss");
+      return this.publicCall(call);
+    }
+    if (!["INVITING", "RINGING"].includes(call.status))
+      return this.publicCall(call);
     const updated = await this.transitionInvitation(call.id, {
       status: "MISSED",
       endedAt: new Date(),
       endReason: "NO_ANSWER",
     });
     await this.sendSignal(updated, userId, call.targetUserId!, "miss");
-    return updated;
+    return this.publicCall(updated);
   }
 
   async end(callId: string, userId: string) {
-    const call = await this.requireParticipant(callId, userId);
-    if (["REJECTED", "CANCELLED", "MISSED", "ENDED", "FAILED"].includes(call.status)) {
-      return call;
+    let call = await this.requireParticipant(callId, userId);
+    if (await this.resendTerminalEndSignal(call, userId))
+      return this.publicCall(call);
+
+    // A caller leaving an unanswered invitation is a cancellation. Keep this
+    // as a separate conditional update: if acceptance wins concurrently, the
+    // update affects zero rows and we continue below as an active hangup.
+    if (
+      call.initiatorUserId === userId &&
+      ["INVITING", "RINGING"].includes(call.status)
+    ) {
+      const cancelled = await this.prisma.callSession.updateMany({
+        where: { id: call.id, status: { in: ["INVITING", "RINGING"] } },
+        data: {
+          status: "CANCELLED",
+          endedAt: new Date(),
+          endReason: "CANCELLED",
+        },
+      });
+      if (cancelled.count) {
+        const updated = await this.requireCall(call.id);
+        await this.liveKit
+          .deleteRoom(call.livekitRoomName)
+          .catch(() => undefined);
+        await this.sendSignal(updated, userId, call.targetUserId!, "cancel");
+        return this.publicCall(updated);
+      }
+      call = await this.requireCall(call.id);
+      if (await this.resendTerminalEndSignal(call, userId))
+        return this.publicCall(call);
     }
-    // The caller may not have received the accept signal yet. One endpoint
-    // handles hangup on either side of that race without overwriting terminal states.
-    const statuses = call.initiatorUserId === userId
-      ? ["INVITING", "RINGING", "ACCEPTED", "CONNECTED"] as const
-      : ["ACCEPTED", "CONNECTED"] as const;
-    if (!(statuses as readonly string[]).includes(call.status)) {
+
+    const activeStatuses = ["ACCEPTED", "CONNECTED"] as const;
+    if (!(activeStatuses as readonly string[]).includes(call.status)) {
       throw new ForbiddenException("Call is not active");
     }
     const result = await this.prisma.callSession.updateMany({
-      where: { id: call.id, status: { in: [...statuses] } },
+      where: { id: call.id, status: { in: [...activeStatuses] } },
       data: { status: "ENDED", endedAt: new Date(), endReason: "HANGUP" },
     });
     const updated = await this.requireCall(call.id);
-    if (!result.count) return updated;
-    this.missingSince.delete(call.id);
+    if (!result.count) return this.publicCall(updated);
     await this.liveKit.deleteRoom(call.livekitRoomName).catch(() => undefined);
     const recipient =
       userId === call.initiatorUserId
         ? call.targetUserId!
         : call.initiatorUserId;
     await this.sendSignal(updated, userId, recipient, "end");
-    return updated;
+    return this.publicCall(updated);
+  }
+
+  private async resendTerminalEndSignal(
+    call: {
+      id: string;
+      status: string;
+      endReason: string | null;
+      initiatorUserId: string;
+      targetUserId: string | null;
+      type: string;
+      livekitRoomName: string;
+    },
+    userId: string,
+  ) {
+    const terminal = [
+      "REJECTED",
+      "CANCELLED",
+      "MISSED",
+      "ENDED",
+      "FAILED",
+    ].includes(call.status);
+    if (!terminal) return false;
+
+    if (
+      call.status === "CANCELLED" &&
+      call.initiatorUserId === userId &&
+      call.targetUserId
+    ) {
+      await this.sendSignal(call, userId, call.targetUserId, "cancel");
+    } else if (call.status === "ENDED" && call.targetUserId) {
+      const recipient =
+        userId === call.initiatorUserId
+          ? call.targetUserId
+          : call.initiatorUserId;
+      await this.sendSignal(call, userId, recipient, "end");
+    }
+    return true;
   }
 
   private async requireCall(callId: string) {
@@ -435,5 +678,10 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
         roomName: call.livekitRoomName,
       }),
     });
+  }
+
+  hasUserParticipant(identities: string[], userId: string) {
+    const prefix = `${userId}:`;
+    return identities.some((identity) => identity.startsWith(prefix));
   }
 }

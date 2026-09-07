@@ -12,7 +12,19 @@
 
 ## 公开接口
 
-`GET /api/v1/server-info` 无需登录，只返回 product=chat、apiVersion=1、name、registrationEnabled、uploadLimits。SERVER_NAME 支持环境配置；当前注册开放，未新增注册策略开关。上传上限与文件校验共用同一常量，避免文档值和真实限制分叉。
+`GET /api/v1/server-info` 无需登录，只返回 product=chat、apiVersion=1、name、registrationEnabled、capabilities、uploadLimits。SERVER_NAME 支持环境配置；注册以及消息、文件、群组、音频通话、视频通话能力由数据库中的单例运行配置控制。上传上限与文件校验共用同一常量，避免文档值和真实限制分叉。
+
+管理员可在管理平台“运行配置”页面查看、修改、确认保存或放弃变更；对应接口为 `GET /api/v1/admin/runtime-settings` 和 `PATCH /api/v1/admin/runtime-settings`，每次保存会原子更新全部开关。更新操作写入审计日志并保存修改前后的值；公开接口只暴露 App 决策所需的布尔能力，不暴露管理员身份和审计信息。
+
+业务 API 使用统一运行能力守卫形成服务端边界，关闭时返回 HTTP 503、错误码 `CAPABILITY_DISABLED` 和具体 capability。注册会阻止新账号；文件会阻止上传、完成、转发及缩略图变更；群组会阻止创建、申请、邀请、批准及管理变更；音频/视频通话分别阻止新建对应类型通话。历史查询、已有文件下载/删除、拒接/取消/结束通话、退群/解散等读取和恢复操作继续允许。
+
+App 会拦截任意业务请求返回的 `CAPABILITY_DISABLED`，合并并刷新公开配置，同时显示对应功能的中文提示，避免直接暴露内部错误。消息能力关闭造成 WuKongIM 策略断连时保留业务登录态，并每 10 秒及 App 回到前台时刷新配置；重新开启后刷新业务凭据并完整重建 IM SDK 会话。只有服务端仍声明消息可用，或无法验证服务器状态时，WuKongIM 的踢下线才按设备会话撤销处理并退出登录。
+
+错误响应遵循统一结构：顶层 `code` 为 `CAPABILITY_DISABLED`，具体开关位于 `details.capability`，并带 requestId、timestamp 和 path。`npm run smoke:runtime-enforcement` 会保存原配置，短暂关闭六项能力，验证六个写入口和三个只读入口，并在 `finally` 中恢复；2026-09-04 本地真实 API 验收结果为 6 个禁用能力、3 个读取路径全部通过。
+
+消息发送数据面由 App 直连 WuKongIM，因此关闭消息时除了拦截业务 API，还会为所有未过期活跃终端轮换服务端保存的 IM 凭据并按用户断开已有连接。停发期间新登录或刷新业务会话仍然成功，但 WuKongIM 保存的是随机隔离凭据，App 收到的正常派生凭据无法建立 IM 连接；重新开启后会恢复所有活跃终端类型的派生凭据。这样无需遍历个人和群频道，也不会遗漏尚未创建的频道。
+
+运行配置和待执行的 WuKongIM 目标状态在同一个数据库事务中提交。API 会立即尝试对账；失败时持久化错误、重试次数及下次执行时间，后台每 15 秒扫描到期任务并按 10 秒起步、最高 5 分钟的指数退避自动补偿。任务使用 60 秒领取租约，进程中断后其他实例可重新领取。管理平台展示 `PENDING / SYNCING / SYNCED / FAILED` 的中文状态、重试次数、最近成功时间和错误摘要。
 
 不返回数据库连接、管理端口、密钥或 ready 中的依赖细节。OpenAPI 已生成；App 在建立业务会话前使用独立 Dio 探测和严格协议校验，而非复用带认证的业务客户端。现有已生成业务客户端没有新增探测调用，已有业务接口契约不变。
 
@@ -27,7 +39,15 @@
 
 ## 本轮边界
 
+### 本地真实停发验收（2026-09-04）
+
+- iPhone 17 Pro 与 iPhone 17 Pro Max 使用同一 `alice_test` 账号、不同稳定 `device_id`，分别通过 Flutter SDK 建立真实 WuKongIM TCP 连接。
+- 管理 API 关闭消息能力后，两端均收到 `DisconnectPacket`，随后 3 秒观察窗内保持非 connected；公开 `server-info` 同步返回 messaging=false。
+- 12 秒停发窗口结束后管理 API 恢复原配置，两端保留原业务登录态，通过正式 `SessionManager` 刷新凭据并完整重建 WuKongIM SDK 会话，均再次收到成功 `ConnackPacket`；测试未重新输入账号密码或调用登录接口绕过恢复流程。两端集成测试均 `All tests passed`，烟雾脚本输出 `ok=true, restored=true`。
+- 活跃终端凭据对账采用每批 20 个并发请求，避免大量历史会话逐条串行导致管理请求长时间阻塞。此验收证明本地单节点固定版本的真实断线/恢复，不替代生产集群故障注入。
+- 合并闭环 `20260904-combined-01` 使用 `alice_test` 与 `bob_test` 两个账号：两端在同一次 12 秒停发周期内收到 `DisconnectPacket`，恢复后保留业务登录并收到 `ConnackPacket`，随即分别发送唯一标记；alice 收到 bob 标记，bob 收到 alice 标记，两端发送均收到 ACK 且测试均通过。该用例直接覆盖策略断连、会话恢复和恢复后真实数据面，不依赖拆分测试推断可用性。
+
 - 登录页运行时切换、公开 API 与基本安全隔离属于本批；尚未进行两套独立服务端、同 UID 的完整消息收发及文件实际下载交叉验收。
 - 测试 origin 切换可以使用 localhost 与 127.0.0.1 两个地址连接同一本地 API；它验证界面/持久化闭环，不是两个独立部署的隔离验收。
-- 生产 TLS、TURN/TLS、依赖安全升级、管理后台网页及真实音视频弱网仍需单独处理。
+- 生产 TLS、TURN/TLS、依赖安全升级及真实音视频弱网仍需单独处理。
 - 本地 API 镜像：chat-api:server-settings-local；Compose：docker-compose.yml + docker-compose.server-settings.yml。数据卷保留。

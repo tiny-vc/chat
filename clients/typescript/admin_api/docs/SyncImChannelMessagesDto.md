@@ -5,11 +5,11 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**channelType** | **number** |  | [default to undefined]
 **startMessageSeq** | **number** |  | [optional] [default to 0]
 **endMessageSeq** | **number** |  | [optional] [default to 0]
 **limit** | **number** |  | [optional] [default to 50]
 **channelId** | **string** |  | [default to undefined]
-**channelType** | **number** |  | [default to undefined]
 **pullMode** | **number** |  | [default to PullModeEnum_NUMBER_0]
 
 ## Example
@@ -18,11 +18,11 @@ Name | Type | Description | Notes
 import { SyncImChannelMessagesDto } from '@chat/admin-api-client';
 
 const instance: SyncImChannelMessagesDto = {
+    channelType,
     startMessageSeq,
     endMessageSeq,
     limit,
     channelId,
-    channelType,
     pullMode,
 };
 ```

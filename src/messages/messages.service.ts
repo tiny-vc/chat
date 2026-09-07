@@ -285,7 +285,13 @@ export class MessagesService {
     row: Record<string, unknown>,
   ): Record<string, unknown> {
     return {
-      ...row,
+      channel_id: this.asString(row.channel_id),
+      channel_type: this.asInteger(row.channel_type),
+      unread: this.asInteger(row.unread),
+      timestamp: this.asInteger(row.timestamp),
+      last_msg_seq: this.asInteger(row.last_msg_seq),
+      last_client_msg_no: this.asString(row.last_client_msg_no),
+      version: this.asInteger(row.version),
       recents: Array.isArray(row.recents)
         ? row.recents.map((item) => this.normalizeMessage(this.asRecord(item)))
         : [],
@@ -298,9 +304,15 @@ export class MessagesService {
         ? this.decodePayload(row.payload)
         : row.payload;
     return {
-      ...row,
+      channel_id: this.asString(row.channel_id),
+      channel_type: this.asInteger(row.channel_type),
       message_id: this.asString(row.message_idstr ?? row.message_id),
-      payload,
+      message_seq: this.asInteger(row.message_seq),
+      client_msg_no: this.asString(row.client_msg_no),
+      from_uid: this.asString(row.from_uid),
+      timestamp: this.asInteger(row.timestamp),
+      setting: this.asInteger(row.setting),
+      payload: this.asRecord(payload),
     };
   }
 
@@ -324,6 +336,11 @@ export class MessagesService {
     return typeof value === "string" || typeof value === "number"
       ? `${value}`
       : "";
+  }
+
+  private asInteger(value: unknown) {
+    const parsed = typeof value === "number" ? value : Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : 0;
   }
 
   private asBigInt(value: unknown) {

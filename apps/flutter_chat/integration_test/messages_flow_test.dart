@@ -102,11 +102,17 @@ void main() {
       expect(value, isNotEmpty);
     }
     final api = ChatApiClient(basePathOverride: AppConfig.resolvedApiBaseUrl);
-    expect([
-      'localhost',
-      '127.0.0.1',
-      '::1',
-    ], contains(Uri.parse(AppConfig.resolvedApiBaseUrl).host));
+    const allowLan = bool.fromEnvironment('TEST_ALLOW_LAN');
+    final apiHost = Uri.parse(AppConfig.resolvedApiBaseUrl).host;
+    final loopback = {'localhost', '127.0.0.1', '::1'}.contains(apiHost);
+    final privateLan = RegExp(
+      r'^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)',
+    ).hasMatch(apiHost);
+    expect(
+      loopback || (allowLan && privateLan),
+      isTrue,
+      reason: 'Integration credentials are restricted to loopback/private LAN',
+    );
     api.dio.options.connectTimeout = const Duration(seconds: 15);
     api.dio.options.receiveTimeout = const Duration(seconds: 15);
     final im = ImService(api.dio);
@@ -356,9 +362,10 @@ void main() {
           reason: 'HTTP token refresh succeeds',
         );
         expect(
-          store.tokens!.imToken == previousToken,
-          isFalse,
-          reason: 'refresh rotates stored IM token',
+          store.tokens!.imToken,
+          previousToken,
+          reason:
+              'uid + device flag uses stable IM credentials across refreshes',
         );
         expect(
           WKIM.shared.options.token == store.tokens!.imToken,

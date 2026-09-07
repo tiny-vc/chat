@@ -9,8 +9,8 @@ import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:built_collection/built_collection.dart';
-import 'package:built_value/json_object.dart';
 import 'package:chat_api_client/src/api_util.dart';
+import 'package:chat_api_client/src/model/blocked_user_response.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
 import 'package:chat_api_client/src/model/success_response.dart';
 
@@ -34,9 +34,9 @@ class BlocksApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [JsonObject] as data
+  /// Returns a [Future] containing a [Response] with a [BlockedUserResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<JsonObject>> blocksBlock({ 
+  Future<Response<BlockedUserResponse>> blocksBlock({ 
     required String userId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -72,14 +72,14 @@ class BlocksApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    JsonObject? _responseData;
+    BlockedUserResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(JsonObject),
-      ) as JsonObject;
+        specifiedType: const FullType(BlockedUserResponse),
+      ) as BlockedUserResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -91,7 +91,7 @@ class BlocksApi {
       );
     }
 
-    return Response<JsonObject>(
+    return Response<BlockedUserResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -114,9 +114,9 @@ class BlocksApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [BuiltList<BlockedUserResponse>] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> blocksList({ 
+  Future<Response<BuiltList<BlockedUserResponse>>> blocksList({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -151,14 +151,14 @@ class BlocksApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    BuiltList<BlockedUserResponse>? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(BuiltList, [FullType(BlockedUserResponse)]),
+      ) as BuiltList<BlockedUserResponse>;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -170,7 +170,7 @@ class BlocksApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<BuiltList<BlockedUserResponse>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

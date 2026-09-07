@@ -1,23 +1,25 @@
-import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
-import { json, urlencoded } from 'express';
-import helmet from 'helmet';
-import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/http-exception.filter';
-import { RequestContextMiddleware } from './common/request-context.middleware';
-import { setupOpenApi } from './openapi';
-import { parseCorsOrigins } from './config/cors';
+import "reflect-metadata";
+import { ValidationPipe } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { NestFactory } from "@nestjs/core";
+import { json, text, urlencoded } from "express";
+import helmet from "helmet";
+import { AppModule } from "./app.module";
+import { HttpExceptionFilter } from "./common/http-exception.filter";
+import { RequestContextMiddleware } from "./common/request-context.middleware";
+import { setupOpenApi } from "./openapi";
+import { parseCorsOrigins } from "./config/cors";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  const express = app.getHttpAdapter().getInstance() as { disable(name: string): void };
+  const express = app.getHttpAdapter().getInstance() as {
+    disable(name: string): void;
+  };
   const config = app.get(ConfigService);
-  const allowedOrigins = config.getOrThrow<string>('CORS_ALLOWED_ORIGINS');
-  const bodyLimit = config.getOrThrow<string>('JSON_BODY_LIMIT');
-  const isProduction = config.getOrThrow<string>('NODE_ENV') === 'production';
-  express.disable('x-powered-by');
+  const allowedOrigins = config.getOrThrow<string>("CORS_ALLOWED_ORIGINS");
+  const bodyLimit = config.getOrThrow<string>("JSON_BODY_LIMIT");
+  const isProduction = config.getOrThrow<string>("NODE_ENV") === "production";
+  express.disable("x-powered-by");
   const requestContext = new RequestContextMiddleware(config);
   app.use(requestContext.use.bind(requestContext));
   app.use(
@@ -26,17 +28,23 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:'],
+          imgSrc: ["'self'", "data:"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          fontSrc: ["'self'", 'data:'],
+          fontSrc: ["'self'", "data:"],
         },
       },
     }),
   );
+  // LiveKit signs the exact request bytes. Parse its dedicated content type as
+  // text before the general JSON parser so signature verification is lossless.
+  app.use(
+    "/api/v1/webhooks/livekit",
+    text({ type: "application/webhook+json", limit: bodyLimit }),
+  );
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ extended: true, limit: bodyLimit }));
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix("api/v1");
   app.enableCors({
     origin: parseCorsOrigins(allowedOrigins),
     credentials: true,

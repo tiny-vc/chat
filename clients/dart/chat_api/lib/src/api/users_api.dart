@@ -9,11 +9,11 @@ import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:built_collection/built_collection.dart';
-import 'package:built_value/json_object.dart';
 import 'package:chat_api_client/src/api_util.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
 import 'package:chat_api_client/src/model/report_user_dto.dart';
 import 'package:chat_api_client/src/model/set_avatar_dto.dart';
+import 'package:chat_api_client/src/model/success_response.dart';
 import 'package:chat_api_client/src/model/update_profile_dto.dart';
 import 'package:chat_api_client/src/model/user_response.dart';
 
@@ -277,9 +277,9 @@ class UsersApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [SuccessResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> usersReport({ 
+  Future<Response<SuccessResponse>> usersReport({ 
     required String userId,
     required ReportUserDto reportUserDto,
     CancelToken? cancelToken,
@@ -336,14 +336,14 @@ class UsersApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    SuccessResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(SuccessResponse),
+      ) as SuccessResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -355,7 +355,7 @@ class UsersApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<SuccessResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -382,7 +382,7 @@ class UsersApi {
   /// Returns a [Future] containing a [Response] with a [BuiltList<UserResponse>] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<BuiltList<UserResponse>>> usersSearch({ 
-    JsonObject? q,
+    String? q,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -410,7 +410,7 @@ class UsersApi {
     );
 
     final _queryParameters = <String, dynamic>{
-      if (q != null) r'q': encodeQueryParameter(_serializers, q, const FullType(JsonObject)),
+      if (q != null) r'q': encodeQueryParameter(_serializers, q, const FullType(String)),
     };
 
     final _response = await _dio.request<Object>(

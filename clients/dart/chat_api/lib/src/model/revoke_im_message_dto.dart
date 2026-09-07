@@ -12,17 +12,17 @@ part 'revoke_im_message_dto.g.dart';
 /// RevokeImMessageDto
 ///
 /// Properties:
-/// * [channelId] 
 /// * [channelType] 
+/// * [channelId] 
 /// * [clientMsgNo] 
 @BuiltValue()
 abstract class RevokeImMessageDto implements Built<RevokeImMessageDto, RevokeImMessageDtoBuilder> {
-  @BuiltValueField(wireName: r'channelId')
-  String get channelId;
-
   @BuiltValueField(wireName: r'channelType')
   RevokeImMessageDtoChannelTypeEnum get channelType;
   // enum channelTypeEnum {  1,  2,  };
+
+  @BuiltValueField(wireName: r'channelId')
+  String get channelId;
 
   @BuiltValueField(wireName: r'clientMsgNo')
   String get clientMsgNo;
@@ -50,15 +50,16 @@ class _$RevokeImMessageDtoSerializer implements PrimitiveSerializer<RevokeImMess
     RevokeImMessageDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    yield r'channelType';
+    yield object.channelType == RevokeImMessageDtoChannelTypeEnum.n1
+        ? 1
+        : object.channelType == RevokeImMessageDtoChannelTypeEnum.n2
+        ? 2
+        : throw StateError('Unsupported channelType enum value');
     yield r'channelId';
     yield serializers.serialize(
       object.channelId,
       specifiedType: const FullType(String),
-    );
-    yield r'channelType';
-    yield serializers.serialize(
-      object.channelType,
-      specifiedType: const FullType(RevokeImMessageDtoChannelTypeEnum),
     );
     yield r'clientMsgNo';
     yield serializers.serialize(
@@ -88,19 +89,19 @@ class _$RevokeImMessageDtoSerializer implements PrimitiveSerializer<RevokeImMess
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
-        case r'channelId':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.channelId = valueDes;
-          break;
         case r'channelType':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(RevokeImMessageDtoChannelTypeEnum),
           ) as RevokeImMessageDtoChannelTypeEnum;
           result.channelType = valueDes;
+          break;
+        case r'channelId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.channelId = valueDes;
           break;
         case r'clientMsgNo':
           final valueDes = serializers.deserialize(

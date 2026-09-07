@@ -1,6 +1,27 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+String validateImAddress(String value) {
+  final address = value.trim();
+  if (address.isEmpty ||
+      address.length > 512 ||
+      address != value ||
+      address.contains(RegExp(r'[\s/@?#]')) ||
+      address.contains('://')) {
+    throw const FormatException('服务器返回了无效的即时消息服务地址。');
+  }
+  final uri = Uri.tryParse('tcp://$address');
+  if (uri == null ||
+      uri.host.isEmpty ||
+      !uri.hasPort ||
+      uri.port < 1 ||
+      uri.port > 65535 ||
+      (uri.path.isNotEmpty && uri.path != '/')) {
+    throw const FormatException('服务器返回了无效的即时消息服务地址。');
+  }
+  return address;
+}
+
 class StoredTokens {
   const StoredTokens({
     required this.accessToken,
@@ -53,18 +74,19 @@ class SecureTokenStore implements TokenStore {
       refreshToken: values[1]!,
       imUid: values[2]!,
       imToken: values[3]!,
-      imAddress: values[4]!,
+      imAddress: validateImAddress(values[4]!),
     );
   }
 
   @override
   Future<void> write(StoredTokens tokens) async {
+    final imAddress = validateImAddress(tokens.imAddress);
     // Refresh tokens rotate on every use. Persist the new refresh token first so
     // an interrupted write never leaves a new access token with an invalid old refresh token.
     await _storage.write(key: _refreshKey, value: tokens.refreshToken);
     await _storage.write(key: _imUidKey, value: tokens.imUid);
     await _storage.write(key: _imTokenKey, value: tokens.imToken);
-    await _storage.write(key: _imAddressKey, value: tokens.imAddress);
+    await _storage.write(key: _imAddressKey, value: imAddress);
     await _storage.write(key: _accessKey, value: tokens.accessToken);
   }
 

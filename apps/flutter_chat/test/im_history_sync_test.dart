@@ -127,4 +127,62 @@ void main() {
       expect(service.error, isA<DioException>());
     },
   );
+
+  test(
+    'typed history preserves message identity and extensible payload',
+    () async {
+      final dio = Dio();
+      final service = ImService(dio);
+      addTearDown(() {
+        service.dispose();
+        dio.close(force: true);
+      });
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (request, handler) {
+            handler.resolve(
+              Response(
+                requestOptions: request,
+                statusCode: 200,
+                data: {
+                  'start_message_seq': 40,
+                  'end_message_seq': 42,
+                  'more': 1,
+                  'messages': [
+                    {
+                      'channel_id': 'peer',
+                      'channel_type': 1,
+                      'message_id': '9007199254740993123',
+                      'message_seq': 42,
+                      'client_msg_no': 'client-42',
+                      'from_uid': 'peer',
+                      'timestamp': 1234,
+                      'setting': 0,
+                      'payload': {
+                        'type': 1,
+                        'content': 'hello',
+                        'futureField': {'enabled': true},
+                      },
+                    },
+                  ],
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      await service.syncChannelMessages('peer', 1, 40, 42, 50, 1, (result) {
+        expect(result?.startMessageSeq, 40);
+        expect(result?.more, 1);
+        final message = result!.messages!.single;
+        expect(message.messageID, '9007199254740993123');
+        expect(message.payload, {
+          'type': 1,
+          'content': 'hello',
+          'futureField': {'enabled': true},
+        });
+      });
+    },
+  );
 }

@@ -15,7 +15,7 @@ Method | HTTP request | Description
 
 
 # **blocksBlock**
-> JsonObject blocksBlock(userId)
+> BlockedUserResponse blocksBlock(userId)
 
 
 
@@ -42,7 +42,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**JsonObject**](JsonObject.md)
+[**BlockedUserResponse**](BlockedUserResponse.md)
 
 ### Authorization
 
@@ -56,7 +56,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **blocksList**
-> BuiltMap<String, JsonObject> blocksList()
+> BuiltList<BlockedUserResponse> blocksList()
 
 
 
@@ -79,7 +79,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**BuiltList&lt;BlockedUserResponse&gt;**](BlockedUserResponse.md)
 
 ### Authorization
 

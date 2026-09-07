@@ -183,7 +183,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **filesForward**
-> BuiltMap<String, JsonObject> filesForward(fileId, forwardFileDto)
+> StoredFileResponse filesForward(fileId, forwardFileDto)
 
 
 
@@ -212,7 +212,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**StoredFileResponse**](StoredFileResponse.md)
 
 ### Authorization
 

@@ -5,9 +5,10 @@ import '../../../core/widgets/app_avatar.dart';
 import '../../../core/calls/call_service.dart';
 import '../../../core/files/file_transfer_service.dart';
 import '../../../core/im/im_service.dart';
-import '../../calls/presentation/call_page.dart';
+import '../../calls/presentation/outgoing_call_launcher.dart';
 import '../../chat/presentation/chat_page.dart';
 import 'home_controller.dart';
+import '../../../config/server_settings.dart';
 
 class FriendProfilePage extends StatefulWidget {
   const FriendProfilePage({
@@ -18,6 +19,7 @@ class FriendProfilePage extends StatefulWidget {
     required this.fileTransferService,
     required this.callService,
     required this.forwardTargets,
+    this.capabilities = ServerCapabilities.all,
   });
 
   final FriendResponse friend;
@@ -26,6 +28,7 @@ class FriendProfilePage extends StatefulWidget {
   final FileTransferService fileTransferService;
   final CallService callService;
   final List<ForwardTarget> forwardTargets;
+  final ServerCapabilities capabilities;
 
   @override
   State<FriendProfilePage> createState() => _FriendProfilePageState();
@@ -33,29 +36,21 @@ class FriendProfilePage extends StatefulWidget {
 
 class _FriendProfilePageState extends State<FriendProfilePage> {
   bool _working = false;
+  ServerCapabilities get _capabilities =>
+      ServerCapabilitiesScope.maybeOf(context) ?? widget.capabilities;
 
   Future<void> _startCall(bool video) async {
     setState(() => _working = true);
     try {
-      final call = await widget.callService.create(
-        widget.friend.user.id,
+      await launchOutgoingCall(
+        context: context,
+        targetUserId: widget.friend.user.id,
+        title: widget.friend.user.nickname,
         video: video,
+        callService: widget.callService,
+        imService: widget.imService,
+        capabilities: _capabilities,
       );
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CallPage(
-            callId: call.id,
-            title: widget.friend.user.nickname,
-            video: video,
-            incoming: false,
-            callService: widget.callService,
-            imService: widget.imService,
-          ),
-        ),
-      );
-    } catch (error) {
-      if (mounted) _message('无法发起通话：$error');
     } finally {
       if (mounted) setState(() => _working = false);
     }
@@ -209,6 +204,7 @@ class _FriendProfilePageState extends State<FriendProfilePage> {
                               fileTransferService: widget.fileTransferService,
                               forwardTargets: widget.forwardTargets,
                               callService: widget.callService,
+                              capabilities: _capabilities,
                             ),
                           ),
                         ),
@@ -217,17 +213,19 @@ class _FriendProfilePageState extends State<FriendProfilePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: '语音通话',
-                onPressed: _working ? null : () => _startCall(false),
-                icon: const Icon(Icons.call_outlined),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: '视频通话',
-                onPressed: _working ? null : () => _startCall(true),
-                icon: const Icon(Icons.videocam_outlined),
-              ),
+              if (_capabilities.canAudioCall)
+                IconButton.filledTonal(
+                  tooltip: '语音通话',
+                  onPressed: _working ? null : () => _startCall(false),
+                  icon: const Icon(Icons.call_outlined),
+                ),
+              if (_capabilities.canVideoCall) const SizedBox(width: 8),
+              if (_capabilities.canVideoCall)
+                IconButton.filledTonal(
+                  tooltip: '视频通话',
+                  onPressed: _working ? null : () => _startCall(true),
+                  icon: const Icon(Icons.videocam_outlined),
+                ),
             ],
           ),
           const Divider(height: 36),

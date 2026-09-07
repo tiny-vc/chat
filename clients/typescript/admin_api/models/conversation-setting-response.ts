@@ -17,17 +17,11 @@
 export interface ConversationSettingResponse {
     'userId': string;
     'channelId': string;
-    'channelType': ConversationSettingResponseChannelTypeEnum;
+    'channelType': number;
     'pinned': boolean;
     'muted': boolean;
     'archived': boolean;
     'createdAt'?: string;
     'updatedAt'?: string;
 }
-
-export enum ConversationSettingResponseChannelTypeEnum {
-    NUMBER_1 = 1,
-    NUMBER_2 = 2
-}
-
 

@@ -13,6 +13,8 @@ import { MuteMemberDto } from './dto/mute-member.dto';
 import { SetGroupAvatarDto } from './dto/set-group-avatar.dto';
 import { GroupJoinMessageDto } from './dto/group-join-message.dto';
 import { InviteGroupMemberDto } from './dto/invite-group-member.dto';
+import { RequireRuntimeCapability } from '../config/runtime-capability.decorator';
+import { RuntimeCapabilityGuard } from '../config/runtime-capability.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('groups')
@@ -20,6 +22,8 @@ export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Post()
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   create(@CurrentUser() user: JwtPayload, @Body() input: CreateGroupDto) {
     return this.groupsService.create(user.sub, input);
   }
@@ -45,6 +49,8 @@ export class GroupsController {
   }
 
   @Post('join-requests/:requestId/approve')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   approveJoinRequest(
     @CurrentUser() user: JwtPayload,
     @Param('requestId') requestId: string,
@@ -75,6 +81,8 @@ export class GroupsController {
   }
 
   @Post(':groupId/join-requests')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   applyToJoin(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -84,6 +92,8 @@ export class GroupsController {
   }
 
   @Post(':groupId/invitations')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   inviteMember(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -101,6 +111,8 @@ export class GroupsController {
   }
 
   @Patch(':groupId')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   update(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -110,6 +122,8 @@ export class GroupsController {
   }
 
   @Post(':groupId/members')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   addMembers(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -119,6 +133,8 @@ export class GroupsController {
   }
 
   @Patch(':groupId/members/:memberId/role')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   setMemberRole(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -129,6 +145,8 @@ export class GroupsController {
   }
 
   @Patch(':groupId/members/:memberId/mute')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   muteMember(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -139,6 +157,8 @@ export class GroupsController {
   }
 
   @Post(':groupId/transfer-owner')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   transferOwner(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -148,6 +168,8 @@ export class GroupsController {
   }
 
   @Put(':groupId/avatar')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   setAvatar(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,
@@ -157,11 +179,15 @@ export class GroupsController {
   }
 
   @Delete(':groupId/avatar')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   removeAvatar(@CurrentUser() user: JwtPayload, @Param('groupId') groupId: string) {
     return this.groupsService.removeAvatar(groupId, user.sub);
   }
 
   @Delete(':groupId/members/:memberId')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
   removeMember(
     @CurrentUser() user: JwtPayload,
     @Param('groupId') groupId: string,

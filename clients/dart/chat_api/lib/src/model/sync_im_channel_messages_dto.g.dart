@@ -147,6 +147,8 @@ class _$SyncImChannelMessagesDtoPullModeEnumSerializer
 
 class _$SyncImChannelMessagesDto extends SyncImChannelMessagesDto {
   @override
+  final SyncImChannelMessagesDtoChannelTypeEnum channelType;
+  @override
   final num? startMessageSeq;
   @override
   final num? endMessageSeq;
@@ -155,8 +157,6 @@ class _$SyncImChannelMessagesDto extends SyncImChannelMessagesDto {
   @override
   final String channelId;
   @override
-  final SyncImChannelMessagesDtoChannelTypeEnum channelType;
-  @override
   final SyncImChannelMessagesDtoPullModeEnum pullMode;
 
   factory _$SyncImChannelMessagesDto(
@@ -164,11 +164,11 @@ class _$SyncImChannelMessagesDto extends SyncImChannelMessagesDto {
       (SyncImChannelMessagesDtoBuilder()..update(updates))._build();
 
   _$SyncImChannelMessagesDto._(
-      {this.startMessageSeq,
+      {required this.channelType,
+      this.startMessageSeq,
       this.endMessageSeq,
       this.limit,
       required this.channelId,
-      required this.channelType,
       required this.pullMode})
       : super._();
   @override
@@ -184,22 +184,22 @@ class _$SyncImChannelMessagesDto extends SyncImChannelMessagesDto {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is SyncImChannelMessagesDto &&
+        channelType == other.channelType &&
         startMessageSeq == other.startMessageSeq &&
         endMessageSeq == other.endMessageSeq &&
         limit == other.limit &&
         channelId == other.channelId &&
-        channelType == other.channelType &&
         pullMode == other.pullMode;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
+    _$hash = $jc(_$hash, channelType.hashCode);
     _$hash = $jc(_$hash, startMessageSeq.hashCode);
     _$hash = $jc(_$hash, endMessageSeq.hashCode);
     _$hash = $jc(_$hash, limit.hashCode);
     _$hash = $jc(_$hash, channelId.hashCode);
-    _$hash = $jc(_$hash, channelType.hashCode);
     _$hash = $jc(_$hash, pullMode.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -208,11 +208,11 @@ class _$SyncImChannelMessagesDto extends SyncImChannelMessagesDto {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'SyncImChannelMessagesDto')
+          ..add('channelType', channelType)
           ..add('startMessageSeq', startMessageSeq)
           ..add('endMessageSeq', endMessageSeq)
           ..add('limit', limit)
           ..add('channelId', channelId)
-          ..add('channelType', channelType)
           ..add('pullMode', pullMode))
         .toString();
   }
@@ -222,6 +222,12 @@ class SyncImChannelMessagesDtoBuilder
     implements
         Builder<SyncImChannelMessagesDto, SyncImChannelMessagesDtoBuilder> {
   _$SyncImChannelMessagesDto? _$v;
+
+  SyncImChannelMessagesDtoChannelTypeEnum? _channelType;
+  SyncImChannelMessagesDtoChannelTypeEnum? get channelType =>
+      _$this._channelType;
+  set channelType(SyncImChannelMessagesDtoChannelTypeEnum? channelType) =>
+      _$this._channelType = channelType;
 
   num? _startMessageSeq;
   num? get startMessageSeq => _$this._startMessageSeq;
@@ -241,12 +247,6 @@ class SyncImChannelMessagesDtoBuilder
   String? get channelId => _$this._channelId;
   set channelId(String? channelId) => _$this._channelId = channelId;
 
-  SyncImChannelMessagesDtoChannelTypeEnum? _channelType;
-  SyncImChannelMessagesDtoChannelTypeEnum? get channelType =>
-      _$this._channelType;
-  set channelType(SyncImChannelMessagesDtoChannelTypeEnum? channelType) =>
-      _$this._channelType = channelType;
-
   SyncImChannelMessagesDtoPullModeEnum? _pullMode;
   SyncImChannelMessagesDtoPullModeEnum? get pullMode => _$this._pullMode;
   set pullMode(SyncImChannelMessagesDtoPullModeEnum? pullMode) =>
@@ -259,11 +259,11 @@ class SyncImChannelMessagesDtoBuilder
   SyncImChannelMessagesDtoBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
+      _channelType = $v.channelType;
       _startMessageSeq = $v.startMessageSeq;
       _endMessageSeq = $v.endMessageSeq;
       _limit = $v.limit;
       _channelId = $v.channelId;
-      _channelType = $v.channelType;
       _pullMode = $v.pullMode;
       _$v = null;
     }
@@ -286,13 +286,13 @@ class SyncImChannelMessagesDtoBuilder
   _$SyncImChannelMessagesDto _build() {
     final _$result = _$v ??
         _$SyncImChannelMessagesDto._(
+          channelType: BuiltValueNullFieldError.checkNotNull(
+              channelType, r'SyncImChannelMessagesDto', 'channelType'),
           startMessageSeq: startMessageSeq,
           endMessageSeq: endMessageSeq,
           limit: limit,
           channelId: BuiltValueNullFieldError.checkNotNull(
               channelId, r'SyncImChannelMessagesDto', 'channelId'),
-          channelType: BuiltValueNullFieldError.checkNotNull(
-              channelType, r'SyncImChannelMessagesDto', 'channelType'),
           pullMode: BuiltValueNullFieldError.checkNotNull(
               pullMode, r'SyncImChannelMessagesDto', 'pullMode'),
         );

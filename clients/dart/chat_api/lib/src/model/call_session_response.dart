@@ -23,8 +23,8 @@ part 'call_session_response.g.dart';
 /// * [answeredAt] 
 /// * [endedAt] 
 /// * [endReason] 
-@BuiltValue()
-abstract class CallSessionResponse implements Built<CallSessionResponse, CallSessionResponseBuilder> {
+@BuiltValue(instantiable: false)
+abstract class CallSessionResponse  {
   @BuiltValueField(wireName: r'id')
   String get id;
 
@@ -60,20 +60,13 @@ abstract class CallSessionResponse implements Built<CallSessionResponse, CallSes
   @BuiltValueField(wireName: r'endReason')
   String? get endReason;
 
-  CallSessionResponse._();
-
-  factory CallSessionResponse([void updates(CallSessionResponseBuilder b)]) = _$CallSessionResponse;
-
-  @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(CallSessionResponseBuilder b) => b;
-
   @BuiltValueSerializer(custom: true)
   static Serializer<CallSessionResponse> get serializer => _$CallSessionResponseSerializer();
 }
 
 class _$CallSessionResponseSerializer implements PrimitiveSerializer<CallSessionResponse> {
   @override
-  final Iterable<Type> types = const [CallSessionResponse, _$CallSessionResponse];
+  final Iterable<Type> types = const [CallSessionResponse];
 
   @override
   final String wireName = r'CallSessionResponse';
@@ -157,6 +150,46 @@ class _$CallSessionResponseSerializer implements PrimitiveSerializer<CallSession
     FullType specifiedType = FullType.unspecified,
   }) {
     return _serializeProperties(serializers, object, specifiedType: specifiedType).toList();
+  }
+
+  @override
+  CallSessionResponse deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) {
+    return serializers.deserialize(serialized, specifiedType: FullType($CallSessionResponse)) as $CallSessionResponse;
+  }
+}
+
+/// a concrete implementation of [CallSessionResponse], since [CallSessionResponse] is not instantiable
+@BuiltValue(instantiable: true)
+abstract class $CallSessionResponse implements CallSessionResponse, Built<$CallSessionResponse, $CallSessionResponseBuilder> {
+  $CallSessionResponse._();
+
+  factory $CallSessionResponse([void Function($CallSessionResponseBuilder)? updates]) = _$$CallSessionResponse;
+
+  @BuiltValueHook(initializeBuilder: true)
+  static void _defaults($CallSessionResponseBuilder b) => b;
+
+  @BuiltValueSerializer(custom: true)
+  static Serializer<$CallSessionResponse> get serializer => _$$CallSessionResponseSerializer();
+}
+
+class _$$CallSessionResponseSerializer implements PrimitiveSerializer<$CallSessionResponse> {
+  @override
+  final Iterable<Type> types = const [$CallSessionResponse, _$$CallSessionResponse];
+
+  @override
+  final String wireName = r'$CallSessionResponse';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    $CallSessionResponse object, {
+    FullType specifiedType = FullType.unspecified,
+  }) {
+    return serializers.serialize(object, specifiedType: FullType(CallSessionResponse))!;
   }
 
   void _deserializeProperties(
@@ -262,12 +295,12 @@ class _$CallSessionResponseSerializer implements PrimitiveSerializer<CallSession
   }
 
   @override
-  CallSessionResponse deserialize(
+  $CallSessionResponse deserialize(
     Serializers serializers,
     Object serialized, {
     FullType specifiedType = FullType.unspecified,
   }) {
-    final result = CallSessionResponseBuilder();
+    final result = $CallSessionResponseBuilder();
     final serializedList = (serialized as Iterable<Object?>).toList();
     final unhandled = <Object?>[];
     _deserializeProperties(

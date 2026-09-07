@@ -10,12 +10,19 @@ class _$AdminOverviewResponseModeration
     extends AdminOverviewResponseModeration {
   @override
   final int pendingGroupJoinRequests;
+  @override
+  final int pendingReports;
+  @override
+  final int abnormalFiles;
 
   factory _$AdminOverviewResponseModeration(
           [void Function(AdminOverviewResponseModerationBuilder)? updates]) =>
       (AdminOverviewResponseModerationBuilder()..update(updates))._build();
 
-  _$AdminOverviewResponseModeration._({required this.pendingGroupJoinRequests})
+  _$AdminOverviewResponseModeration._(
+      {required this.pendingGroupJoinRequests,
+      required this.pendingReports,
+      required this.abnormalFiles})
       : super._();
   @override
   AdminOverviewResponseModeration rebuild(
@@ -30,13 +37,17 @@ class _$AdminOverviewResponseModeration
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is AdminOverviewResponseModeration &&
-        pendingGroupJoinRequests == other.pendingGroupJoinRequests;
+        pendingGroupJoinRequests == other.pendingGroupJoinRequests &&
+        pendingReports == other.pendingReports &&
+        abnormalFiles == other.abnormalFiles;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
     _$hash = $jc(_$hash, pendingGroupJoinRequests.hashCode);
+    _$hash = $jc(_$hash, pendingReports.hashCode);
+    _$hash = $jc(_$hash, abnormalFiles.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -44,7 +55,9 @@ class _$AdminOverviewResponseModeration
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'AdminOverviewResponseModeration')
-          ..add('pendingGroupJoinRequests', pendingGroupJoinRequests))
+          ..add('pendingGroupJoinRequests', pendingGroupJoinRequests)
+          ..add('pendingReports', pendingReports)
+          ..add('abnormalFiles', abnormalFiles))
         .toString();
   }
 }
@@ -60,6 +73,16 @@ class AdminOverviewResponseModerationBuilder
   set pendingGroupJoinRequests(int? pendingGroupJoinRequests) =>
       _$this._pendingGroupJoinRequests = pendingGroupJoinRequests;
 
+  int? _pendingReports;
+  int? get pendingReports => _$this._pendingReports;
+  set pendingReports(int? pendingReports) =>
+      _$this._pendingReports = pendingReports;
+
+  int? _abnormalFiles;
+  int? get abnormalFiles => _$this._abnormalFiles;
+  set abnormalFiles(int? abnormalFiles) =>
+      _$this._abnormalFiles = abnormalFiles;
+
   AdminOverviewResponseModerationBuilder() {
     AdminOverviewResponseModeration._defaults(this);
   }
@@ -68,6 +91,8 @@ class AdminOverviewResponseModerationBuilder
     final $v = _$v;
     if ($v != null) {
       _pendingGroupJoinRequests = $v.pendingGroupJoinRequests;
+      _pendingReports = $v.pendingReports;
+      _abnormalFiles = $v.abnormalFiles;
       _$v = null;
     }
     return this;
@@ -93,6 +118,10 @@ class AdminOverviewResponseModerationBuilder
               pendingGroupJoinRequests,
               r'AdminOverviewResponseModeration',
               'pendingGroupJoinRequests'),
+          pendingReports: BuiltValueNullFieldError.checkNotNull(pendingReports,
+              r'AdminOverviewResponseModeration', 'pendingReports'),
+          abnormalFiles: BuiltValueNullFieldError.checkNotNull(abnormalFiles,
+              r'AdminOverviewResponseModeration', 'abnormalFiles'),
         );
     replace(_$result);
     return _$result;

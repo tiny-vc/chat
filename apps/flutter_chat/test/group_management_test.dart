@@ -255,4 +255,33 @@ void main() {
       );
     },
   );
+  testWidgets('large member list is compact by default and can be expanded', (
+    tester,
+  ) async {
+    final repo = GroupsFake();
+    repo.group = repo.group.rebuild(
+      (b) => b.members.addAll(
+        List.generate(
+          9,
+          (index) => member('member$index', GroupMemberResponseRoleEnum.MEMBER),
+        ),
+      ),
+    );
+    await open(tester, repo);
+
+    expect(find.text('member5'), findsNothing);
+    final expand = find.text('查看全部 12 位成员');
+    final expandTile = find.ancestor(
+      of: expand,
+      matching: find.byType(ListTile),
+    );
+    await tester.scrollUntilVisible(expandTile, 250);
+    await tester.ensureVisible(expandTile);
+    await tester.pumpAndSettle();
+    await tester.tap(expandTile);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('member5'), 200);
+    expect(find.text('member5'), findsOneWidget);
+    expect(find.text('收起成员列表'), findsOneWidget);
+  });
 }

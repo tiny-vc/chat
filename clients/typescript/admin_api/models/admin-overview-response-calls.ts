@@ -16,5 +16,6 @@
 
 export interface AdminOverviewResponseCalls {
     'active': number;
+    'failed24h': number;
 }
 

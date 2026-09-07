@@ -4,6 +4,77 @@ import 'package:flutter_chat/features/chat/presentation/message_details.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('upload progress identifies task and fits narrow large text', (
+    tester,
+  ) async {
+    var cancels = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: Scaffold(
+            body: SizedBox(
+              width: 320,
+              child: TransferProgressPanel(
+                label: '视频 · 一个名称非常长的产品演示视频最终版本.mp4',
+                progress: .42,
+                onCancel: () => cancels++,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('已上传 42%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const ValueKey('cancel-upload')));
+    expect(cancels, 1);
+  });
+
+  testWidgets('attachment confirmation requires an explicit choice', (
+    tester,
+  ) async {
+    bool? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () async {
+                result = await showModalBottomSheet<bool>(
+                  context: context,
+                  showDragHandle: true,
+                  builder: (_) => const AttachmentSendConfirmation(
+                    name: '产品方案最终版.pdf',
+                    sizeLabel: '12.5 MB',
+                    kindLabel: '文件',
+                    icon: Icons.description_outlined,
+                  ),
+                );
+              },
+              child: const Text('选择文件'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('选择文件'));
+    await tester.pumpAndSettle();
+    expect(find.text('发送文件'), findsOneWidget);
+    expect(find.text('产品方案最终版.pdf'), findsOneWidget);
+    expect(find.text('12.5 MB'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(result, isFalse);
+
+    await tester.tap(find.text('选择文件'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确认发送'));
+    await tester.pumpAndSettle();
+    expect(result, isTrue);
+  });
+
   for (final dark in [false, true]) {
     testWidgets(
       'long file and metadata fit narrow large-text bubble dark=$dark',
@@ -55,6 +126,7 @@ void main() {
     'busy file cannot open again and unknown progress is not 0 percent',
     (tester) async {
       var opens = 0;
+      var cancels = 0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -65,6 +137,7 @@ void main() {
                 downloading: true,
                 progress: 0,
                 onOpen: () => opens++,
+                onCancel: () => cancels++,
               ),
             ),
           ),
@@ -74,6 +147,8 @@ void main() {
       expect(find.text('点击打开'), findsNothing);
       await tester.tap(find.byType(FileMessageTile));
       expect(opens, 0);
+      await tester.tap(find.byKey(const ValueKey('cancel-file-download')));
+      expect(cancels, 1);
       expect(tester.takeException(), isNull);
     },
   );

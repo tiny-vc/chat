@@ -184,7 +184,44 @@ class _$CallSessionResponseStatusEnumSerializer
           _fromWire[serialized] ?? (serialized is String ? serialized : ''));
 }
 
-class _$CallSessionResponse extends CallSessionResponse {
+abstract mixin class CallSessionResponseBuilder {
+  void replace(CallSessionResponse other);
+  void update(void Function(CallSessionResponseBuilder) updates);
+  String? get id;
+  set id(String? id);
+
+  String? get initiatorUserId;
+  set initiatorUserId(String? initiatorUserId);
+
+  String? get targetUserId;
+  set targetUserId(String? targetUserId);
+
+  String? get groupId;
+  set groupId(String? groupId);
+
+  String? get livekitRoomName;
+  set livekitRoomName(String? livekitRoomName);
+
+  CallSessionResponseTypeEnum? get type;
+  set type(CallSessionResponseTypeEnum? type);
+
+  CallSessionResponseStatusEnum? get status;
+  set status(CallSessionResponseStatusEnum? status);
+
+  DateTime? get startedAt;
+  set startedAt(DateTime? startedAt);
+
+  DateTime? get answeredAt;
+  set answeredAt(DateTime? answeredAt);
+
+  DateTime? get endedAt;
+  set endedAt(DateTime? endedAt);
+
+  String? get endReason;
+  set endReason(String? endReason);
+}
+
+class _$$CallSessionResponse extends $CallSessionResponse {
   @override
   final String id;
   @override
@@ -208,11 +245,11 @@ class _$CallSessionResponse extends CallSessionResponse {
   @override
   final String? endReason;
 
-  factory _$CallSessionResponse(
-          [void Function(CallSessionResponseBuilder)? updates]) =>
-      (CallSessionResponseBuilder()..update(updates))._build();
+  factory _$$CallSessionResponse(
+          [void Function($CallSessionResponseBuilder)? updates]) =>
+      ($CallSessionResponseBuilder()..update(updates))._build();
 
-  _$CallSessionResponse._(
+  _$$CallSessionResponse._(
       {required this.id,
       required this.initiatorUserId,
       this.targetUserId,
@@ -226,18 +263,18 @@ class _$CallSessionResponse extends CallSessionResponse {
       this.endReason})
       : super._();
   @override
-  CallSessionResponse rebuild(
-          void Function(CallSessionResponseBuilder) updates) =>
+  $CallSessionResponse rebuild(
+          void Function($CallSessionResponseBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  CallSessionResponseBuilder toBuilder() =>
-      CallSessionResponseBuilder()..replace(this);
+  $CallSessionResponseBuilder toBuilder() =>
+      $CallSessionResponseBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is CallSessionResponse &&
+    return other is $CallSessionResponse &&
         id == other.id &&
         initiatorUserId == other.initiatorUserId &&
         targetUserId == other.targetUserId &&
@@ -271,7 +308,7 @@ class _$CallSessionResponse extends CallSessionResponse {
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'CallSessionResponse')
+    return (newBuiltValueToStringHelper(r'$CallSessionResponse')
           ..add('id', id)
           ..add('initiatorUserId', initiatorUserId)
           ..add('targetUserId', targetUserId)
@@ -287,61 +324,66 @@ class _$CallSessionResponse extends CallSessionResponse {
   }
 }
 
-class CallSessionResponseBuilder
-    implements Builder<CallSessionResponse, CallSessionResponseBuilder> {
-  _$CallSessionResponse? _$v;
+class $CallSessionResponseBuilder
+    implements
+        Builder<$CallSessionResponse, $CallSessionResponseBuilder>,
+        CallSessionResponseBuilder {
+  _$$CallSessionResponse? _$v;
 
   String? _id;
   String? get id => _$this._id;
-  set id(String? id) => _$this._id = id;
+  set id(covariant String? id) => _$this._id = id;
 
   String? _initiatorUserId;
   String? get initiatorUserId => _$this._initiatorUserId;
-  set initiatorUserId(String? initiatorUserId) =>
+  set initiatorUserId(covariant String? initiatorUserId) =>
       _$this._initiatorUserId = initiatorUserId;
 
   String? _targetUserId;
   String? get targetUserId => _$this._targetUserId;
-  set targetUserId(String? targetUserId) => _$this._targetUserId = targetUserId;
+  set targetUserId(covariant String? targetUserId) =>
+      _$this._targetUserId = targetUserId;
 
   String? _groupId;
   String? get groupId => _$this._groupId;
-  set groupId(String? groupId) => _$this._groupId = groupId;
+  set groupId(covariant String? groupId) => _$this._groupId = groupId;
 
   String? _livekitRoomName;
   String? get livekitRoomName => _$this._livekitRoomName;
-  set livekitRoomName(String? livekitRoomName) =>
+  set livekitRoomName(covariant String? livekitRoomName) =>
       _$this._livekitRoomName = livekitRoomName;
 
   CallSessionResponseTypeEnum? _type;
   CallSessionResponseTypeEnum? get type => _$this._type;
-  set type(CallSessionResponseTypeEnum? type) => _$this._type = type;
+  set type(covariant CallSessionResponseTypeEnum? type) => _$this._type = type;
 
   CallSessionResponseStatusEnum? _status;
   CallSessionResponseStatusEnum? get status => _$this._status;
-  set status(CallSessionResponseStatusEnum? status) => _$this._status = status;
+  set status(covariant CallSessionResponseStatusEnum? status) =>
+      _$this._status = status;
 
   DateTime? _startedAt;
   DateTime? get startedAt => _$this._startedAt;
-  set startedAt(DateTime? startedAt) => _$this._startedAt = startedAt;
+  set startedAt(covariant DateTime? startedAt) => _$this._startedAt = startedAt;
 
   DateTime? _answeredAt;
   DateTime? get answeredAt => _$this._answeredAt;
-  set answeredAt(DateTime? answeredAt) => _$this._answeredAt = answeredAt;
+  set answeredAt(covariant DateTime? answeredAt) =>
+      _$this._answeredAt = answeredAt;
 
   DateTime? _endedAt;
   DateTime? get endedAt => _$this._endedAt;
-  set endedAt(DateTime? endedAt) => _$this._endedAt = endedAt;
+  set endedAt(covariant DateTime? endedAt) => _$this._endedAt = endedAt;
 
   String? _endReason;
   String? get endReason => _$this._endReason;
-  set endReason(String? endReason) => _$this._endReason = endReason;
+  set endReason(covariant String? endReason) => _$this._endReason = endReason;
 
-  CallSessionResponseBuilder() {
-    CallSessionResponse._defaults(this);
+  $CallSessionResponseBuilder() {
+    $CallSessionResponse._defaults(this);
   }
 
-  CallSessionResponseBuilder get _$this {
+  $CallSessionResponseBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
       _id = $v.id;
@@ -361,35 +403,35 @@ class CallSessionResponseBuilder
   }
 
   @override
-  void replace(CallSessionResponse other) {
-    _$v = other as _$CallSessionResponse;
+  void replace(covariant $CallSessionResponse other) {
+    _$v = other as _$$CallSessionResponse;
   }
 
   @override
-  void update(void Function(CallSessionResponseBuilder)? updates) {
+  void update(void Function($CallSessionResponseBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  CallSessionResponse build() => _build();
+  $CallSessionResponse build() => _build();
 
-  _$CallSessionResponse _build() {
+  _$$CallSessionResponse _build() {
     final _$result = _$v ??
-        _$CallSessionResponse._(
+        _$$CallSessionResponse._(
           id: BuiltValueNullFieldError.checkNotNull(
-              id, r'CallSessionResponse', 'id'),
+              id, r'$CallSessionResponse', 'id'),
           initiatorUserId: BuiltValueNullFieldError.checkNotNull(
-              initiatorUserId, r'CallSessionResponse', 'initiatorUserId'),
+              initiatorUserId, r'$CallSessionResponse', 'initiatorUserId'),
           targetUserId: targetUserId,
           groupId: groupId,
           livekitRoomName: BuiltValueNullFieldError.checkNotNull(
-              livekitRoomName, r'CallSessionResponse', 'livekitRoomName'),
+              livekitRoomName, r'$CallSessionResponse', 'livekitRoomName'),
           type: BuiltValueNullFieldError.checkNotNull(
-              type, r'CallSessionResponse', 'type'),
+              type, r'$CallSessionResponse', 'type'),
           status: BuiltValueNullFieldError.checkNotNull(
-              status, r'CallSessionResponse', 'status'),
+              status, r'$CallSessionResponse', 'status'),
           startedAt: BuiltValueNullFieldError.checkNotNull(
-              startedAt, r'CallSessionResponse', 'startedAt'),
+              startedAt, r'$CallSessionResponse', 'startedAt'),
           answeredAt: answeredAt,
           endedAt: endedAt,
           endReason: endReason,

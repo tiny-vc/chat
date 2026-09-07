@@ -15,7 +15,20 @@ Map<String, Object> get info => {
   'apiVersion': 1,
   'name': '测试服务器',
   'registrationEnabled': true,
-  'uploadLimits': {'AVATAR': 5242880},
+  'capabilities': {
+    'messaging': true,
+    'files': true,
+    'groups': true,
+    'audioCalls': true,
+    'videoCalls': true,
+  },
+  'uploadLimits': {
+    'AVATAR': 5 * 1024 * 1024,
+    'CHAT_IMAGE': 20 * 1024 * 1024,
+    'CHAT_VOICE': 10 * 1024 * 1024,
+    'CHAT_VIDEO': 100 * 1024 * 1024,
+    'CHAT_FILE': 100 * 1024 * 1024,
+  },
 };
 
 class InfoAdapter implements HttpClientAdapter {
@@ -55,6 +68,55 @@ ServerProbe probe({Object? body, void Function(RequestOptions)? inspect}) {
 }
 
 void main() {
+  test('server info refresh is stale-aware and handles clock rollback', () {
+    final now = DateTime.utc(2026, 9, 4, 12);
+    expect(shouldRefreshServerInfo(now: now), isTrue);
+    expect(
+      shouldRefreshServerInfo(
+        now: now,
+        lastAttempt: now.subtract(const Duration(minutes: 4)),
+      ),
+      isFalse,
+    );
+    expect(
+      shouldRefreshServerInfo(
+        now: now,
+        lastAttempt: now.subtract(const Duration(minutes: 5)),
+      ),
+      isTrue,
+    );
+    expect(
+      shouldRefreshServerInfo(
+        now: now,
+        lastAttempt: now.add(const Duration(minutes: 1)),
+      ),
+      isTrue,
+    );
+  });
+  test('messaging capability gates sending, files and call signaling', () {
+    const paused = ServerCapabilities(
+      messaging: false,
+      files: true,
+      groups: true,
+      audioCalls: true,
+      videoCalls: true,
+    );
+    expect(paused.canSendFiles, isFalse);
+    expect(paused.canAudioCall, isFalse);
+    expect(paused.canVideoCall, isFalse);
+
+    const limited = ServerCapabilities(
+      messaging: true,
+      files: false,
+      groups: true,
+      audioCalls: true,
+      videoCalls: false,
+    );
+    expect(limited.canSendFiles, isFalse);
+    expect(limited.canAudioCall, isTrue);
+    expect(limited.canVideoCall, isFalse);
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
     'real Dio transformation preserves bounded JSON text for validation',
@@ -105,7 +167,9 @@ void main() {
         expect(request.followRedirects, isFalse);
       },
     );
-    expect((await service.check('https://chat.example.com')).name, '测试服务器');
+    final checked = await service.check('https://chat.example.com');
+    expect(checked.name, '测试服务器');
+    expect(checked.uploadLimits.chatImage, 20 * 1024 * 1024);
     service.dispose();
   });
   test(
@@ -114,6 +178,18 @@ void main() {
       for (final body in [
         {...info, 'apiVersion': 2},
         {...info, 'product': 'other'},
+        {
+          ...info,
+          'capabilities': {'messaging': true},
+        },
+        {
+          ...info,
+          'uploadLimits': {'AVATAR': 1},
+        },
+        {
+          ...info,
+          'uploadLimits': {...(info['uploadLimits']! as Map), 'CHAT_FILE': -1},
+        },
         {'name': 'Chat'},
         'html',
       ]) {
@@ -179,6 +255,34 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     await ServerSettingsStore().save('https://a.example.com/api/v1');
     expect(await ServerSettingsStore().read(), 'https://a.example.com');
+  });
+  test('verified server metadata cache is isolated by server origin', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final store = ServerSettingsStore();
+    const cached = ServerInfo(
+      address: 'https://a.example.com',
+      name: 'A 服务器',
+      apiVersion: 1,
+      registrationEnabled: false,
+      capabilities: ServerCapabilities(
+        messaging: true,
+        files: false,
+        groups: true,
+        audioCalls: true,
+        videoCalls: false,
+      ),
+      uploadLimits: UploadLimits.defaults,
+    );
+    await store.saveInfo(cached);
+
+    final restored = await ServerSettingsStore().readInfo(
+      'https://a.example.com/api/v1',
+    );
+    expect(restored?.name, 'A 服务器');
+    expect(restored?.registrationEnabled, isFalse);
+    expect(restored?.capabilities.files, isFalse);
+    expect(restored?.capabilities.videoCalls, isFalse);
+    expect(await store.readInfo('https://b.example.com'), isNull);
   });
   testWidgets(
     'failed detection or failed save never reports successful switching',
@@ -250,10 +354,15 @@ void main() {
         await tester.ensureVisible(find.text('检测连接'));
         await tester.tap(find.text('检测连接'));
         await tester.pumpAndSettle();
-        expect(find.textContaining('检测成功：'), findsOneWidget);
+        expect(find.text('连接正常'), findsOneWidget);
+        expect(find.text('API v1 · 注册开放'), findsOneWidget);
+        expect(find.text('文字消息 · 支持'), findsOneWidget);
+        await tester.ensureVisible(find.text('上传大小上限'));
+        expect(find.text('聊天图片'), findsOneWidget);
+        expect(find.text('20.0 MB'), findsOneWidget);
         await tester.enterText(find.byType(TextField), 'https://b.example.com');
         await tester.pumpAndSettle();
-        expect(find.textContaining('检测成功：'), findsNothing);
+        expect(find.text('连接正常'), findsNothing);
         await tester.ensureVisible(find.text('检测连接'));
         await tester.tap(find.text('检测连接'));
         await tester.pumpAndSettle();

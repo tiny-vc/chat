@@ -32,6 +32,95 @@ class FakeAuthRepository implements AuthRepository {
 }
 
 void main() {
+  testWidgets('device kick reason is visible on the login page', (
+    tester,
+  ) async {
+    final controller = AuthController(repository: FakeAuthRepository());
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginPage(
+          controller: controller,
+          notice: '当前设备已被下线，请重新登录。',
+          onLoggedIn: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('当前设备已被下线，请重新登录。'), findsOneWidget);
+    expect(find.byIcon(Icons.info_outline), findsOneWidget);
+  });
+
+  testWidgets('login page identifies the selected business server', (
+    tester,
+  ) async {
+    final controller = AuthController(repository: FakeAuthRepository());
+    addTearDown(controller.dispose);
+    var opened = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginPage(
+          controller: controller,
+          serverAddress: 'https://chat.example.com',
+          onServerSettings: () => opened = true,
+          onLoggedIn: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('当前业务服务器'), findsOneWidget);
+    expect(find.text('https://chat.example.com'), findsOneWidget);
+    await tester.tap(find.text('当前业务服务器'));
+    expect(opened, isTrue);
+  });
+
+  testWidgets('closed server registration cannot enter registration mode', (
+    tester,
+  ) async {
+    final controller = AuthController(repository: FakeAuthRepository());
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginPage(
+          controller: controller,
+          registrationEnabled: false,
+          onLoggedIn: () {},
+        ),
+      ),
+    );
+
+    final button = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, '服务器暂未开放注册'),
+    );
+    expect(button.onPressed, isNull);
+    expect(find.text('创建账号'), findsNothing);
+  });
+
+  testWidgets('server metadata failure is visible and retryable', (
+    tester,
+  ) async {
+    final controller = AuthController(repository: FakeAuthRepository());
+    addTearDown(controller.dispose);
+    var retries = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginPage(
+          controller: controller,
+          serverAddress: 'https://chat.example.com',
+          serverMetadataState: ServerMetadataState.unavailable,
+          onRetryServerInfo: () => retries++,
+          onServerSettings: () {},
+          onLoggedIn: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('配置读取失败，仍可尝试登录'), findsOneWidget);
+    await tester.tap(find.byTooltip('重新读取服务器配置'));
+    expect(retries, 1);
+    expect(find.widgetWithText(FilledButton, '登 录'), findsOneWidget);
+  });
+
   test(
     'only one authentication request while pending, retry allowed afterwards',
     () async {

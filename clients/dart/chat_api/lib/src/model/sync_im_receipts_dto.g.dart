@@ -74,9 +74,9 @@ class _$SyncImReceiptsDtoChannelTypeEnumSerializer
 
 class _$SyncImReceiptsDto extends SyncImReceiptsDto {
   @override
-  final String channelId;
-  @override
   final SyncImReceiptsDtoChannelTypeEnum channelType;
+  @override
+  final String channelId;
   @override
   final BuiltList<ReceiptMessageDto> messages;
 
@@ -85,8 +85,8 @@ class _$SyncImReceiptsDto extends SyncImReceiptsDto {
       (SyncImReceiptsDtoBuilder()..update(updates))._build();
 
   _$SyncImReceiptsDto._(
-      {required this.channelId,
-      required this.channelType,
+      {required this.channelType,
+      required this.channelId,
       required this.messages})
       : super._();
   @override
@@ -101,16 +101,16 @@ class _$SyncImReceiptsDto extends SyncImReceiptsDto {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is SyncImReceiptsDto &&
-        channelId == other.channelId &&
         channelType == other.channelType &&
+        channelId == other.channelId &&
         messages == other.messages;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
-    _$hash = $jc(_$hash, channelId.hashCode);
     _$hash = $jc(_$hash, channelType.hashCode);
+    _$hash = $jc(_$hash, channelId.hashCode);
     _$hash = $jc(_$hash, messages.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -119,8 +119,8 @@ class _$SyncImReceiptsDto extends SyncImReceiptsDto {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'SyncImReceiptsDto')
-          ..add('channelId', channelId)
           ..add('channelType', channelType)
+          ..add('channelId', channelId)
           ..add('messages', messages))
         .toString();
   }
@@ -130,14 +130,14 @@ class SyncImReceiptsDtoBuilder
     implements Builder<SyncImReceiptsDto, SyncImReceiptsDtoBuilder> {
   _$SyncImReceiptsDto? _$v;
 
-  String? _channelId;
-  String? get channelId => _$this._channelId;
-  set channelId(String? channelId) => _$this._channelId = channelId;
-
   SyncImReceiptsDtoChannelTypeEnum? _channelType;
   SyncImReceiptsDtoChannelTypeEnum? get channelType => _$this._channelType;
   set channelType(SyncImReceiptsDtoChannelTypeEnum? channelType) =>
       _$this._channelType = channelType;
+
+  String? _channelId;
+  String? get channelId => _$this._channelId;
+  set channelId(String? channelId) => _$this._channelId = channelId;
 
   ListBuilder<ReceiptMessageDto>? _messages;
   ListBuilder<ReceiptMessageDto> get messages =>
@@ -152,8 +152,8 @@ class SyncImReceiptsDtoBuilder
   SyncImReceiptsDtoBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
-      _channelId = $v.channelId;
       _channelType = $v.channelType;
+      _channelId = $v.channelId;
       _messages = $v.messages.toBuilder();
       _$v = null;
     }
@@ -178,10 +178,10 @@ class SyncImReceiptsDtoBuilder
     try {
       _$result = _$v ??
           _$SyncImReceiptsDto._(
-            channelId: BuiltValueNullFieldError.checkNotNull(
-                channelId, r'SyncImReceiptsDto', 'channelId'),
             channelType: BuiltValueNullFieldError.checkNotNull(
                 channelType, r'SyncImReceiptsDto', 'channelType'),
+            channelId: BuiltValueNullFieldError.checkNotNull(
+                channelId, r'SyncImReceiptsDto', 'channelId'),
             messages: messages.build(),
           );
     } catch (_) {

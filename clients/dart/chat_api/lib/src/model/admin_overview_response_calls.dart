@@ -12,10 +12,14 @@ part 'admin_overview_response_calls.g.dart';
 ///
 /// Properties:
 /// * [active] 
+/// * [failed24h] 
 @BuiltValue()
 abstract class AdminOverviewResponseCalls implements Built<AdminOverviewResponseCalls, AdminOverviewResponseCallsBuilder> {
   @BuiltValueField(wireName: r'active')
   int get active;
+
+  @BuiltValueField(wireName: r'failed24h')
+  int get failed24h;
 
   AdminOverviewResponseCalls._();
 
@@ -43,6 +47,11 @@ class _$AdminOverviewResponseCallsSerializer implements PrimitiveSerializer<Admi
     yield r'active';
     yield serializers.serialize(
       object.active,
+      specifiedType: const FullType(int),
+    );
+    yield r'failed24h';
+    yield serializers.serialize(
+      object.failed24h,
       specifiedType: const FullType(int),
     );
   }
@@ -74,6 +83,13 @@ class _$AdminOverviewResponseCallsSerializer implements PrimitiveSerializer<Admi
             specifiedType: const FullType(int),
           ) as int;
           result.active = valueDes;
+          break;
+        case r'failed24h':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(int),
+          ) as int;
+          result.failed24h = valueDes;
           break;
         default:
           unhandled.add(key);

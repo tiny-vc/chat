@@ -22,6 +22,8 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
+import type { CallHistoryResponse } from '../models';
+// @ts-ignore
 import type { CallSessionResponse } from '../models';
 // @ts-ignore
 import type { CreateCallDto } from '../models';
@@ -259,10 +261,49 @@ export const CallsApiAxiosParamCreator = function (configuration?: Configuration
         },
         /**
          * 
+         * @param {string} callId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        callsList: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        callsGet: async (callId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'callId' is not null or undefined
+            assertParamExists('callsGet', 'callId', callId)
+            const localVarPath = `/api/v1/calls/{callId}`
+                .replace('{callId}', encodeURIComponent(String(callId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {string} [before] 
+         * @param {string} [beforeId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        callsList: async (before?: string, beforeId?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/calls`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -278,6 +319,14 @@ export const CallsApiAxiosParamCreator = function (configuration?: Configuration
             // authentication access-token required
             // http bearer authentication required
             await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (before !== undefined) {
+                localVarQueryParameter['before'] = before;
+            }
+
+            if (beforeId !== undefined) {
+                localVarQueryParameter['beforeId'] = beforeId;
+            }
 
             localVarHeaderParameter['Accept'] = 'application/json';
 
@@ -391,7 +440,7 @@ export const CallsApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async callsBusy(callId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async callsBusy(callId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CallSessionResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.callsBusy(callId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['CallsApi.callsBusy']?.[localVarOperationServerIndex]?.url;
@@ -447,11 +496,25 @@ export const CallsApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @param {string} callId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async callsList(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.callsList(options);
+        async callsGet(callId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CallSessionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.callsGet(callId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['CallsApi.callsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {string} [before] 
+         * @param {string} [beforeId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async callsList(before?: string, beforeId?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<CallHistoryResponse>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.callsList(before, beforeId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['CallsApi.callsList']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -462,7 +525,7 @@ export const CallsApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async callsMiss(callId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async callsMiss(callId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CallSessionResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.callsMiss(callId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['CallsApi.callsMiss']?.[localVarOperationServerIndex]?.url;
@@ -504,7 +567,7 @@ export const CallsApiFactory = function (configuration?: Configuration, basePath
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        callsBusy(requestParameters: CallsApiCallsBusyRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        callsBusy(requestParameters: CallsApiCallsBusyRequest, options?: RawAxiosRequestConfig): AxiosPromise<CallSessionResponse> {
             return localVarFp.callsBusy(requestParameters.callId, options).then((request) => request(axios, basePath));
         },
         /**
@@ -545,11 +608,21 @@ export const CallsApiFactory = function (configuration?: Configuration, basePath
         },
         /**
          * 
+         * @param {CallsApiCallsGetRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        callsList(options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
-            return localVarFp.callsList(options).then((request) => request(axios, basePath));
+        callsGet(requestParameters: CallsApiCallsGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<CallSessionResponse> {
+            return localVarFp.callsGet(requestParameters.callId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {CallsApiCallsListRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        callsList(requestParameters: CallsApiCallsListRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<Array<CallHistoryResponse>> {
+            return localVarFp.callsList(requestParameters.before, requestParameters.beforeId, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -557,7 +630,7 @@ export const CallsApiFactory = function (configuration?: Configuration, basePath
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        callsMiss(requestParameters: CallsApiCallsMissRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        callsMiss(requestParameters: CallsApiCallsMissRequest, options?: RawAxiosRequestConfig): AxiosPromise<CallSessionResponse> {
             return localVarFp.callsMiss(requestParameters.callId, options).then((request) => request(axios, basePath));
         },
         /**
@@ -612,6 +685,22 @@ export interface CallsApiCallsCreateTokenRequest {
  */
 export interface CallsApiCallsEndRequest {
     readonly callId: string
+}
+
+/**
+ * Request parameters for callsGet operation in CallsApi.
+ */
+export interface CallsApiCallsGetRequest {
+    readonly callId: string
+}
+
+/**
+ * Request parameters for callsList operation in CallsApi.
+ */
+export interface CallsApiCallsListRequest {
+    readonly before?: string
+
+    readonly beforeId?: string
 }
 
 /**
@@ -694,11 +783,22 @@ export class CallsApi extends BaseAPI {
 
     /**
      * 
+     * @param {CallsApiCallsGetRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public callsList(options?: RawAxiosRequestConfig) {
-        return CallsApiFp(this.configuration).callsList(options).then((request) => request(this.axios, this.basePath));
+    public callsGet(requestParameters: CallsApiCallsGetRequest, options?: RawAxiosRequestConfig) {
+        return CallsApiFp(this.configuration).callsGet(requestParameters.callId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {CallsApiCallsListRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public callsList(requestParameters: CallsApiCallsListRequest = {}, options?: RawAxiosRequestConfig) {
+        return CallsApiFp(this.configuration).callsList(requestParameters.before, requestParameters.beforeId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

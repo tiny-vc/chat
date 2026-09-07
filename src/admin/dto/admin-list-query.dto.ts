@@ -18,7 +18,12 @@ export class AdminListQueryDto {
   cursor?: string;
 
   @IsOptional()
-  @ApiPropertyOptional({ type: "integer", default: 30, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    type: "integer",
+    default: 30,
+    minimum: 1,
+    maximum: 100,
+  })
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -48,3 +53,5 @@ export class AdminGroupListQueryDto extends AdminListQueryDto {
 }
 
 export class AdminGroupMemberListQueryDto extends AdminListQueryDto {}
+
+export class AdminDeviceListQueryDto extends AdminListQueryDto {}

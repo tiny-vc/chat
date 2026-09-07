@@ -85,7 +85,29 @@ class _$FriendshipResponseStatusEnumSerializer
           _fromWire[serialized] ?? (serialized is String ? serialized : ''));
 }
 
-class _$FriendshipResponse extends FriendshipResponse {
+abstract mixin class FriendshipResponseBuilder {
+  void replace(FriendshipResponse other);
+  void update(void Function(FriendshipResponseBuilder) updates);
+  String? get id;
+  set id(String? id);
+
+  String? get requesterId;
+  set requesterId(String? requesterId);
+
+  String? get addresseeId;
+  set addresseeId(String? addresseeId);
+
+  FriendshipResponseStatusEnum? get status;
+  set status(FriendshipResponseStatusEnum? status);
+
+  DateTime? get createdAt;
+  set createdAt(DateTime? createdAt);
+
+  DateTime? get updatedAt;
+  set updatedAt(DateTime? updatedAt);
+}
+
+class _$$FriendshipResponse extends $FriendshipResponse {
   @override
   final String id;
   @override
@@ -99,11 +121,11 @@ class _$FriendshipResponse extends FriendshipResponse {
   @override
   final DateTime? updatedAt;
 
-  factory _$FriendshipResponse(
-          [void Function(FriendshipResponseBuilder)? updates]) =>
-      (FriendshipResponseBuilder()..update(updates))._build();
+  factory _$$FriendshipResponse(
+          [void Function($FriendshipResponseBuilder)? updates]) =>
+      ($FriendshipResponseBuilder()..update(updates))._build();
 
-  _$FriendshipResponse._(
+  _$$FriendshipResponse._(
       {required this.id,
       required this.requesterId,
       required this.addresseeId,
@@ -112,18 +134,18 @@ class _$FriendshipResponse extends FriendshipResponse {
       this.updatedAt})
       : super._();
   @override
-  FriendshipResponse rebuild(
-          void Function(FriendshipResponseBuilder) updates) =>
+  $FriendshipResponse rebuild(
+          void Function($FriendshipResponseBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  FriendshipResponseBuilder toBuilder() =>
-      FriendshipResponseBuilder()..replace(this);
+  $FriendshipResponseBuilder toBuilder() =>
+      $FriendshipResponseBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is FriendshipResponse &&
+    return other is $FriendshipResponse &&
         id == other.id &&
         requesterId == other.requesterId &&
         addresseeId == other.addresseeId &&
@@ -147,7 +169,7 @@ class _$FriendshipResponse extends FriendshipResponse {
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'FriendshipResponse')
+    return (newBuiltValueToStringHelper(r'$FriendshipResponse')
           ..add('id', id)
           ..add('requesterId', requesterId)
           ..add('addresseeId', addresseeId)
@@ -158,39 +180,44 @@ class _$FriendshipResponse extends FriendshipResponse {
   }
 }
 
-class FriendshipResponseBuilder
-    implements Builder<FriendshipResponse, FriendshipResponseBuilder> {
-  _$FriendshipResponse? _$v;
+class $FriendshipResponseBuilder
+    implements
+        Builder<$FriendshipResponse, $FriendshipResponseBuilder>,
+        FriendshipResponseBuilder {
+  _$$FriendshipResponse? _$v;
 
   String? _id;
   String? get id => _$this._id;
-  set id(String? id) => _$this._id = id;
+  set id(covariant String? id) => _$this._id = id;
 
   String? _requesterId;
   String? get requesterId => _$this._requesterId;
-  set requesterId(String? requesterId) => _$this._requesterId = requesterId;
+  set requesterId(covariant String? requesterId) =>
+      _$this._requesterId = requesterId;
 
   String? _addresseeId;
   String? get addresseeId => _$this._addresseeId;
-  set addresseeId(String? addresseeId) => _$this._addresseeId = addresseeId;
+  set addresseeId(covariant String? addresseeId) =>
+      _$this._addresseeId = addresseeId;
 
   FriendshipResponseStatusEnum? _status;
   FriendshipResponseStatusEnum? get status => _$this._status;
-  set status(FriendshipResponseStatusEnum? status) => _$this._status = status;
+  set status(covariant FriendshipResponseStatusEnum? status) =>
+      _$this._status = status;
 
   DateTime? _createdAt;
   DateTime? get createdAt => _$this._createdAt;
-  set createdAt(DateTime? createdAt) => _$this._createdAt = createdAt;
+  set createdAt(covariant DateTime? createdAt) => _$this._createdAt = createdAt;
 
   DateTime? _updatedAt;
   DateTime? get updatedAt => _$this._updatedAt;
-  set updatedAt(DateTime? updatedAt) => _$this._updatedAt = updatedAt;
+  set updatedAt(covariant DateTime? updatedAt) => _$this._updatedAt = updatedAt;
 
-  FriendshipResponseBuilder() {
-    FriendshipResponse._defaults(this);
+  $FriendshipResponseBuilder() {
+    $FriendshipResponse._defaults(this);
   }
 
-  FriendshipResponseBuilder get _$this {
+  $FriendshipResponseBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
       _id = $v.id;
@@ -205,29 +232,29 @@ class FriendshipResponseBuilder
   }
 
   @override
-  void replace(FriendshipResponse other) {
-    _$v = other as _$FriendshipResponse;
+  void replace(covariant $FriendshipResponse other) {
+    _$v = other as _$$FriendshipResponse;
   }
 
   @override
-  void update(void Function(FriendshipResponseBuilder)? updates) {
+  void update(void Function($FriendshipResponseBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  FriendshipResponse build() => _build();
+  $FriendshipResponse build() => _build();
 
-  _$FriendshipResponse _build() {
+  _$$FriendshipResponse _build() {
     final _$result = _$v ??
-        _$FriendshipResponse._(
+        _$$FriendshipResponse._(
           id: BuiltValueNullFieldError.checkNotNull(
-              id, r'FriendshipResponse', 'id'),
+              id, r'$FriendshipResponse', 'id'),
           requesterId: BuiltValueNullFieldError.checkNotNull(
-              requesterId, r'FriendshipResponse', 'requesterId'),
+              requesterId, r'$FriendshipResponse', 'requesterId'),
           addresseeId: BuiltValueNullFieldError.checkNotNull(
-              addresseeId, r'FriendshipResponse', 'addresseeId'),
+              addresseeId, r'$FriendshipResponse', 'addresseeId'),
           status: BuiltValueNullFieldError.checkNotNull(
-              status, r'FriendshipResponse', 'status'),
+              status, r'$FriendshipResponse', 'status'),
           createdAt: createdAt,
           updatedAt: updatedAt,
         );

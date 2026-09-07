@@ -18,8 +18,8 @@ part 'friendship_response.g.dart';
 /// * [status] 
 /// * [createdAt] 
 /// * [updatedAt] 
-@BuiltValue()
-abstract class FriendshipResponse implements Built<FriendshipResponse, FriendshipResponseBuilder> {
+@BuiltValue(instantiable: false)
+abstract class FriendshipResponse  {
   @BuiltValueField(wireName: r'id')
   String get id;
 
@@ -39,20 +39,13 @@ abstract class FriendshipResponse implements Built<FriendshipResponse, Friendshi
   @BuiltValueField(wireName: r'updatedAt')
   DateTime? get updatedAt;
 
-  FriendshipResponse._();
-
-  factory FriendshipResponse([void updates(FriendshipResponseBuilder b)]) = _$FriendshipResponse;
-
-  @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(FriendshipResponseBuilder b) => b;
-
   @BuiltValueSerializer(custom: true)
   static Serializer<FriendshipResponse> get serializer => _$FriendshipResponseSerializer();
 }
 
 class _$FriendshipResponseSerializer implements PrimitiveSerializer<FriendshipResponse> {
   @override
-  final Iterable<Type> types = const [FriendshipResponse, _$FriendshipResponse];
+  final Iterable<Type> types = const [FriendshipResponse];
 
   @override
   final String wireName = r'FriendshipResponse';
@@ -105,6 +98,46 @@ class _$FriendshipResponseSerializer implements PrimitiveSerializer<FriendshipRe
     FullType specifiedType = FullType.unspecified,
   }) {
     return _serializeProperties(serializers, object, specifiedType: specifiedType).toList();
+  }
+
+  @override
+  FriendshipResponse deserialize(
+    Serializers serializers,
+    Object serialized, {
+    FullType specifiedType = FullType.unspecified,
+  }) {
+    return serializers.deserialize(serialized, specifiedType: FullType($FriendshipResponse)) as $FriendshipResponse;
+  }
+}
+
+/// a concrete implementation of [FriendshipResponse], since [FriendshipResponse] is not instantiable
+@BuiltValue(instantiable: true)
+abstract class $FriendshipResponse implements FriendshipResponse, Built<$FriendshipResponse, $FriendshipResponseBuilder> {
+  $FriendshipResponse._();
+
+  factory $FriendshipResponse([void Function($FriendshipResponseBuilder)? updates]) = _$$FriendshipResponse;
+
+  @BuiltValueHook(initializeBuilder: true)
+  static void _defaults($FriendshipResponseBuilder b) => b;
+
+  @BuiltValueSerializer(custom: true)
+  static Serializer<$FriendshipResponse> get serializer => _$$FriendshipResponseSerializer();
+}
+
+class _$$FriendshipResponseSerializer implements PrimitiveSerializer<$FriendshipResponse> {
+  @override
+  final Iterable<Type> types = const [$FriendshipResponse, _$$FriendshipResponse];
+
+  @override
+  final String wireName = r'$FriendshipResponse';
+
+  @override
+  Object serialize(
+    Serializers serializers,
+    $FriendshipResponse object, {
+    FullType specifiedType = FullType.unspecified,
+  }) {
+    return serializers.serialize(object, specifiedType: FullType(FriendshipResponse))!;
   }
 
   void _deserializeProperties(
@@ -172,12 +205,12 @@ class _$FriendshipResponseSerializer implements PrimitiveSerializer<FriendshipRe
   }
 
   @override
-  FriendshipResponse deserialize(
+  $FriendshipResponse deserialize(
     Serializers serializers,
     Object serialized, {
     FullType specifiedType = FullType.unspecified,
   }) {
-    final result = FriendshipResponseBuilder();
+    final result = $FriendshipResponseBuilder();
     final serializedList = (serialized as Iterable<Object?>).toList();
     final unhandled = <Object?>[];
     _deserializeProperties(

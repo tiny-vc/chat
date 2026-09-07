@@ -55,10 +55,11 @@ class Harness {
               requestOptions: r,
               statusCode: 200,
               data: invalidList && r.method == 'GET'
-                  ? {}
+                  ? [{}]
                   : r.method == 'GET'
                   ? [
                       {
+                        'userId': 'user-1',
                         'channelId': 'alice',
                         'channelType': 1,
                         'archived': archived,
@@ -66,7 +67,16 @@ class Harness {
                         'muted': true,
                       },
                     ]
-                  : {},
+                  : r.method == 'PATCH'
+                  ? {
+                      'userId': 'user-1',
+                      'channelId': 'alice',
+                      'channelType': 1,
+                      'archived': archived,
+                      'pinned': true,
+                      'muted': true,
+                    }
+                  : {'success': true},
             ),
           );
         },
@@ -196,7 +206,7 @@ void main() {
     h.invalidList = true;
     await expectLater(
       h.im.refreshConversationSettings(),
-      throwsFormatException,
+      throwsA(isA<DioException>()),
     );
     expect(h.im.conversationsFor(archived: true), hasLength(1));
     h.invalidList = false;

@@ -36,10 +36,12 @@ class CallControls extends ChangeNotifier {
     if (!_disposed) _camera = enabled;
   });
 
-  Future<void> toggleSpeaker() => run(() async {
-    final next = !_speaker;
-    await setSpeaker(next);
-    if (!_disposed) _speaker = next;
+  Future<void> toggleSpeaker() => setSpeakerEnabled(!_speaker);
+
+  Future<void> setSpeakerEnabled(bool enabled) => run(() async {
+    if (_speaker == enabled) return;
+    await setSpeaker(enabled);
+    if (!_disposed) _speaker = enabled;
   });
 
   Future<void> run(Future<void> Function() operation) async {

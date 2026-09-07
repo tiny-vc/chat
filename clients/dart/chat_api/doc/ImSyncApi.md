@@ -17,7 +17,7 @@ Method | HTTP request | Description
 
 
 # **imSyncMarkRead**
-> BuiltMap<String, JsonObject> imSyncMarkRead(markImReadDto)
+> SuccessResponse imSyncMarkRead(markImReadDto)
 
 
 
@@ -44,7 +44,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**SuccessResponse**](SuccessResponse.md)
 
 ### Authorization
 
@@ -58,7 +58,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncReceipts**
-> BuiltMap<String, JsonObject> imSyncReceipts(syncImReceiptsDto)
+> BuiltList<MessageReceiptResponse> imSyncReceipts(syncImReceiptsDto)
 
 
 
@@ -85,7 +85,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**BuiltList&lt;MessageReceiptResponse&gt;**](MessageReceiptResponse.md)
 
 ### Authorization
 
@@ -99,7 +99,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncRevokeMessage**
-> BuiltMap<String, JsonObject> imSyncRevokeMessage(revokeImMessageDto)
+> SuccessResponse imSyncRevokeMessage(revokeImMessageDto)
 
 
 
@@ -126,7 +126,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**SuccessResponse**](SuccessResponse.md)
 
 ### Authorization
 
@@ -140,7 +140,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncSyncConversations**
-> BuiltMap<String, JsonObject> imSyncSyncConversations(syncImConversationsDto)
+> BuiltList<ImSyncConversationResponse> imSyncSyncConversations(syncImConversationsDto)
 
 
 
@@ -167,7 +167,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**BuiltList&lt;ImSyncConversationResponse&gt;**](ImSyncConversationResponse.md)
 
 ### Authorization
 
@@ -181,7 +181,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncSyncMessages**
-> BuiltMap<String, JsonObject> imSyncSyncMessages(syncImChannelMessagesDto)
+> ImSyncMessagesResponse imSyncSyncMessages(syncImChannelMessagesDto)
 
 
 
@@ -208,7 +208,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**ImSyncMessagesResponse**](ImSyncMessagesResponse.md)
 
 ### Authorization
 

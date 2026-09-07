@@ -15,8 +15,8 @@
 
 
 export interface MarkImReadDto {
-    'channelId': string;
     'channelType': MarkImReadDtoChannelTypeEnum;
+    'channelId': string;
     'messageSeq': number;
 }
 

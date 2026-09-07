@@ -96,7 +96,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **friendsListRequests**
-> BuiltList<FriendshipResponse> friendsListRequests()
+> BuiltList<FriendRequestResponse> friendsListRequests()
 
 
 
@@ -119,7 +119,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**BuiltList&lt;FriendshipResponse&gt;**](FriendshipResponse.md)
+[**BuiltList&lt;FriendRequestResponse&gt;**](FriendRequestResponse.md)
 
 ### Authorization
 

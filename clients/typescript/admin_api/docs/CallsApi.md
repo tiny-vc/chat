@@ -10,6 +10,7 @@ All URIs are relative to *http://localhost:3000*
 |[**callsCreate**](#callscreate) | **POST** /api/v1/calls | |
 |[**callsCreateToken**](#callscreatetoken) | **POST** /api/v1/calls/{callId}/token | |
 |[**callsEnd**](#callsend) | **POST** /api/v1/calls/{callId}/end | |
+|[**callsGet**](#callsget) | **GET** /api/v1/calls/{callId} | |
 |[**callsList**](#callslist) | **GET** /api/v1/calls | |
 |[**callsMiss**](#callsmiss) | **POST** /api/v1/calls/{callId}/miss | |
 |[**callsReject**](#callsreject) | **POST** /api/v1/calls/{callId}/reject | |
@@ -69,7 +70,7 @@ const { status, data } = await apiInstance.callsAccept(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **callsBusy**
-> { [key: string]: any; } callsBusy()
+> CallSessionResponse callsBusy()
 
 
 ### Example
@@ -99,7 +100,7 @@ const { status, data } = await apiInstance.callsBusy(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**CallSessionResponse**
 
 ### Authorization
 
@@ -114,7 +115,7 @@ const { status, data } = await apiInstance.callsBusy(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -339,8 +340,8 @@ const { status, data } = await apiInstance.callsEnd(
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **callsList**
-> { [key: string]: any; } callsList()
+# **callsGet**
+> CallSessionResponse callsGet()
 
 
 ### Example
@@ -354,16 +355,23 @@ import {
 const configuration = new Configuration();
 const apiInstance = new CallsApi(configuration);
 
-const { status, data } = await apiInstance.callsList();
+let callId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.callsGet(
+    callId
+);
 ```
 
 ### Parameters
-This endpoint does not have any parameters.
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **callId** | [**string**] |  | defaults to undefined|
 
 
 ### Return type
 
-**{ [key: string]: any; }**
+**CallSessionResponse**
 
 ### Authorization
 
@@ -378,7 +386,64 @@ This endpoint does not have any parameters.
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** |  |  -  |
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **callsList**
+> Array<CallHistoryResponse> callsList()
+
+
+### Example
+
+```typescript
+import {
+    CallsApi,
+    Configuration
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new CallsApi(configuration);
+
+let before: string; // (optional) (default to undefined)
+let beforeId: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.callsList(
+    before,
+    beforeId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **before** | [**string**] |  | (optional) defaults to undefined|
+| **beforeId** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**Array<CallHistoryResponse>**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -387,7 +452,7 @@ This endpoint does not have any parameters.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **callsMiss**
-> { [key: string]: any; } callsMiss()
+> CallSessionResponse callsMiss()
 
 
 ### Example
@@ -417,7 +482,7 @@ const { status, data } = await apiInstance.callsMiss(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**CallSessionResponse**
 
 ### Authorization
 
@@ -432,7 +497,7 @@ const { status, data } = await apiInstance.callsMiss(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |

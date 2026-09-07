@@ -7,7 +7,20 @@ part of 'serializers.dart';
 // **************************************************************************
 
 Serializers _$serializers = (Serializers().toBuilder()
+      ..add($CallSessionResponse.serializer)
+      ..add($FriendshipResponse.serializer)
       ..add(AddGroupMembersDto.serializer)
+      ..add(AdminCallPageResponse.serializer)
+      ..add(AdminCallResponse.serializer)
+      ..add(AdminCallResponseStatusEnum.serializer)
+      ..add(AdminCallResponseTypeEnum.serializer)
+      ..add(AdminDeviceSessionPageResponse.serializer)
+      ..add(AdminDeviceSessionResponse.serializer)
+      ..add(AdminDeviceSessionResponseDeviceTypeEnum.serializer)
+      ..add(AdminFilePageResponse.serializer)
+      ..add(AdminFileResponse.serializer)
+      ..add(AdminFileResponseScopeEnum.serializer)
+      ..add(AdminFileResponseStatusEnum.serializer)
       ..add(AdminGroupMemberPageResponse.serializer)
       ..add(AdminGroupMemberResponse.serializer)
       ..add(AdminGroupMemberResponseRoleEnum.serializer)
@@ -21,6 +34,9 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(AdminOverviewResponseGroups.serializer)
       ..add(AdminOverviewResponseModeration.serializer)
       ..add(AdminOverviewResponseUsers.serializer)
+      ..add(AdminReportPageResponse.serializer)
+      ..add(AdminReportResponse.serializer)
+      ..add(AdminReportResponseStatusEnum.serializer)
       ..add(AdminUserPageResponse.serializer)
       ..add(AdminUserResponse.serializer)
       ..add(AdminUserResponseRoleEnum.serializer)
@@ -28,12 +44,12 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(AuditLogPageResponse.serializer)
       ..add(AuditLogResponse.serializer)
       ..add(AuthSessionResponse.serializer)
-      ..add(CallSessionResponse.serializer)
+      ..add(BlockedUserResponse.serializer)
+      ..add(CallHistoryResponse.serializer)
       ..add(CallSessionResponseStatusEnum.serializer)
       ..add(CallSessionResponseTypeEnum.serializer)
       ..add(ChangePasswordDto.serializer)
       ..add(ConversationSettingResponse.serializer)
-      ..add(ConversationSettingResponseChannelTypeEnum.serializer)
       ..add(CountResponse.serializer)
       ..add(CreateCallDto.serializer)
       ..add(CreateCallDtoTypeEnum.serializer)
@@ -43,6 +59,8 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(CreateUploadDtoPurposeEnum.serializer)
       ..add(CreateUploadDtoScopeEnum.serializer)
       ..add(DeactivateAccountDto.serializer)
+      ..add(DecideReportDto.serializer)
+      ..add(DecideReportDtoStatusEnum.serializer)
       ..add(DeviceSessionResponse.serializer)
       ..add(DeviceSessionResponseDeviceTypeEnum.serializer)
       ..add(ErrorResponse.serializer)
@@ -51,8 +69,8 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(FileUsageResponse.serializer)
       ..add(ForwardFileDto.serializer)
       ..add(ForwardFileDtoScopeEnum.serializer)
+      ..add(FriendRequestResponse.serializer)
       ..add(FriendResponse.serializer)
-      ..add(FriendshipResponse.serializer)
       ..add(FriendshipResponseStatusEnum.serializer)
       ..add(GroupJoinMessageDto.serializer)
       ..add(GroupJoinRequestResponse.serializer)
@@ -64,6 +82,9 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(GroupResponse.serializer)
       ..add(GroupResponseStatusEnum.serializer)
       ..add(ImConnectionResponse.serializer)
+      ..add(ImSyncConversationResponse.serializer)
+      ..add(ImSyncMessageResponse.serializer)
+      ..add(ImSyncMessagesResponse.serializer)
       ..add(InviteGroupMemberDto.serializer)
       ..add(JobRunPageResponse.serializer)
       ..add(JobRunResponse.serializer)
@@ -73,6 +94,9 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(LoginDtoDeviceTypeEnum.serializer)
       ..add(MarkImReadDto.serializer)
       ..add(MarkImReadDtoChannelTypeEnum.serializer)
+      ..add(MessageReceiptResponse.serializer)
+      ..add(MessagingPolicySyncDto.serializer)
+      ..add(MessagingPolicySyncDtoStatusEnum.serializer)
       ..add(MuteMemberDto.serializer)
       ..add(ReceiptMessageDto.serializer)
       ..add(RefreshTokenDto.serializer)
@@ -82,12 +106,20 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(ReportUserDtoReasonEnum.serializer)
       ..add(RevokeImMessageDto.serializer)
       ..add(RevokeImMessageDtoChannelTypeEnum.serializer)
+      ..add(RuntimeCapabilitiesDto.serializer)
+      ..add(RuntimeSettingsResponseDto.serializer)
+      ..add(ServerInfoGetInfo200Response.serializer)
+      ..add(ServerInfoGetInfo200ResponseApiVersionEnum.serializer)
+      ..add(ServerInfoGetInfo200ResponseCapabilities.serializer)
+      ..add(ServerInfoGetInfo200ResponseProductEnum.serializer)
       ..add(SetAvatarDto.serializer)
       ..add(SetGroupAvatarDto.serializer)
       ..add(SetGroupPolicyDto.serializer)
       ..add(SetMemberRoleDto.serializer)
       ..add(SetMemberRoleDtoRoleEnum.serializer)
       ..add(SetThumbnailDto.serializer)
+      ..add(SetUserRoleDto.serializer)
+      ..add(SetUserRoleDtoRoleEnum.serializer)
       ..add(StoredFileResponse.serializer)
       ..add(StoredFileResponseScopeEnum.serializer)
       ..add(StoredFileResponseStatusEnum.serializer)
@@ -103,7 +135,18 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(UpdateConversationSettingDtoChannelTypeEnum.serializer)
       ..add(UpdateGroupDto.serializer)
       ..add(UpdateProfileDto.serializer)
+      ..add(UpdateRuntimeSettingsDto.serializer)
       ..add(UserResponse.serializer)
+      ..addBuilderFactory(
+          const FullType(BuiltList, const [const FullType(AdminCallResponse)]),
+          () => ListBuilder<AdminCallResponse>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(AdminDeviceSessionResponse)]),
+          () => ListBuilder<AdminDeviceSessionResponse>())
+      ..addBuilderFactory(
+          const FullType(BuiltList, const [const FullType(AdminFileResponse)]),
+          () => ListBuilder<AdminFileResponse>())
       ..addBuilderFactory(
           const FullType(
               BuiltList, const [const FullType(AdminGroupMemberResponse)]),
@@ -111,6 +154,10 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..addBuilderFactory(
           const FullType(BuiltList, const [const FullType(AdminGroupResponse)]),
           () => ListBuilder<AdminGroupResponse>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(AdminReportResponse)]),
+          () => ListBuilder<AdminReportResponse>())
       ..addBuilderFactory(
           const FullType(BuiltList, const [const FullType(AdminUserResponse)]),
           () => ListBuilder<AdminUserResponse>())
@@ -134,6 +181,14 @@ Serializers _$serializers = (Serializers().toBuilder()
               BuiltList, const [const FullType(GroupMemberResponse)]),
           () => ListBuilder<GroupMemberResponse>())
       ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(ImSyncMessageResponse)]),
+          () => ListBuilder<ImSyncMessageResponse>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(ImSyncMessageResponse)]),
+          () => ListBuilder<ImSyncMessageResponse>())
+      ..addBuilderFactory(
           const FullType(BuiltList, const [const FullType(JobRunResponse)]),
           () => ListBuilder<JobRunResponse>())
       ..addBuilderFactory(
@@ -143,6 +198,28 @@ Serializers _$serializers = (Serializers().toBuilder()
           const FullType(
               BuiltMap, const [const FullType(String), const FullType(String)]),
           () => MapBuilder<String, String>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltMap, const [const FullType(String), const FullType(int)]),
+          () => MapBuilder<String, int>())
+      ..addBuilderFactory(
+          const FullType(BuiltMap, const [
+            const FullType(String),
+            const FullType.nullable(JsonObject)
+          ]),
+          () => MapBuilder<String, JsonObject?>())
+      ..addBuilderFactory(
+          const FullType(BuiltMap, const [
+            const FullType(String),
+            const FullType.nullable(JsonObject)
+          ]),
+          () => MapBuilder<String, JsonObject?>())
+      ..addBuilderFactory(
+          const FullType(BuiltMap, const [
+            const FullType(String),
+            const FullType.nullable(JsonObject)
+          ]),
+          () => MapBuilder<String, JsonObject?>())
       ..addBuilderFactory(
           const FullType(BuiltMap, const [
             const FullType(String),
@@ -171,6 +248,24 @@ Serializers _$serializers = (Serializers().toBuilder()
           const FullType(
               BuiltMap, const [const FullType(String), const FullType(int)]),
           () => MapBuilder<String, int>())
+      ..addBuilderFactory(
+          const FullType(BuiltMap, const [
+            const FullType(String),
+            const FullType.nullable(JsonObject)
+          ]),
+          () => MapBuilder<String, JsonObject?>())
+      ..addBuilderFactory(
+          const FullType(BuiltMap, const [
+            const FullType(String),
+            const FullType.nullable(JsonObject)
+          ]),
+          () => MapBuilder<String, JsonObject?>())
+      ..addBuilderFactory(
+          const FullType(BuiltMap, const [
+            const FullType(String),
+            const FullType.nullable(JsonObject)
+          ]),
+          () => MapBuilder<String, JsonObject?>())
       ..addBuilderFactory(
           const FullType(BuiltMap, const [
             const FullType(String),

@@ -36,3 +36,9 @@ CallPageState 增加仅供测试的只读远端音频统计接口，按对方用
 最新证据将当轮问题缩小到 A 本地发送计数为 0，而不是只在接收端丢失统计。双模拟器共享宿主音频设备、原生采集/音频会话及 SDK 行为都需要进一步区分；本轮未修改媒体连接逻辑、系统音频设备或 macOS 权限，也没有证据认定服务器故障。
 
 下一步优先在两个独立音频设备上运行同一收发诊断（至少一端真机作对照），再验证远端静音、恢复发送、双向听感及输出路由。视频需有实际摄像头的设备；当前两台模拟器均枚举为 0。
+
+### 2026-09-04 真机对照尝试
+
+- 为无线真机测试补充了显式 `TEST_ALLOW_LAN=true` 安全开关；即使开启也只接受 loopback 或 RFC1918 私网地址，避免专用测试凭据误发到公网。增加标准 `test_driver/integration_test.dart`，因为当前 Flutter 的 `flutter test` 未暴露无线 iOS 所需的 mDNS publish-port 参数，`flutter drive` 会自动处理。
+- 本地服务曾临时切到 `192.168.1.88`，API、WuKongIM、LiveKit 和对象存储地址统一由服务器返回。iPhone 在编译安装前被 Xcode 签名阻止：开发者账号登录返回底层错误 `-1200`，且 `com.chatapp.flutterChat` 没有匹配的 iOS Development Provisioning Profile。因此本轮没有运行到 App、权限或 RTP 阶段，不能计为媒体失败或通过。
+- 测试后已恢复 localhost Compose 拓扑。过程中发现既有容器曾通过热更新承载新代码、默认 `chat-api:latest` 镜像未固化运行能力接口；已从当前源码成功构建 `chat-api:runtime-local` 并更新本地 `chat-api:latest`，重建后 `server-info.capabilities` 完整，运行配置烟雾测试通过。

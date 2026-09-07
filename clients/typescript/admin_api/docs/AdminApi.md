@@ -5,18 +5,26 @@ All URIs are relative to *http://localhost:3000*
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
 |[**adminActivateUser**](#adminactivateuser) | **PATCH** /api/v1/admin/users/{userId}/activate | |
+|[**adminDecideReport**](#admindecidereport) | **PATCH** /api/v1/admin/reports/{reportId}/decision | |
 |[**adminGetGroup**](#admingetgroup) | **GET** /api/v1/admin/groups/{groupId} | |
+|[**adminGetRuntimeSettings**](#admingetruntimesettings) | **GET** /api/v1/admin/runtime-settings | |
 |[**adminGetUser**](#admingetuser) | **GET** /api/v1/admin/users/{userId} | |
 |[**adminListAuditLogs**](#adminlistauditlogs) | **GET** /api/v1/admin/audit-logs | |
+|[**adminListCalls**](#adminlistcalls) | **GET** /api/v1/admin/calls | |
+|[**adminListFiles**](#adminlistfiles) | **GET** /api/v1/admin/files | |
 |[**adminListGroupMembers**](#adminlistgroupmembers) | **GET** /api/v1/admin/groups/{groupId}/members | |
 |[**adminListGroups**](#adminlistgroups) | **GET** /api/v1/admin/groups | |
 |[**adminListJobRuns**](#adminlistjobruns) | **GET** /api/v1/admin/jobs/runs | |
+|[**adminListReports**](#adminlistreports) | **GET** /api/v1/admin/reports | |
+|[**adminListUserDevices**](#adminlistuserdevices) | **GET** /api/v1/admin/users/{userId}/devices | |
 |[**adminListUsers**](#adminlistusers) | **GET** /api/v1/admin/users | |
 |[**adminOverview**](#adminoverview) | **GET** /api/v1/admin/overview | |
 |[**adminRevokeUserDevice**](#adminrevokeuserdevice) | **DELETE** /api/v1/admin/users/{userId}/devices/{sessionId} | |
 |[**adminRunCleanup**](#adminruncleanup) | **POST** /api/v1/admin/jobs/cleanup/run | |
 |[**adminSetGroupPolicy**](#adminsetgrouppolicy) | **PATCH** /api/v1/admin/groups/{groupId}/policy | |
+|[**adminSetUserRole**](#adminsetuserrole) | **PATCH** /api/v1/admin/users/{userId}/role | |
 |[**adminSuspendUser**](#adminsuspenduser) | **PATCH** /api/v1/admin/users/{userId}/suspend | |
+|[**adminUpdateRuntimeSettings**](#adminupdateruntimesettings) | **PATCH** /api/v1/admin/runtime-settings | |
 
 # **adminActivateUser**
 > AdminUserResponse adminActivateUser()
@@ -58,6 +66,64 @@ const { status, data } = await apiInstance.adminActivateUser(
 ### HTTP request headers
 
  - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminDecideReport**
+> AdminReportResponse adminDecideReport(decideReportDto)
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration,
+    DecideReportDto
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let reportId: string; // (default to undefined)
+let decideReportDto: DecideReportDto; //
+
+const { status, data } = await apiInstance.adminDecideReport(
+    reportId,
+    decideReportDto
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **decideReportDto** | **DecideReportDto**|  | |
+| **reportId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**AdminReportResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 
@@ -119,6 +185,53 @@ const { status, data } = await apiInstance.adminGetGroup(
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminGetRuntimeSettings**
+> RuntimeSettingsResponseDto adminGetRuntimeSettings()
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+const { status, data } = await apiInstance.adminGetRuntimeSettings();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**RuntimeSettingsResponseDto**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** |  |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -233,6 +346,150 @@ const { status, data } = await apiInstance.adminListAuditLogs(
 ### Return type
 
 **AuditLogPageResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminListCalls**
+> AdminCallPageResponse adminListCalls()
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let limit: number; // (optional) (default to 50)
+let cursor: string; // (optional) (default to undefined)
+let type: 'AUDIO' | 'VIDEO'; // (optional) (default to undefined)
+let status: 'REJECTED' | 'FAILED' | 'ACCEPTED' | 'INVITING' | 'RINGING' | 'CONNECTED' | 'CANCELLED' | 'MISSED' | 'ENDED'; // (optional) (default to undefined)
+let participant: string; // (optional) (default to undefined)
+let from: string; // (optional) (default to undefined)
+let to: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.adminListCalls(
+    limit,
+    cursor,
+    type,
+    status,
+    participant,
+    from,
+    to
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **limit** | [**number**] |  | (optional) defaults to 50|
+| **cursor** | [**string**] |  | (optional) defaults to undefined|
+| **type** | [**&#39;AUDIO&#39; | &#39;VIDEO&#39;**]**Array<&#39;AUDIO&#39; &#124; &#39;VIDEO&#39;>** |  | (optional) defaults to undefined|
+| **status** | [**&#39;REJECTED&#39; | &#39;FAILED&#39; | &#39;ACCEPTED&#39; | &#39;INVITING&#39; | &#39;RINGING&#39; | &#39;CONNECTED&#39; | &#39;CANCELLED&#39; | &#39;MISSED&#39; | &#39;ENDED&#39;**]**Array<&#39;REJECTED&#39; &#124; &#39;FAILED&#39; &#124; &#39;ACCEPTED&#39; &#124; &#39;INVITING&#39; &#124; &#39;RINGING&#39; &#124; &#39;CONNECTED&#39; &#124; &#39;CANCELLED&#39; &#124; &#39;MISSED&#39; &#124; &#39;ENDED&#39;>** |  | (optional) defaults to undefined|
+| **participant** | [**string**] |  | (optional) defaults to undefined|
+| **from** | [**string**] |  | (optional) defaults to undefined|
+| **to** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**AdminCallPageResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminListFiles**
+> AdminFilePageResponse adminListFiles()
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let limit: number; // (optional) (default to 50)
+let cursor: string; // (optional) (default to undefined)
+let status: 'PENDING' | 'UPLOADED' | 'READY' | 'REJECTED' | 'DELETED'; // (optional) (default to undefined)
+let scope: 'PRIVATE' | 'DIRECT' | 'GROUP'; // (optional) (default to undefined)
+let search: string; // (optional) (default to undefined)
+let from: string; // (optional) (default to undefined)
+let to: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.adminListFiles(
+    limit,
+    cursor,
+    status,
+    scope,
+    search,
+    from,
+    to
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **limit** | [**number**] |  | (optional) defaults to 50|
+| **cursor** | [**string**] |  | (optional) defaults to undefined|
+| **status** | [**&#39;PENDING&#39; | &#39;UPLOADED&#39; | &#39;READY&#39; | &#39;REJECTED&#39; | &#39;DELETED&#39;**]**Array<&#39;PENDING&#39; &#124; &#39;UPLOADED&#39; &#124; &#39;READY&#39; &#124; &#39;REJECTED&#39; &#124; &#39;DELETED&#39;>** |  | (optional) defaults to undefined|
+| **scope** | [**&#39;PRIVATE&#39; | &#39;DIRECT&#39; | &#39;GROUP&#39;**]**Array<&#39;PRIVATE&#39; &#124; &#39;DIRECT&#39; &#124; &#39;GROUP&#39;>** |  | (optional) defaults to undefined|
+| **search** | [**string**] |  | (optional) defaults to undefined|
+| **from** | [**string**] |  | (optional) defaults to undefined|
+| **to** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**AdminFilePageResponse**
 
 ### Authorization
 
@@ -419,6 +676,138 @@ const { status, data } = await apiInstance.adminListJobRuns(
 ### Return type
 
 **JobRunPageResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminListReports**
+> AdminReportPageResponse adminListReports()
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let limit: number; // (optional) (default to 50)
+let cursor: string; // (optional) (default to undefined)
+let status: 'PENDING' | 'RESOLVED' | 'DISMISSED'; // (optional) (default to undefined)
+let search: string; // (optional) (default to undefined)
+let from: string; // (optional) (default to undefined)
+let to: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.adminListReports(
+    limit,
+    cursor,
+    status,
+    search,
+    from,
+    to
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **limit** | [**number**] |  | (optional) defaults to 50|
+| **cursor** | [**string**] |  | (optional) defaults to undefined|
+| **status** | [**&#39;PENDING&#39; | &#39;RESOLVED&#39; | &#39;DISMISSED&#39;**]**Array<&#39;PENDING&#39; &#124; &#39;RESOLVED&#39; &#124; &#39;DISMISSED&#39;>** |  | (optional) defaults to undefined|
+| **search** | [**string**] |  | (optional) defaults to undefined|
+| **from** | [**string**] |  | (optional) defaults to undefined|
+| **to** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**AdminReportPageResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminListUserDevices**
+> AdminDeviceSessionPageResponse adminListUserDevices()
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let userId: string; // (default to undefined)
+let limit: number; // (optional) (default to 30)
+let cursor: string; // (optional) (default to undefined)
+let search: string; // (optional) (default to undefined)
+
+const { status, data } = await apiInstance.adminListUserDevices(
+    userId,
+    limit,
+    cursor,
+    search
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **userId** | [**string**] |  | defaults to undefined|
+| **limit** | [**number**] |  | (optional) defaults to 30|
+| **cursor** | [**string**] |  | (optional) defaults to undefined|
+| **search** | [**string**] |  | (optional) defaults to undefined|
+
+
+### Return type
+
+**AdminDeviceSessionPageResponse**
 
 ### Authorization
 
@@ -716,6 +1105,64 @@ const { status, data } = await apiInstance.adminSetGroupPolicy(
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **adminSetUserRole**
+> AdminUserResponse adminSetUserRole(setUserRoleDto)
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration,
+    SetUserRoleDto
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let userId: string; // (default to undefined)
+let setUserRoleDto: SetUserRoleDto; //
+
+const { status, data } = await apiInstance.adminSetUserRole(
+    userId,
+    setUserRoleDto
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **setUserRoleDto** | **SetUserRoleDto**|  | |
+| **userId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**AdminUserResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **adminSuspendUser**
 > AdminUserResponse adminSuspendUser()
 
@@ -763,6 +1210,61 @@ const { status, data } = await apiInstance.adminSuspendUser(
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminUpdateRuntimeSettings**
+> RuntimeSettingsResponseDto adminUpdateRuntimeSettings(updateRuntimeSettingsDto)
+
+
+### Example
+
+```typescript
+import {
+    AdminApi,
+    Configuration,
+    UpdateRuntimeSettingsDto
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new AdminApi(configuration);
+
+let updateRuntimeSettingsDto: UpdateRuntimeSettingsDto; //
+
+const { status, data } = await apiInstance.adminUpdateRuntimeSettings(
+    updateRuntimeSettingsDto
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **updateRuntimeSettingsDto** | **UpdateRuntimeSettingsDto**|  | |
+
+
+### Return type
+
+**RuntimeSettingsResponseDto**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** |  |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |

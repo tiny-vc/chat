@@ -16,7 +16,8 @@
 
 1. 为信令准备 `livekit.example.com` 和可信 CA 证书，由 HTTPS/WSS 反向代理终止 TLS。
 2. 为 TURN 准备独立的 `turn.example.com` 和匹配的可信 CA 证书。
-3. 复制 `deploy/livekit/livekit.production.example.yaml` 为 `livekit.production.yaml`，填写强随机 API key/secret、域名和证书路径，并将文件权限设为 600。
+3. 复制 `deploy/livekit/livekit.production.example.yaml` 为 `livekit.production.yaml`，填写强随机 API key/secret、域名和证书路径，并将文件权限设为 600。单公网 IP 上 Nginx 已占用 TCP 443，因此示例让 TURN/TLS 使用 TCP 5349；只有独立公网 IP 或四层负载均衡才能让它也监听 TCP 443。
+   同时把 `webhook.urls` 改为业务 API 的公网 HTTPS 地址；`webhook.api_key` 必须与 `keys` 中配置的 key 一致。
 4. 将证书放入 `deploy/livekit/certs/`。私钥和实际配置已被该目录的 `.gitignore` 排除。
 5. 执行 `npm run verify:livekit-production`。静态校验通过后，再使用生产 compose 示例启动。
 
@@ -24,11 +25,11 @@ Linux 单机模板使用 host networking。防火墙至少允许：
 
 - TCP 7881：WebRTC over TCP；
 - UDP 50000-50100：RTC 媒体端口范围；
-- TCP 443：TURN/TLS；
+- TCP 5349：单公网 IP 部署的 TURN/TLS；
 - UDP 443：TURN/UDP；
-- WSS/HTTPS 信令域名经反向代理暴露 443。
+- TCP 443：WSS/HTTPS 信令域名经反向代理暴露。
 
-如果前方使用四层负载均衡，可把 TURN TLS 监听/广告端口按拓扑调整为 5349；不要在 TURN 前使用普通七层 HTTP 代理。多节点部署还应加入 Redis，并让每个媒体节点正确广告自己的公网 IP。
+如果 TURN 有独立公网 IP或前方使用四层负载均衡，可以按拓扑把 TURN/TLS 调整为 443；不要在 TURN 前使用普通七层 HTTP 代理。多节点部署还应加入 Redis，并让每个媒体节点正确广告自己的公网 IP。
 
 ## 校验命令
 
@@ -40,4 +41,3 @@ docker compose -f deploy/livekit/docker-compose.production.example.yml up -d
 ```
 
 静态校验不会验证 DNS、证书链、公网 NAT 或防火墙。上线前仍需从受限网络的真机完成 TURN/TLS 连通性测试。
-

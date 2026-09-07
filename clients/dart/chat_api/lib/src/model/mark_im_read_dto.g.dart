@@ -73,9 +73,9 @@ class _$MarkImReadDtoChannelTypeEnumSerializer
 
 class _$MarkImReadDto extends MarkImReadDto {
   @override
-  final String channelId;
-  @override
   final MarkImReadDtoChannelTypeEnum channelType;
+  @override
+  final String channelId;
   @override
   final num messageSeq;
 
@@ -83,8 +83,8 @@ class _$MarkImReadDto extends MarkImReadDto {
       (MarkImReadDtoBuilder()..update(updates))._build();
 
   _$MarkImReadDto._(
-      {required this.channelId,
-      required this.channelType,
+      {required this.channelType,
+      required this.channelId,
       required this.messageSeq})
       : super._();
   @override
@@ -98,16 +98,16 @@ class _$MarkImReadDto extends MarkImReadDto {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is MarkImReadDto &&
-        channelId == other.channelId &&
         channelType == other.channelType &&
+        channelId == other.channelId &&
         messageSeq == other.messageSeq;
   }
 
   @override
   int get hashCode {
     var _$hash = 0;
-    _$hash = $jc(_$hash, channelId.hashCode);
     _$hash = $jc(_$hash, channelType.hashCode);
+    _$hash = $jc(_$hash, channelId.hashCode);
     _$hash = $jc(_$hash, messageSeq.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -116,8 +116,8 @@ class _$MarkImReadDto extends MarkImReadDto {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'MarkImReadDto')
-          ..add('channelId', channelId)
           ..add('channelType', channelType)
+          ..add('channelId', channelId)
           ..add('messageSeq', messageSeq))
         .toString();
   }
@@ -127,14 +127,14 @@ class MarkImReadDtoBuilder
     implements Builder<MarkImReadDto, MarkImReadDtoBuilder> {
   _$MarkImReadDto? _$v;
 
-  String? _channelId;
-  String? get channelId => _$this._channelId;
-  set channelId(String? channelId) => _$this._channelId = channelId;
-
   MarkImReadDtoChannelTypeEnum? _channelType;
   MarkImReadDtoChannelTypeEnum? get channelType => _$this._channelType;
   set channelType(MarkImReadDtoChannelTypeEnum? channelType) =>
       _$this._channelType = channelType;
+
+  String? _channelId;
+  String? get channelId => _$this._channelId;
+  set channelId(String? channelId) => _$this._channelId = channelId;
 
   num? _messageSeq;
   num? get messageSeq => _$this._messageSeq;
@@ -147,8 +147,8 @@ class MarkImReadDtoBuilder
   MarkImReadDtoBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
-      _channelId = $v.channelId;
       _channelType = $v.channelType;
+      _channelId = $v.channelId;
       _messageSeq = $v.messageSeq;
       _$v = null;
     }
@@ -171,10 +171,10 @@ class MarkImReadDtoBuilder
   _$MarkImReadDto _build() {
     final _$result = _$v ??
         _$MarkImReadDto._(
-          channelId: BuiltValueNullFieldError.checkNotNull(
-              channelId, r'MarkImReadDto', 'channelId'),
           channelType: BuiltValueNullFieldError.checkNotNull(
               channelType, r'MarkImReadDto', 'channelType'),
+          channelId: BuiltValueNullFieldError.checkNotNull(
+              channelId, r'MarkImReadDto', 'channelId'),
           messageSeq: BuiltValueNullFieldError.checkNotNull(
               messageSeq, r'MarkImReadDto', 'messageSeq'),
         );

@@ -22,6 +22,12 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
+import type { AdminCallPageResponse } from '../models';
+// @ts-ignore
+import type { AdminDeviceSessionPageResponse } from '../models';
+// @ts-ignore
+import type { AdminFilePageResponse } from '../models';
+// @ts-ignore
 import type { AdminGroupMemberPageResponse } from '../models';
 // @ts-ignore
 import type { AdminGroupPageResponse } from '../models';
@@ -30,11 +36,17 @@ import type { AdminGroupResponse } from '../models';
 // @ts-ignore
 import type { AdminOverviewResponse } from '../models';
 // @ts-ignore
+import type { AdminReportPageResponse } from '../models';
+// @ts-ignore
+import type { AdminReportResponse } from '../models';
+// @ts-ignore
 import type { AdminUserPageResponse } from '../models';
 // @ts-ignore
 import type { AdminUserResponse } from '../models';
 // @ts-ignore
 import type { AuditLogPageResponse } from '../models';
+// @ts-ignore
+import type { DecideReportDto } from '../models';
 // @ts-ignore
 import type { ErrorResponse } from '../models';
 // @ts-ignore
@@ -42,9 +54,15 @@ import type { JobRunPageResponse } from '../models';
 // @ts-ignore
 import type { JobRunResponse } from '../models';
 // @ts-ignore
+import type { RuntimeSettingsResponseDto } from '../models';
+// @ts-ignore
 import type { SetGroupPolicyDto } from '../models';
 // @ts-ignore
+import type { SetUserRoleDto } from '../models';
+// @ts-ignore
 import type { SuccessResponse } from '../models';
+// @ts-ignore
+import type { UpdateRuntimeSettingsDto } from '../models';
 /**
  * AdminApi - axios parameter creator
  */
@@ -89,6 +107,48 @@ export const AdminApiAxiosParamCreator = function (configuration?: Configuration
         },
         /**
          * 
+         * @param {string} reportId 
+         * @param {DecideReportDto} decideReportDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminDecideReport: async (reportId: string, decideReportDto: DecideReportDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'reportId' is not null or undefined
+            assertParamExists('adminDecideReport', 'reportId', reportId)
+            // verify required parameter 'decideReportDto' is not null or undefined
+            assertParamExists('adminDecideReport', 'decideReportDto', decideReportDto)
+            const localVarPath = `/api/v1/admin/reports/{reportId}/decision`
+                .replace('{reportId}', encodeURIComponent(String(reportId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(decideReportDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @param {string} groupId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -98,6 +158,39 @@ export const AdminApiAxiosParamCreator = function (configuration?: Configuration
             assertParamExists('adminGetGroup', 'groupId', groupId)
             const localVarPath = `/api/v1/admin/groups/{groupId}`
                 .replace('{groupId}', encodeURIComponent(String(groupId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminGetRuntimeSettings: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/admin/runtime-settings`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -213,6 +306,150 @@ export const AdminApiAxiosParamCreator = function (configuration?: Configuration
 
             if (targetId !== undefined) {
                 localVarQueryParameter['targetId'] = targetId;
+            }
+
+            if (from !== undefined) {
+                localVarQueryParameter['from'] = (from as any instanceof Date) ?
+                    (from as any).toISOString() :
+                    from;
+            }
+
+            if (to !== undefined) {
+                localVarQueryParameter['to'] = (to as any instanceof Date) ?
+                    (to as any).toISOString() :
+                    to;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {AdminListCallsTypeEnum} [type] 
+         * @param {AdminListCallsStatusEnum} [status] 
+         * @param {string} [participant] 
+         * @param {string} [from] 
+         * @param {string} [to] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListCalls: async (limit?: number, cursor?: string, type?: AdminListCallsTypeEnum, status?: AdminListCallsStatusEnum, participant?: string, from?: string, to?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/admin/calls`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+            if (cursor !== undefined) {
+                localVarQueryParameter['cursor'] = cursor;
+            }
+
+            if (type !== undefined) {
+                localVarQueryParameter['type'] = type;
+            }
+
+            if (status !== undefined) {
+                localVarQueryParameter['status'] = status;
+            }
+
+            if (participant !== undefined) {
+                localVarQueryParameter['participant'] = participant;
+            }
+
+            if (from !== undefined) {
+                localVarQueryParameter['from'] = (from as any instanceof Date) ?
+                    (from as any).toISOString() :
+                    from;
+            }
+
+            if (to !== undefined) {
+                localVarQueryParameter['to'] = (to as any instanceof Date) ?
+                    (to as any).toISOString() :
+                    to;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {AdminListFilesStatusEnum} [status] 
+         * @param {AdminListFilesScopeEnum} [scope] 
+         * @param {string} [search] 
+         * @param {string} [from] 
+         * @param {string} [to] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListFiles: async (limit?: number, cursor?: string, status?: AdminListFilesStatusEnum, scope?: AdminListFilesScopeEnum, search?: string, from?: string, to?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/admin/files`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+            if (cursor !== undefined) {
+                localVarQueryParameter['cursor'] = cursor;
+            }
+
+            if (status !== undefined) {
+                localVarQueryParameter['status'] = status;
+            }
+
+            if (scope !== undefined) {
+                localVarQueryParameter['scope'] = scope;
+            }
+
+            if (search !== undefined) {
+                localVarQueryParameter['search'] = search;
             }
 
             if (from !== undefined) {
@@ -378,6 +615,125 @@ export const AdminApiAxiosParamCreator = function (configuration?: Configuration
 
             if (status !== undefined) {
                 localVarQueryParameter['status'] = status;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {AdminListReportsStatusEnum} [status] 
+         * @param {string} [search] 
+         * @param {string} [from] 
+         * @param {string} [to] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListReports: async (limit?: number, cursor?: string, status?: AdminListReportsStatusEnum, search?: string, from?: string, to?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/admin/reports`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+            if (cursor !== undefined) {
+                localVarQueryParameter['cursor'] = cursor;
+            }
+
+            if (status !== undefined) {
+                localVarQueryParameter['status'] = status;
+            }
+
+            if (search !== undefined) {
+                localVarQueryParameter['search'] = search;
+            }
+
+            if (from !== undefined) {
+                localVarQueryParameter['from'] = (from as any instanceof Date) ?
+                    (from as any).toISOString() :
+                    from;
+            }
+
+            if (to !== undefined) {
+                localVarQueryParameter['to'] = (to as any instanceof Date) ?
+                    (to as any).toISOString() :
+                    to;
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {string} userId 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {string} [search] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListUserDevices: async (userId: string, limit?: number, cursor?: string, search?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('adminListUserDevices', 'userId', userId)
+            const localVarPath = `/api/v1/admin/users/{userId}/devices`
+                .replace('{userId}', encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+            if (cursor !== undefined) {
+                localVarQueryParameter['cursor'] = cursor;
+            }
+
+            if (search !== undefined) {
+                localVarQueryParameter['search'] = search;
             }
 
             localVarHeaderParameter['Accept'] = 'application/json';
@@ -601,6 +957,48 @@ export const AdminApiAxiosParamCreator = function (configuration?: Configuration
         /**
          * 
          * @param {string} userId 
+         * @param {SetUserRoleDto} setUserRoleDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminSetUserRole: async (userId: string, setUserRoleDto: SetUserRoleDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('adminSetUserRole', 'userId', userId)
+            // verify required parameter 'setUserRoleDto' is not null or undefined
+            assertParamExists('adminSetUserRole', 'setUserRoleDto', setUserRoleDto)
+            const localVarPath = `/api/v1/admin/users/{userId}/role`
+                .replace('{userId}', encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(setUserRoleDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {string} userId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -635,6 +1033,44 @@ export const AdminApiAxiosParamCreator = function (configuration?: Configuration
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @param {UpdateRuntimeSettingsDto} updateRuntimeSettingsDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminUpdateRuntimeSettings: async (updateRuntimeSettingsDto: UpdateRuntimeSettingsDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'updateRuntimeSettingsDto' is not null or undefined
+            assertParamExists('adminUpdateRuntimeSettings', 'updateRuntimeSettingsDto', updateRuntimeSettingsDto)
+            const localVarPath = `/api/v1/admin/runtime-settings`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateRuntimeSettingsDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -658,6 +1094,19 @@ export const AdminApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @param {string} reportId 
+         * @param {DecideReportDto} decideReportDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminDecideReport(reportId: string, decideReportDto: DecideReportDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdminReportResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminDecideReport(reportId, decideReportDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminDecideReport']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @param {string} groupId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -666,6 +1115,17 @@ export const AdminApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.adminGetGroup(groupId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AdminApi.adminGetGroup']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminGetRuntimeSettings(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RuntimeSettingsResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminGetRuntimeSettings(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminGetRuntimeSettings']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -697,6 +1157,42 @@ export const AdminApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.adminListAuditLogs(limit, cursor, action, targetType, actorUserId, targetId, from, to, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AdminApi.adminListAuditLogs']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {AdminListCallsTypeEnum} [type] 
+         * @param {AdminListCallsStatusEnum} [status] 
+         * @param {string} [participant] 
+         * @param {string} [from] 
+         * @param {string} [to] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminListCalls(limit?: number, cursor?: string, type?: AdminListCallsTypeEnum, status?: AdminListCallsStatusEnum, participant?: string, from?: string, to?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdminCallPageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminListCalls(limit, cursor, type, status, participant, from, to, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminListCalls']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {AdminListFilesStatusEnum} [status] 
+         * @param {AdminListFilesScopeEnum} [scope] 
+         * @param {string} [search] 
+         * @param {string} [from] 
+         * @param {string} [to] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminListFiles(limit?: number, cursor?: string, status?: AdminListFilesStatusEnum, scope?: AdminListFilesScopeEnum, search?: string, from?: string, to?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdminFilePageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminListFiles(limit, cursor, status, scope, search, from, to, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminListFiles']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -741,6 +1237,38 @@ export const AdminApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.adminListJobRuns(limit, cursor, status, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AdminApi.adminListJobRuns']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {AdminListReportsStatusEnum} [status] 
+         * @param {string} [search] 
+         * @param {string} [from] 
+         * @param {string} [to] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminListReports(limit?: number, cursor?: string, status?: AdminListReportsStatusEnum, search?: string, from?: string, to?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdminReportPageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminListReports(limit, cursor, status, search, from, to, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminListReports']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {string} userId 
+         * @param {number} [limit] 
+         * @param {string} [cursor] 
+         * @param {string} [search] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminListUserDevices(userId: string, limit?: number, cursor?: string, search?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdminDeviceSessionPageResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminListUserDevices(userId, limit, cursor, search, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminListUserDevices']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -810,6 +1338,19 @@ export const AdminApiFp = function(configuration?: Configuration) {
         /**
          * 
          * @param {string} userId 
+         * @param {SetUserRoleDto} setUserRoleDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminSetUserRole(userId: string, setUserRoleDto: SetUserRoleDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AdminUserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminSetUserRole(userId, setUserRoleDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminSetUserRole']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {string} userId 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -817,6 +1358,18 @@ export const AdminApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.adminSuspendUser(userId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AdminApi.adminSuspendUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {UpdateRuntimeSettingsDto} updateRuntimeSettingsDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async adminUpdateRuntimeSettings(updateRuntimeSettingsDto: UpdateRuntimeSettingsDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RuntimeSettingsResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.adminUpdateRuntimeSettings(updateRuntimeSettingsDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AdminApi.adminUpdateRuntimeSettings']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -839,12 +1392,29 @@ export const AdminApiFactory = function (configuration?: Configuration, basePath
         },
         /**
          * 
+         * @param {AdminApiAdminDecideReportRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminDecideReport(requestParameters: AdminApiAdminDecideReportRequest, options?: RawAxiosRequestConfig): AxiosPromise<AdminReportResponse> {
+            return localVarFp.adminDecideReport(requestParameters.reportId, requestParameters.decideReportDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {AdminApiAdminGetGroupRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
         adminGetGroup(requestParameters: AdminApiAdminGetGroupRequest, options?: RawAxiosRequestConfig): AxiosPromise<AdminGroupResponse> {
             return localVarFp.adminGetGroup(requestParameters.groupId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminGetRuntimeSettings(options?: RawAxiosRequestConfig): AxiosPromise<RuntimeSettingsResponseDto> {
+            return localVarFp.adminGetRuntimeSettings(options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -863,6 +1433,24 @@ export const AdminApiFactory = function (configuration?: Configuration, basePath
          */
         adminListAuditLogs(requestParameters: AdminApiAdminListAuditLogsRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AuditLogPageResponse> {
             return localVarFp.adminListAuditLogs(requestParameters.limit, requestParameters.cursor, requestParameters.action, requestParameters.targetType, requestParameters.actorUserId, requestParameters.targetId, requestParameters.from, requestParameters.to, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {AdminApiAdminListCallsRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListCalls(requestParameters: AdminApiAdminListCallsRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AdminCallPageResponse> {
+            return localVarFp.adminListCalls(requestParameters.limit, requestParameters.cursor, requestParameters.type, requestParameters.status, requestParameters.participant, requestParameters.from, requestParameters.to, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {AdminApiAdminListFilesRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListFiles(requestParameters: AdminApiAdminListFilesRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AdminFilePageResponse> {
+            return localVarFp.adminListFiles(requestParameters.limit, requestParameters.cursor, requestParameters.status, requestParameters.scope, requestParameters.search, requestParameters.from, requestParameters.to, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -890,6 +1478,24 @@ export const AdminApiFactory = function (configuration?: Configuration, basePath
          */
         adminListJobRuns(requestParameters: AdminApiAdminListJobRunsRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<JobRunPageResponse> {
             return localVarFp.adminListJobRuns(requestParameters.limit, requestParameters.cursor, requestParameters.status, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {AdminApiAdminListReportsRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListReports(requestParameters: AdminApiAdminListReportsRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AdminReportPageResponse> {
+            return localVarFp.adminListReports(requestParameters.limit, requestParameters.cursor, requestParameters.status, requestParameters.search, requestParameters.from, requestParameters.to, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {AdminApiAdminListUserDevicesRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminListUserDevices(requestParameters: AdminApiAdminListUserDevicesRequest, options?: RawAxiosRequestConfig): AxiosPromise<AdminDeviceSessionPageResponse> {
+            return localVarFp.adminListUserDevices(requestParameters.userId, requestParameters.limit, requestParameters.cursor, requestParameters.search, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -936,12 +1542,30 @@ export const AdminApiFactory = function (configuration?: Configuration, basePath
         },
         /**
          * 
+         * @param {AdminApiAdminSetUserRoleRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminSetUserRole(requestParameters: AdminApiAdminSetUserRoleRequest, options?: RawAxiosRequestConfig): AxiosPromise<AdminUserResponse> {
+            return localVarFp.adminSetUserRole(requestParameters.userId, requestParameters.setUserRoleDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {AdminApiAdminSuspendUserRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
         adminSuspendUser(requestParameters: AdminApiAdminSuspendUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<AdminUserResponse> {
             return localVarFp.adminSuspendUser(requestParameters.userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {AdminApiAdminUpdateRuntimeSettingsRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        adminUpdateRuntimeSettings(requestParameters: AdminApiAdminUpdateRuntimeSettingsRequest, options?: RawAxiosRequestConfig): AxiosPromise<RuntimeSettingsResponseDto> {
+            return localVarFp.adminUpdateRuntimeSettings(requestParameters.updateRuntimeSettingsDto, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -951,6 +1575,15 @@ export const AdminApiFactory = function (configuration?: Configuration, basePath
  */
 export interface AdminApiAdminActivateUserRequest {
     readonly userId: string
+}
+
+/**
+ * Request parameters for adminDecideReport operation in AdminApi.
+ */
+export interface AdminApiAdminDecideReportRequest {
+    readonly reportId: string
+
+    readonly decideReportDto: DecideReportDto
 }
 
 /**
@@ -982,6 +1615,44 @@ export interface AdminApiAdminListAuditLogsRequest {
     readonly actorUserId?: string
 
     readonly targetId?: string
+
+    readonly from?: string
+
+    readonly to?: string
+}
+
+/**
+ * Request parameters for adminListCalls operation in AdminApi.
+ */
+export interface AdminApiAdminListCallsRequest {
+    readonly limit?: number
+
+    readonly cursor?: string
+
+    readonly type?: AdminListCallsTypeEnum
+
+    readonly status?: AdminListCallsStatusEnum
+
+    readonly participant?: string
+
+    readonly from?: string
+
+    readonly to?: string
+}
+
+/**
+ * Request parameters for adminListFiles operation in AdminApi.
+ */
+export interface AdminApiAdminListFilesRequest {
+    readonly limit?: number
+
+    readonly cursor?: string
+
+    readonly status?: AdminListFilesStatusEnum
+
+    readonly scope?: AdminListFilesScopeEnum
+
+    readonly search?: string
 
     readonly from?: string
 
@@ -1026,6 +1697,36 @@ export interface AdminApiAdminListJobRunsRequest {
 }
 
 /**
+ * Request parameters for adminListReports operation in AdminApi.
+ */
+export interface AdminApiAdminListReportsRequest {
+    readonly limit?: number
+
+    readonly cursor?: string
+
+    readonly status?: AdminListReportsStatusEnum
+
+    readonly search?: string
+
+    readonly from?: string
+
+    readonly to?: string
+}
+
+/**
+ * Request parameters for adminListUserDevices operation in AdminApi.
+ */
+export interface AdminApiAdminListUserDevicesRequest {
+    readonly userId: string
+
+    readonly limit?: number
+
+    readonly cursor?: string
+
+    readonly search?: string
+}
+
+/**
  * Request parameters for adminListUsers operation in AdminApi.
  */
 export interface AdminApiAdminListUsersRequest {
@@ -1059,10 +1760,26 @@ export interface AdminApiAdminSetGroupPolicyRequest {
 }
 
 /**
+ * Request parameters for adminSetUserRole operation in AdminApi.
+ */
+export interface AdminApiAdminSetUserRoleRequest {
+    readonly userId: string
+
+    readonly setUserRoleDto: SetUserRoleDto
+}
+
+/**
  * Request parameters for adminSuspendUser operation in AdminApi.
  */
 export interface AdminApiAdminSuspendUserRequest {
     readonly userId: string
+}
+
+/**
+ * Request parameters for adminUpdateRuntimeSettings operation in AdminApi.
+ */
+export interface AdminApiAdminUpdateRuntimeSettingsRequest {
+    readonly updateRuntimeSettingsDto: UpdateRuntimeSettingsDto
 }
 
 /**
@@ -1081,12 +1798,31 @@ export class AdminApi extends BaseAPI {
 
     /**
      * 
+     * @param {AdminApiAdminDecideReportRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminDecideReport(requestParameters: AdminApiAdminDecideReportRequest, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminDecideReport(requestParameters.reportId, requestParameters.decideReportDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
      * @param {AdminApiAdminGetGroupRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     public adminGetGroup(requestParameters: AdminApiAdminGetGroupRequest, options?: RawAxiosRequestConfig) {
         return AdminApiFp(this.configuration).adminGetGroup(requestParameters.groupId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminGetRuntimeSettings(options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminGetRuntimeSettings(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -1107,6 +1843,26 @@ export class AdminApi extends BaseAPI {
      */
     public adminListAuditLogs(requestParameters: AdminApiAdminListAuditLogsRequest = {}, options?: RawAxiosRequestConfig) {
         return AdminApiFp(this.configuration).adminListAuditLogs(requestParameters.limit, requestParameters.cursor, requestParameters.action, requestParameters.targetType, requestParameters.actorUserId, requestParameters.targetId, requestParameters.from, requestParameters.to, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {AdminApiAdminListCallsRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminListCalls(requestParameters: AdminApiAdminListCallsRequest = {}, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminListCalls(requestParameters.limit, requestParameters.cursor, requestParameters.type, requestParameters.status, requestParameters.participant, requestParameters.from, requestParameters.to, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {AdminApiAdminListFilesRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminListFiles(requestParameters: AdminApiAdminListFilesRequest = {}, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminListFiles(requestParameters.limit, requestParameters.cursor, requestParameters.status, requestParameters.scope, requestParameters.search, requestParameters.from, requestParameters.to, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -1137,6 +1893,26 @@ export class AdminApi extends BaseAPI {
      */
     public adminListJobRuns(requestParameters: AdminApiAdminListJobRunsRequest = {}, options?: RawAxiosRequestConfig) {
         return AdminApiFp(this.configuration).adminListJobRuns(requestParameters.limit, requestParameters.cursor, requestParameters.status, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {AdminApiAdminListReportsRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminListReports(requestParameters: AdminApiAdminListReportsRequest = {}, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminListReports(requestParameters.limit, requestParameters.cursor, requestParameters.status, requestParameters.search, requestParameters.from, requestParameters.to, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {AdminApiAdminListUserDevicesRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminListUserDevices(requestParameters: AdminApiAdminListUserDevicesRequest, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminListUserDevices(requestParameters.userId, requestParameters.limit, requestParameters.cursor, requestParameters.search, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -1189,6 +1965,16 @@ export class AdminApi extends BaseAPI {
 
     /**
      * 
+     * @param {AdminApiAdminSetUserRoleRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminSetUserRole(requestParameters: AdminApiAdminSetUserRoleRequest, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminSetUserRole(requestParameters.userId, requestParameters.setUserRoleDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
      * @param {AdminApiAdminSuspendUserRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1196,8 +1982,45 @@ export class AdminApi extends BaseAPI {
     public adminSuspendUser(requestParameters: AdminApiAdminSuspendUserRequest, options?: RawAxiosRequestConfig) {
         return AdminApiFp(this.configuration).adminSuspendUser(requestParameters.userId, options).then((request) => request(this.axios, this.basePath));
     }
+
+    /**
+     * 
+     * @param {AdminApiAdminUpdateRuntimeSettingsRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public adminUpdateRuntimeSettings(requestParameters: AdminApiAdminUpdateRuntimeSettingsRequest, options?: RawAxiosRequestConfig) {
+        return AdminApiFp(this.configuration).adminUpdateRuntimeSettings(requestParameters.updateRuntimeSettingsDto, options).then((request) => request(this.axios, this.basePath));
+    }
 }
 
+export enum AdminListCallsTypeEnum {
+    Audio = 'AUDIO',
+    Video = 'VIDEO'
+}
+export enum AdminListCallsStatusEnum {
+    Rejected = 'REJECTED',
+    Failed = 'FAILED',
+    Accepted = 'ACCEPTED',
+    Inviting = 'INVITING',
+    Ringing = 'RINGING',
+    Connected = 'CONNECTED',
+    Cancelled = 'CANCELLED',
+    Missed = 'MISSED',
+    Ended = 'ENDED'
+}
+export enum AdminListFilesStatusEnum {
+    Pending = 'PENDING',
+    Uploaded = 'UPLOADED',
+    Ready = 'READY',
+    Rejected = 'REJECTED',
+    Deleted = 'DELETED'
+}
+export enum AdminListFilesScopeEnum {
+    Private = 'PRIVATE',
+    Direct = 'DIRECT',
+    Group = 'GROUP'
+}
 export enum AdminListGroupsStatusEnum {
     Active = 'ACTIVE',
     Suspended = 'SUSPENDED',
@@ -1208,6 +2031,11 @@ export enum AdminListJobRunsStatusEnum {
     Running = 'RUNNING',
     Success = 'SUCCESS',
     Skipped = 'SKIPPED'
+}
+export enum AdminListReportsStatusEnum {
+    Pending = 'PENDING',
+    Resolved = 'RESOLVED',
+    Dismissed = 'DISMISSED'
 }
 export enum AdminListUsersStatusEnum {
     Deleted = 'DELETED',

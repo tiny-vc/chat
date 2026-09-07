@@ -9,8 +9,8 @@ import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:built_collection/built_collection.dart';
-import 'package:built_value/json_object.dart';
 import 'package:chat_api_client/src/api_util.dart';
+import 'package:chat_api_client/src/model/call_history_response.dart';
 import 'package:chat_api_client/src/model/call_session_response.dart';
 import 'package:chat_api_client/src/model/create_call_dto.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
@@ -117,9 +117,9 @@ class CallsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [CallSessionResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> callsBusy({ 
+  Future<Response<CallSessionResponse>> callsBusy({ 
     required String callId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -155,14 +155,14 @@ class CallsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    CallSessionResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(CallSessionResponse),
+      ) as CallSessionResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -174,7 +174,7 @@ class CallsApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<CallSessionResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -530,10 +530,11 @@ class CallsApi {
     );
   }
 
-  /// callsList
+  /// callsGet
   /// 
   ///
   /// Parameters:
+  /// * [callId] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -541,9 +542,10 @@ class CallsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [CallSessionResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> callsList({ 
+  Future<Response<CallSessionResponse>> callsGet({ 
+    required String callId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -551,7 +553,7 @@ class CallsApi {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
   }) async {
-    final _path = r'/api/v1/calls';
+    final _path = r'/api/v1/calls/{callId}'.replaceAll('{' r'callId' '}', encodeQueryParameter(_serializers, callId, const FullType(String)).toString());
     final _options = Options(
       method: r'GET',
       headers: <String, dynamic>{
@@ -578,14 +580,14 @@ class CallsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    CallSessionResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(CallSessionResponse),
+      ) as CallSessionResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -597,7 +599,96 @@ class CallsApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<CallSessionResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// callsList
+  /// 
+  ///
+  /// Parameters:
+  /// * [before] 
+  /// * [beforeId] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [BuiltList<CallHistoryResponse>] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<BuiltList<CallHistoryResponse>>> callsList({ 
+    String? before,
+    String? beforeId,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/calls';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'access-token',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (before != null) r'before': encodeQueryParameter(_serializers, before, const FullType(String)),
+      if (beforeId != null) r'beforeId': encodeQueryParameter(_serializers, beforeId, const FullType(String)),
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    BuiltList<CallHistoryResponse>? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(BuiltList, [FullType(CallHistoryResponse)]),
+      ) as BuiltList<CallHistoryResponse>;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<BuiltList<CallHistoryResponse>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -621,9 +712,9 @@ class CallsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [CallSessionResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> callsMiss({ 
+  Future<Response<CallSessionResponse>> callsMiss({ 
     required String callId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -659,14 +750,14 @@ class CallsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    CallSessionResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(CallSessionResponse),
+      ) as CallSessionResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -678,7 +769,7 @@ class CallsApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<CallSessionResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

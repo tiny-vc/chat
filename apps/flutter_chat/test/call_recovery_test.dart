@@ -42,24 +42,48 @@ void main() {
       }
     },
   );
-  test(
-    'hangup leaves before the API responds and swallows offline failures',
-    () async {
-      final pending = Completer<void>();
-      final order = <String>[];
-      reportCallEnd(() {
-        order.add('report');
-        return pending.future;
-      }, () => order.add('leave'));
-      expect(order, ['leave', 'report']);
-      pending.completeError(StateError('offline'));
-      await Future<void>.delayed(Duration.zero);
-    },
-  );
+  test('hangup persists before leaving without waiting for delivery', () async {
+    final order = <String>[];
+    await reportCallEnd(
+      () async => order.add('persist'),
+      () async => order.add('deliver'),
+      () => order.add('leave'),
+    );
+    expect(order.take(2), ['persist', 'leave']);
+    await Future<void>.delayed(Duration.zero);
+    expect(order, ['persist', 'leave', 'deliver']);
+  });
   test('synchronous report failure cannot prevent local hangup', () async {
     var left = false;
-    reportCallEnd(() => throw StateError('offline'), () => left = true);
+    await reportCallEnd(
+      () => throw StateError('storage unavailable'),
+      () async {},
+      () => left = true,
+    );
     await Future<void>.delayed(Duration.zero);
     expect(left, isTrue);
   });
+  test(
+    'terminal report retries briefly without delaying local hangup',
+    () async {
+      var calls = 0;
+      var left = false;
+      final succeeded = Completer<void>();
+      await reportCallEnd(
+        () async {},
+        () async {
+          calls++;
+          if (calls < 3) throw StateError('network switching');
+          succeeded.complete();
+        },
+        () => left = true,
+        attemptTimeout: const Duration(milliseconds: 50),
+        retryDelay: Duration.zero,
+      );
+
+      expect(left, isTrue);
+      await succeeded.future;
+      expect(calls, 3);
+    },
+  );
 }

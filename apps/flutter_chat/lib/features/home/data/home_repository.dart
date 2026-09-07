@@ -11,10 +11,10 @@ class UserSummary {
   final String username;
   final String nickname;
 
-  factory UserSummary.fromJson(Map<String, dynamic> json) => UserSummary(
-    id: json['id'] as String,
-    username: json['username'] as String? ?? '',
-    nickname: json['nickname'] as String? ?? '',
+  factory UserSummary.fromApi(UserResponse value) => UserSummary(
+    id: value.id,
+    username: value.username,
+    nickname: value.nickname,
   );
 }
 
@@ -30,12 +30,26 @@ class FriendRequestSummary {
   final String requesterId;
   final String status;
   final UserSummary requester;
+
+  factory FriendRequestSummary.fromApi(FriendRequestResponse value) =>
+      FriendRequestSummary(
+        id: value.id,
+        requesterId: value.requesterId,
+        status: value.status.name,
+        requester: UserSummary.fromApi(value.requester),
+      );
 }
 
 class BlockedUserSummary {
   const BlockedUserSummary({required this.user, required this.createdAt});
   final UserSummary user;
   final DateTime? createdAt;
+
+  factory BlockedUserSummary.fromApi(BlockedUserResponse value) =>
+      BlockedUserSummary(
+        user: UserSummary.fromApi(value.user),
+        createdAt: value.createdAt.toLocal(),
+      );
 }
 
 class DeviceSummary {
@@ -53,6 +67,15 @@ class DeviceSummary {
   final String? ipAddress;
   final DateTime? lastSeenAt;
   final bool current;
+
+  factory DeviceSummary.fromApi(DeviceSessionResponse value) => DeviceSummary(
+    id: value.id,
+    name: value.deviceName,
+    type: value.deviceType.name,
+    ipAddress: value.ipAddress,
+    lastSeenAt: value.lastSeenAt.toLocal(),
+    current: value.current,
+  );
 }
 
 class HomeSnapshot {
@@ -103,64 +126,45 @@ class HomeRepository {
   }
 
   Future<List<UserSummary>> searchUsers(String query) async {
-    final response = await _api.dio.get<Object>(
-      '/api/v1/users/search',
-      queryParameters: {'q': query.trim()},
-    );
-    return _jsonList(
-      response.data,
-    ).map((row) => UserSummary.fromJson(row)).toList();
+    final response = await _api.getUsersApi().usersSearch(q: query.trim());
+    final data = response.data;
+    if (data == null) throw const FormatException('服务器没有返回用户搜索结果。');
+    return data.map(UserSummary.fromApi).toList(growable: false);
   }
 
   Future<void> requestFriend(String userId) async {
-    await _api.dio.post<Object>(
-      '/api/v1/friends/requests',
-      data: {'userId': userId},
+    final response = await _api.getFriendsApi().friendsRequest(
+      createFriendRequestDto: CreateFriendRequestDto(
+        (builder) => builder.userId = userId,
+      ),
     );
+    if (response.data == null) throw const FormatException('服务器未确认好友申请。');
   }
 
   Future<List<FriendRequestSummary>> friendRequests() async {
-    final responses = await Future.wait([
-      _api.dio.get<Object>('/api/v1/friends/requests'),
-      _api.dio.get<Object>('/api/v1/users/me'),
-    ]);
-    final response = responses[0];
-    final me = Map<String, dynamic>.from(responses[1].data! as Map);
-    final requests = _jsonList(response.data)
-        .where(
-          (row) => row['status'] == 'PENDING' && row['addresseeId'] == me['id'],
-        )
-        .toList();
-    return Future.wait(
-      requests.map((row) async {
-        final requesterId = row['requesterId'] as String;
-        final userResponse = await _api.dio.get<Object>(
-          '/api/v1/users/$requesterId',
-        );
-        final user = UserSummary.fromJson(
-          Map<String, dynamic>.from(userResponse.data! as Map),
-        );
-        return FriendRequestSummary(
-          id: row['id'] as String,
-          requesterId: requesterId,
-          status: row['status'] as String,
-          requester: user,
-        );
-      }),
-    );
+    final response = await _api.getFriendsApi().friendsListRequests();
+    final data = response.data;
+    if (data == null) throw const FormatException('服务器没有返回好友申请。');
+    return data.map(FriendRequestSummary.fromApi).toList(growable: false);
   }
 
   Future<void> respondToFriendRequest(String requestId, bool accept) async {
-    await _api.dio.post<Object>(
-      '/api/v1/friends/requests/$requestId/${accept ? 'accept' : 'reject'}',
-    );
+    final api = _api.getFriendsApi();
+    final response = accept
+        ? await api.friendsAccept(requestId: requestId)
+        : await api.friendsReject(requestId: requestId);
+    if (response.data == null) throw const FormatException('服务器未确认好友申请处理结果。');
   }
 
   Future<void> createGroup(String name, Iterable<String> memberIds) async {
-    await _api.dio.post<Object>(
-      '/api/v1/groups',
-      data: {'name': name.trim(), 'memberIds': memberIds.toList()},
+    final response = await _api.getGroupsApi().groupsCreate(
+      createGroupDto: CreateGroupDto(
+        (builder) => builder
+          ..name = name.trim()
+          ..memberIds.addAll(memberIds),
+      ),
     );
+    if (response.data == null) throw const FormatException('服务器未确认建群结果。');
   }
 
   Future<GroupResponse> getGroup(String groupId) async {
@@ -245,10 +249,11 @@ class HomeRepository {
   }
 
   Future<void> renameGroup(String groupId, String name) async {
-    await _api.dio.patch<Object>(
-      '/api/v1/groups/$groupId',
-      data: {'name': name.trim()},
+    final response = await _api.getGroupsApi().groupsUpdate(
+      groupId: groupId,
+      updateGroupDto: UpdateGroupDto((builder) => builder.name = name.trim()),
     );
+    if (response.data == null) throw const FormatException('服务器未确认群名修改。');
   }
 
   Future<void> setGroupAdmin(String groupId, String userId, bool admin) async {
@@ -295,112 +300,134 @@ class HomeRepository {
   }
 
   Future<void> addGroupMembers(String groupId, Iterable<String> userIds) async {
-    await _api.dio.post<Object>(
-      '/api/v1/groups/$groupId/members',
-      data: {'userIds': userIds.toList()},
+    final response = await _api.getGroupsApi().groupsAddMembers(
+      groupId: groupId,
+      addGroupMembersDto: AddGroupMembersDto(
+        (builder) => builder.userIds.addAll(userIds),
+      ),
     );
+    if (response.data == null) throw const FormatException('服务器未确认添加群成员。');
   }
 
   Future<void> removeGroupMember(String groupId, String userId) async {
-    await _api.dio.delete<Object>('/api/v1/groups/$groupId/members/$userId');
+    final response = await _api.getGroupsApi().groupsRemoveMember(
+      groupId: groupId,
+      memberId: userId,
+    );
+    _requireSuccess(response.data, '服务器未确认移除群成员。');
   }
 
   Future<void> leaveGroup(String groupId) async {
-    await _api.dio.post<Object>('/api/v1/groups/$groupId/leave');
+    final response = await _api.getGroupsApi().groupsLeave(groupId: groupId);
+    _requireSuccess(response.data, '服务器未确认退出群聊。');
   }
 
   Future<void> disbandGroup(String groupId) async {
-    await _api.dio.delete<Object>('/api/v1/groups/$groupId');
+    final response = await _api.getGroupsApi().groupsDisband(groupId: groupId);
+    _requireSuccess(response.data, '服务器未确认解散群聊。');
   }
 
   Future<void> updateNickname(String nickname) async {
-    await _api.dio.patch<Object>(
-      '/api/v1/users/me',
-      data: {'nickname': nickname.trim()},
+    final response = await _api.getUsersApi().usersUpdateMe(
+      updateProfileDto: UpdateProfileDto(
+        (builder) => builder.nickname = nickname.trim(),
+      ),
     );
+    if (response.data == null) throw const FormatException('服务器未确认昵称修改。');
   }
 
   Future<void> setAvatar(String fileId) async {
-    await _api.dio.put<Object>(
-      '/api/v1/users/me/avatar',
-      data: {'fileId': fileId},
+    final response = await _api.getUsersApi().usersSetAvatar(
+      setAvatarDto: SetAvatarDto((builder) => builder.fileId = fileId),
     );
+    if (response.data == null) throw const FormatException('服务器未确认头像修改。');
   }
 
   Future<void> removeAvatar() async {
-    await _api.dio.delete<Object>('/api/v1/users/me/avatar');
+    final response = await _api.getUsersApi().usersRemoveAvatar();
+    if (response.data == null) throw const FormatException('服务器未确认移除头像。');
   }
 
   Future<void> changePassword(
     String currentPassword,
     String newPassword,
   ) async {
-    await _api.dio.post<Object>(
-      '/api/v1/auth/change-password',
-      data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    final response = await _api.getAuthApi().authChangePassword(
+      changePasswordDto: ChangePasswordDto(
+        (builder) => builder
+          ..currentPassword = currentPassword
+          ..newPassword = newPassword,
+      ),
     );
+    _requireSuccess(response.data, '服务器未确认密码修改。');
   }
 
   Future<void> removeFriend(String userId) async {
-    await _api.dio.delete<Object>('/api/v1/friends/$userId');
+    final response = await _api.getFriendsApi().friendsRemove(userId: userId);
+    _requireSuccess(response.data, '服务器未确认删除好友。');
   }
 
   Future<void> blockUser(String userId) async {
-    await _api.dio.post<Object>('/api/v1/blocks/$userId');
+    final response = await _api.getBlocksApi().blocksBlock(userId: userId);
+    if (response.data == null) {
+      throw const FormatException('服务器未确认加入黑名单。');
+    }
   }
 
   Future<void> unblockUser(String userId) async {
-    await _api.dio.delete<Object>('/api/v1/blocks/$userId');
+    final response = await _api.getBlocksApi().blocksUnblock(userId: userId);
+    if (response.data?.success != true) {
+      throw const FormatException('服务器未确认移出黑名单。');
+    }
   }
 
   Future<List<BlockedUserSummary>> blockedUsers() async {
-    final response = await _api.dio.get<Object>('/api/v1/blocks');
-    return _jsonList(response.data).map((row) {
-      final user = UserSummary.fromJson(
-        Map<String, dynamic>.from(row['user'] as Map),
-      );
-      return BlockedUserSummary(
-        user: user,
-        createdAt: DateTime.tryParse(
-          row['createdAt']?.toString() ?? '',
-        )?.toLocal(),
-      );
-    }).toList();
+    final response = await _api.getBlocksApi().blocksList();
+    final data = response.data;
+    if (data == null) throw const FormatException('服务器没有返回黑名单。');
+    return data.map(BlockedUserSummary.fromApi).toList(growable: false);
   }
 
   Future<List<DeviceSummary>> devices() async {
-    final response = await _api.dio.get<Object>('/api/v1/auth/devices');
-    return _jsonList(response.data)
-        .map(
-          (row) => DeviceSummary(
-            id: row['id']?.toString() ?? '',
-            name: row['deviceName']?.toString() ?? '未知设备',
-            type: row['deviceType']?.toString() ?? '',
-            ipAddress: row['ipAddress']?.toString(),
-            lastSeenAt: DateTime.tryParse(
-              row['lastSeenAt']?.toString() ?? '',
-            )?.toLocal(),
-            current: row['current'] == true,
-          ),
-        )
-        .toList();
+    final response = await _api.getAuthApi().authDevices();
+    final data = response.data;
+    if (data == null) throw const FormatException('服务器没有返回设备列表。');
+    return data.map(DeviceSummary.fromApi).toList(growable: false);
   }
 
   Future<void> revokeDevice(String sessionId) async {
-    await _api.dio.delete<Object>('/api/v1/auth/devices/$sessionId');
+    final response = await _api.getAuthApi().authRevokeDevice(
+      sessionId: sessionId,
+    );
+    if (response.data?.success != true) {
+      throw const FormatException('服务器未确认设备下线。');
+    }
   }
 
   Future<void> reportUser(String userId, String reason, String? details) async {
-    await _api.dio.post<Object>(
-      '/api/v1/users/$userId/report',
-      data: {
-        'reason': reason,
-        if (details?.trim().isNotEmpty == true) 'details': details!.trim(),
-      },
+    final reportReason = switch (reason) {
+      'SPAM' => ReportUserDtoReasonEnum.SPAM,
+      'HARASSMENT' => ReportUserDtoReasonEnum.HARASSMENT,
+      'FRAUD' => ReportUserDtoReasonEnum.FRAUD,
+      'INAPPROPRIATE' => ReportUserDtoReasonEnum.INAPPROPRIATE,
+      'OTHER' => ReportUserDtoReasonEnum.OTHER,
+      _ => throw ArgumentError.value(reason, 'reason', '不支持的举报原因'),
+    };
+    final normalizedDetails = details?.trim();
+    final response = await _api.getUsersApi().usersReport(
+      userId: userId,
+      reportUserDto: ReportUserDto(
+        (builder) => builder
+          ..reason = reportReason
+          ..details = normalizedDetails?.isNotEmpty == true
+              ? normalizedDetails
+              : null,
+      ),
     );
+    _requireSuccess(response.data, '服务器未确认举报提交。');
   }
 
-  List<Map<String, dynamic>> _jsonList(Object? data) => (data as List)
-      .map((item) => Map<String, dynamic>.from(item as Map))
-      .toList();
+  void _requireSuccess(SuccessResponse? response, String message) {
+    if (response?.success != true) throw FormatException(message);
+  }
 }

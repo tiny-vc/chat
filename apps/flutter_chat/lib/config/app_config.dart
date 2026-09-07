@@ -15,7 +15,13 @@ abstract final class AppConfig {
 
   static String resolveDeviceHost(String address) {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return address.replaceFirst('localhost', '10.0.2.2');
+      final uri = Uri.tryParse(address);
+      if (uri != null && uri.hasScheme && uri.host == 'localhost') {
+        return uri.replace(host: '10.0.2.2').toString();
+      }
+      if (address.startsWith('localhost:')) {
+        return '10.0.2.2:${address.substring('localhost:'.length)}';
+      }
     }
     return address;
   }

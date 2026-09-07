@@ -15,11 +15,11 @@
 
 
 export interface SyncImChannelMessagesDto {
+    'channelType': SyncImChannelMessagesDtoChannelTypeEnum;
     'startMessageSeq'?: number;
     'endMessageSeq'?: number;
     'limit'?: number;
     'channelId': string;
-    'channelType': SyncImChannelMessagesDtoChannelTypeEnum;
     'pullMode': SyncImChannelMessagesDtoPullModeEnum;
 }
 

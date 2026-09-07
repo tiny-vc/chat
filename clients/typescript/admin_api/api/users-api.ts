@@ -28,6 +28,8 @@ import type { ReportUserDto } from '../models';
 // @ts-ignore
 import type { SetAvatarDto } from '../models';
 // @ts-ignore
+import type { SuccessResponse } from '../models';
+// @ts-ignore
 import type { UpdateProfileDto } from '../models';
 // @ts-ignore
 import type { UserResponse } from '../models';
@@ -183,11 +185,11 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         },
         /**
          * 
-         * @param {any} [q] 
+         * @param {string} [q] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        usersSearch: async (q?: any, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        usersSearch: async (q?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/users/search`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -205,9 +207,7 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
             await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
             if (q !== undefined) {
-                for (const [key, value] of Object.entries(q)) {
-                    localVarQueryParameter[key] = value;
-                }
+                localVarQueryParameter['q'] = q;
             }
 
             localVarHeaderParameter['Accept'] = 'application/json';
@@ -347,7 +347,7 @@ export const UsersApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async usersReport(userId: string, reportUserDto: ReportUserDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
+        async usersReport(userId: string, reportUserDto: ReportUserDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SuccessResponse>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.usersReport(userId, reportUserDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['UsersApi.usersReport']?.[localVarOperationServerIndex]?.url;
@@ -355,11 +355,11 @@ export const UsersApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @param {any} [q] 
+         * @param {string} [q] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async usersSearch(q?: any, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserResponse>>> {
+        async usersSearch(q?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserResponse>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.usersSearch(q, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['UsersApi.usersSearch']?.[localVarOperationServerIndex]?.url;
@@ -429,7 +429,7 @@ export const UsersApiFactory = function (configuration?: Configuration, basePath
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        usersReport(requestParameters: UsersApiUsersReportRequest, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
+        usersReport(requestParameters: UsersApiUsersReportRequest, options?: RawAxiosRequestConfig): AxiosPromise<SuccessResponse> {
             return localVarFp.usersReport(requestParameters.userId, requestParameters.reportUserDto, options).then((request) => request(axios, basePath));
         },
         /**
@@ -482,7 +482,7 @@ export interface UsersApiUsersReportRequest {
  * Request parameters for usersSearch operation in UsersApi.
  */
 export interface UsersApiUsersSearchRequest {
-    readonly q?: any
+    readonly q?: string
 }
 
 /**

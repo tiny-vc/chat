@@ -5,9 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 import '../../../core/calls/call_service.dart';
+import '../../../core/calls/call_acceptance.dart';
+import '../../../core/calls/call_coordinator.dart';
 import '../../../core/calls/call_controls.dart';
+import '../../../core/calls/call_media_controller.dart';
 import '../../../core/calls/call_media_policy.dart';
 import '../../../core/calls/call_recovery.dart';
+import '../../../core/calls/call_room_session.dart';
 import '../../../core/widgets/app_feedback.dart';
 import '../../../core/im/chat_message_content.dart';
 import '../../../core/im/im_service.dart';
@@ -21,6 +25,8 @@ class CallPage extends StatefulWidget {
     required this.incoming,
     required this.callService,
     required this.imService,
+    this.callLease,
+    this.alreadyAccepted = false,
   });
 
   final String callId;
@@ -29,29 +35,21 @@ class CallPage extends StatefulWidget {
   final bool incoming;
   final CallService callService;
   final ImService imService;
+  final CallLease? callLease;
+  final bool alreadyAccepted;
 
   @override
   State<CallPage> createState() => CallPageState();
 }
 
-class CallPageState extends State<CallPage> {
-  final _room = Room(
-    roomOptions: const RoomOptions(
-      adaptiveStream: true,
-      dynacast: true,
-      defaultCameraCaptureOptions: CameraCaptureOptions(
-        params: VideoParametersPresets.h720_169,
-        maxFrameRate: 24,
-      ),
-      defaultVideoPublishOptions: VideoPublishOptions(
-        simulcast: true,
-        degradationPreference: DegradationPreference.balanced,
-      ),
-    ),
-  );
-  final _recovery = CallRecovery();
+class CallPageState extends State<CallPage> with WidgetsBindingObserver {
+  final _coordinator = CallCoordinator.instance;
+  CallLease? _callLease;
+  late final CallRoomSession _mediaSession;
+  Room get _room => _mediaSession.room;
+  CallRecovery get _recovery => _mediaSession.recovery;
   final _mediaPolicy = CallMediaPolicy();
-  late final EventsListener<RoomEvent> _roomEvents;
+  late final CallMediaController _mediaController;
 
   @visibleForTesting
   Future<({num? packets, num? bytes})?> readLocalAudioStats() async {
@@ -67,7 +65,11 @@ class CallPageState extends State<CallPage> {
   Future<({bool subscribed, bool muted, num? packets, num? bytes})?>
   readRemoteAudioStats(String identity) async {
     final peer = _room.remoteParticipants.values
-        .where((participant) => participant.identity == identity)
+        .where(
+          (participant) =>
+              participant.identity == identity ||
+              participant.identity.startsWith('$identity:'),
+        )
         .firstOrNull;
     final publication = peer?.audioTrackPublications.firstOrNull;
     if (publication == null) return null;
@@ -84,9 +86,9 @@ class CallPageState extends State<CallPage> {
   }
 
   StreamSubscription<ChatCallSignalContent>? _signals;
-  bool _connected = false;
-  bool _accepted = false;
-  late final CallControls _controls;
+  bool get _connected => _mediaSession.connected;
+  late bool _accepted;
+  CallControls get _controls => _mediaController.controls;
   bool get _microphone => _controls.microphone;
   bool get _camera => _controls.camera;
   bool get _speaker => _controls.speaker;
@@ -103,44 +105,36 @@ class CallPageState extends State<CallPage> {
   Timer? _ringback;
   Timer? _durationTimer;
   Timer? _qualityTimer;
+  Timer? _businessStateTimer;
   bool _qualityActionBusy = false;
+  bool _reconcilingBusinessState = false;
+  int _businessStatePollCount = 0;
+  static const _businessStatePollLimit = 30;
   Duration _duration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    _controls = CallControls(
-      speaker: widget.video,
-      setMicrophone: (enabled) async {
-        final participant = _room.localParticipant;
-        if (participant == null) throw StateError('No local participant');
-        await participant.setMicrophoneEnabled(enabled);
-      },
-      setCamera: (enabled) async {
-        final participant = _room.localParticipant;
-        if (participant == null) throw StateError('No local participant');
-        await participant.setCameraEnabled(enabled);
-      },
-      setSpeaker: Hardware.instance.setSpeakerphoneOn,
+    _accepted = widget.alreadyAccepted;
+    _callLease = widget.callLease;
+    _mediaSession = CallRoomSession()..addListener(_handleMediaSessionChange);
+    _mediaController = CallMediaController(
+      session: _mediaSession,
+      video: widget.video,
     )..addListener(_refresh);
-    _room.addListener(_refresh);
-    _roomEvents = _room.createListener()
-      ..on<RoomReconnectingEvent>((_) {
-        if (!mounted || _ending || _starting) return;
-        setState(_recovery.reconnecting);
-      })
-      ..on<RoomReconnectedEvent>((_) {
-        if (!mounted || _ending || _starting) return;
-        setState(_recovery.reconnected);
-      })
-      ..on<RoomDisconnectedEvent>((event) {
-        if (!mounted || _ending || _starting) return;
-        setState(() {
-          _connected = false;
-          _recovery.disconnected(event.reason);
-        });
-      });
+    WidgetsBinding.instance.addObserver(this);
     _signals = widget.imService.callSignals.listen(_onSignal);
+    final earlyTerminal = _callLease == null
+        ? null
+        : _coordinator.terminalAction(_callLease!);
+    if (earlyTerminal != null) {
+      _ending = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).maybePop();
+      });
+      return;
+    }
+    unawaited(_mediaController.initialize());
     if (!widget.incoming) {
       _timeout = Timer(const Duration(seconds: 45), _markMissed);
       _ringback = Timer.periodic(
@@ -151,25 +145,42 @@ class CallPageState extends State<CallPage> {
     _start();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_ending) return;
+    _mediaController.handleLifecycle(state);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_reconcileBusinessState());
+      if (_mediaSession.phase == CallRoomPhase.disconnected) {
+        _startBusinessStatePolling();
+      }
+    }
+  }
+
   Future<void> _markMissed() async {
     if (_accepted || _ending) return;
     setState(() => _ending = true);
-    reportCallEnd(() => widget.callService.miss(widget.callId), () {
-      if (mounted) Navigator.of(context).pop();
-    });
+    await reportCallEnd(
+      () => widget.callService.queueTerminal(widget.callId, 'miss'),
+      widget.callService.flushTerminalReports,
+      () {
+        if (mounted) Navigator.of(context).pop();
+      },
+    );
   }
 
   Future<void> _start() async {
     if (!mounted || _ending || _starting) return;
     _starting = true;
-    _recovery.reset();
+    _updateCoordinatedPhase(CoordinatedCallPhase.connecting);
+    _mediaSession.resetForConnection();
     _mediaPolicy.reset();
     _durationTimer?.cancel();
     _qualityTimer?.cancel();
+    _businessStateTimer?.cancel();
     if (mounted) {
       setState(() {
         _error = null;
-        _connected = false;
       });
     }
     var stage = 'accept';
@@ -180,17 +191,15 @@ class CallPageState extends State<CallPage> {
       }
       if (!mounted || _ending) return;
       stage = 'disconnect';
-      // A fresh Room has no connection to tear down. In SDK 2.3.1 calling
-      // disconnect here waits for an EngineDisconnectedEvent that never fires.
-      if (_room.connectionState != ConnectionState.disconnected) {
-        await _room.disconnect();
-      }
+      // Avoid disconnecting a fresh Room while still allowing a manual retry
+      // to tear down the previous transport cleanly.
+      await _mediaSession.disconnectForRestart();
       if (!mounted || _ending) return;
       stage = 'token';
       final credentials = await widget.callService.token(widget.callId);
       if (!mounted || _ending) return;
       stage = 'connect';
-      await _room.connect(credentials.url, credentials.token);
+      await _mediaSession.connect(credentials.url, credentials.token);
       if (!mounted || _ending) return;
       stage = 'microphone';
       await _room.localParticipant?.setMicrophoneEnabled(_microphone);
@@ -200,14 +209,16 @@ class CallPageState extends State<CallPage> {
       }
       if (!mounted || _ending) return;
       try {
-        await Hardware.instance.setSpeakerphoneOn(_speaker);
+        await AudioManager.instance.setSpeakerOutputPreferred(_speaker);
       } catch (error) {
         if (mounted && !_ending) {
           AppFeedback.error(context, error, fallback: '音频输出设置失败，请使用系统音频输出');
         }
       }
       if (!mounted || _ending) return;
-      if (mounted) setState(() => _connected = true);
+      _mediaSession.markConnected();
+      _updateCoordinatedPhase(CoordinatedCallPhase.connected);
+      await _mediaController.callConnected();
       _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted &&
             !_ending &&
@@ -222,10 +233,12 @@ class CallPageState extends State<CallPage> {
         (_) => _sampleMediaQuality(),
       );
     } catch (error) {
+      _mediaSession.markConnectionFailed();
       assert(() {
         debugPrint('CALL_START_FAILED stage=$stage type=${error.runtimeType}');
         return true;
       }());
+      if (await _reconcileBusinessState()) return;
       if (mounted && !_ending) setState(() => _error = error);
     } finally {
       _starting = false;
@@ -243,6 +256,7 @@ class CallPageState extends State<CallPage> {
       setState(() => _accepted = true);
     }
     if (['reject', 'busy', 'cancel', 'miss', 'end'].contains(signal.action)) {
+      _coordinator.recordTerminalSignal(widget.callId, signal.action);
       setState(() => _ending = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).maybePop();
@@ -257,9 +271,13 @@ class CallPageState extends State<CallPage> {
   Future<void> _hangup() async {
     if (_ending) return;
     setState(() => _ending = true);
-    reportCallEnd(() => widget.callService.end(widget.callId), () {
-      if (mounted) Navigator.of(context).pop();
-    });
+    await reportCallEnd(
+      () => widget.callService.queueTerminal(widget.callId, 'end'),
+      widget.callService.flushTerminalReports,
+      () {
+        if (mounted) Navigator.of(context).pop();
+      },
+    );
   }
 
   Future<void> _toggleMicrophone() async {
@@ -310,19 +328,7 @@ class CallPageState extends State<CallPage> {
   }
 
   Future<void> _switchCamera() async {
-    await _deviceAction(
-      () => _controls.run(() async {
-        final publication =
-            _room.localParticipant?.videoTrackPublications.firstOrNull;
-        final track = publication?.track;
-        if (track is LocalVideoTrack) {
-          final options = track.currentOptions;
-          if (options is CameraCaptureOptions) {
-            await track.setCameraPosition(options.cameraPosition.switched());
-          }
-        }
-      }),
-    );
+    await _deviceAction(_mediaController.switchCamera);
   }
 
   Future<void> _deviceAction(Future<void> Function() operation) async {
@@ -361,18 +367,108 @@ class CallPageState extends State<CallPage> {
 
   @override
   void dispose() {
-    _controls.removeListener(_refresh);
-    _controls.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _mediaController.removeListener(_refresh);
+    _mediaController.dispose();
     _signals?.cancel();
     _timeout?.cancel();
     _ringback?.cancel();
     _durationTimer?.cancel();
     _qualityTimer?.cancel();
-    _room.removeListener(_refresh);
-    _roomEvents.dispose();
-    _room.disconnect();
-    _room.dispose();
+    _businessStateTimer?.cancel();
+    _mediaSession.removeListener(_handleMediaSessionChange);
+    _mediaSession.dispose();
+    final lease = _callLease;
+    if (lease != null) _coordinator.release(lease);
     super.dispose();
+  }
+
+  void _updateCoordinatedPhase(CoordinatedCallPhase phase) {
+    final lease = _callLease;
+    if (lease != null) _coordinator.update(lease, phase);
+  }
+
+  void _handleMediaSessionChange() {
+    if (!mounted || _ending) return;
+    if (shouldConfirmCallAcceptedFromPeer(
+      incoming: widget.incoming,
+      accepted: _accepted,
+      mediaConnected: _mediaSession.connected,
+      remoteParticipantCount: _room.remoteParticipants.length,
+    )) {
+      _accepted = true;
+      _timeout?.cancel();
+      _ringback?.cancel();
+    }
+    final phase = switch (_mediaSession.phase) {
+      CallRoomPhase.connecting => CoordinatedCallPhase.connecting,
+      CallRoomPhase.connected => CoordinatedCallPhase.connected,
+      CallRoomPhase.reconnecting => CoordinatedCallPhase.reconnecting,
+      CallRoomPhase.connectionFailed ||
+      CallRoomPhase.disconnected => CoordinatedCallPhase.failed,
+      CallRoomPhase.idle => null,
+    };
+    if (phase != null) _updateCoordinatedPhase(phase);
+    if (_mediaSession.phase == CallRoomPhase.connected) {
+      _businessStateTimer?.cancel();
+      _businessStateTimer = null;
+      _businessStatePollCount = 0;
+    } else if (_mediaSession.phase == CallRoomPhase.disconnected) {
+      _startBusinessStatePolling();
+    }
+    setState(() {});
+  }
+
+  Future<bool> _reconcileBusinessState() async {
+    if (!mounted || _ending || _reconcilingBusinessState) return _ending;
+    _reconcilingBusinessState = true;
+    try {
+      final state = await widget.callService.state(widget.callId);
+      if (!mounted || _ending || !state.terminal) return _ending;
+      _coordinator.recordTerminalSignal(widget.callId, switch (state.status) {
+        'REJECTED' when state.endReason == 'BUSY' => 'busy',
+        'REJECTED' => 'reject',
+        'CANCELLED' => 'cancel',
+        'MISSED' => 'miss',
+        _ => 'end',
+      });
+      _businessStateTimer?.cancel();
+      _businessStateTimer = null;
+      setState(() => _ending = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).maybePop();
+      });
+      return true;
+    } catch (_) {
+      // IM and LiveKit recovery remain active when the business API is
+      // temporarily unreachable. A later resume/reconnect will retry.
+      return false;
+    } finally {
+      _reconcilingBusinessState = false;
+    }
+  }
+
+  void _startBusinessStatePolling() {
+    if (_ending || _businessStateTimer?.isActive == true) return;
+    _businessStatePollCount = 0;
+    _pollBusinessState();
+    _businessStateTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted ||
+          _ending ||
+          _mediaSession.phase != CallRoomPhase.disconnected ||
+          _businessStatePollCount >= _businessStatePollLimit) {
+        _businessStateTimer?.cancel();
+        _businessStateTimer = null;
+        return;
+      }
+      _pollBusinessState();
+    });
+  }
+
+  void _pollBusinessState() {
+    if (_businessStatePollCount >= _businessStatePollLimit) return;
+    _businessStatePollCount++;
+    unawaited(_reconcileBusinessState());
   }
 
   @override
@@ -484,6 +580,41 @@ class CallPageState extends State<CallPage> {
                         : _mediaPolicy.pausedForNetwork
                         ? '网络持续较差，已暂停视频以保障语音'
                         : '网络质量较差，声音或画面可能卡顿',
+                  ),
+                ),
+              if (_mediaController.audioInterrupted ||
+                  _mediaController.routeChanged ||
+                  _mediaController.backgrounded ||
+                  _mediaController.audioRecoveryError != null)
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 218,
+                  child: GestureDetector(
+                    onTap: () {
+                      if (_mediaController.routeChanged) {
+                        _mediaController.dismissRouteNotice();
+                      }
+                      if (_mediaController.audioRecoveryError != null) {
+                        _mediaController.dismissAudioRecoveryError();
+                      }
+                    },
+                    child: _CallNotice(
+                      icon: _mediaController.audioRecoveryError != null
+                          ? Icons.error_outline
+                          : _mediaController.audioInterrupted
+                          ? Icons.phone_paused_outlined
+                          : _mediaController.backgrounded
+                          ? Icons.picture_in_picture_alt_outlined
+                          : Icons.headphones_outlined,
+                      text: _mediaController.audioRecoveryError != null
+                          ? '系统音频恢复失败，请手动切换麦克风后重试'
+                          : _mediaController.audioInterrupted
+                          ? '系统音频被占用，通话将在中断结束后恢复'
+                          : _mediaController.backgrounded
+                          ? '通话正在后台保持'
+                          : '音频设备已变化，请确认当前声音输出（点按关闭）',
+                    ),
                   ),
                 ),
               if (_error != null || _recovery.failure != null)

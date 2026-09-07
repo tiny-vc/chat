@@ -10,6 +10,7 @@ class ComposerActionButton extends StatelessWidget {
     required this.voiceBusy,
     required this.onSend,
     required this.onVoice,
+    this.voiceEnabled = true,
   });
 
   final bool hasText;
@@ -17,6 +18,7 @@ class ComposerActionButton extends StatelessWidget {
   final bool voiceBusy;
   final VoidCallback onSend;
   final VoidCallback onVoice;
+  final bool voiceEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -27,10 +29,12 @@ class ComposerActionButton extends StatelessWidget {
           ? '发送'
           : recording
           ? '结束并发送'
-          : '录制语音',
+          : voiceEnabled
+          ? '录制语音'
+          : '服务器未提供文件功能',
       onPressed: send
           ? onSend
-          : voiceBusy
+          : voiceBusy || !voiceEnabled
           ? null
           : onVoice,
       style: IconButton.styleFrom(

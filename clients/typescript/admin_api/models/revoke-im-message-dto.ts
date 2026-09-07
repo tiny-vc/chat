@@ -15,8 +15,8 @@
 
 
 export interface RevokeImMessageDto {
-    'channelId': string;
     'channelType': RevokeImMessageDtoChannelTypeEnum;
+    'channelId': string;
     'clientMsgNo': string;
 }
 

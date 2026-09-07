@@ -5,8 +5,8 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**channelId** | **string** |  | [default to undefined]
 **channelType** | **number** |  | [default to undefined]
+**channelId** | **string** |  | [default to undefined]
 **clientMsgNo** | **string** |  | [default to undefined]
 
 ## Example
@@ -15,8 +15,8 @@ Name | Type | Description | Notes
 import { RevokeImMessageDto } from '@chat/admin-api-client';
 
 const instance: RevokeImMessageDto = {
-    channelId,
     channelType,
+    channelId,
     clientMsgNo,
 };
 ```

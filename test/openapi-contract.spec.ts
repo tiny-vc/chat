@@ -21,7 +21,14 @@ type OpenApiDocument = {
   components: {
     schemas: Record<
       string,
-      { required?: string[]; properties?: Record<string, unknown> }
+      {
+        required?: string[];
+        properties?: Record<string, unknown>;
+        allOf?: Array<{
+          required?: string[];
+          properties?: Record<string, unknown>;
+        }>;
+      }
     >;
     securitySchemes: Record<string, unknown>;
   };
@@ -57,9 +64,14 @@ describe("OpenAPI contract", () => {
 
   it("describes login as a strongly typed public operation", () => {
     const login = document.paths["/api/v1/auth/login"].post;
+    const adminLogin = document.paths["/api/v1/auth/admin-login"].post;
     const loginDto = document.components.schemas.LoginDto;
 
     expect(login.security).toBeUndefined();
+    expect(adminLogin.security).toBeUndefined();
+    expect(
+      adminLogin.responses?.["201"]?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/AuthSessionResponse" });
     expect(loginDto.required).toEqual(
       expect.arrayContaining(["username", "password"]),
     );
@@ -121,5 +133,145 @@ describe("OpenAPI contract", () => {
         schema: { type: "integer" },
       });
     }
+  });
+
+  it("types call history direction and peer without exposing device bindings", () => {
+    const listSchema = document.paths["/api/v1/calls"].get.responses?.["200"]
+      ?.content?.["application/json"]?.schema as {
+      type?: string;
+      items?: { $ref?: string };
+    };
+    expect(listSchema).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/CallHistoryResponse" },
+    });
+
+    const extension =
+      document.components.schemas.CallHistoryResponse.allOf?.[1];
+    expect(extension?.required).toEqual(["outgoing", "peer"]);
+    expect(extension?.properties).toHaveProperty("outgoing");
+    expect(extension?.properties).toHaveProperty("peer");
+    expect(
+      document.components.schemas.CallSessionResponse.properties,
+    ).not.toHaveProperty("initiatorSessionId");
+    expect(
+      document.components.schemas.CallSessionResponse.properties,
+    ).not.toHaveProperty("targetSessionId");
+  });
+
+  it("types every call state transition as a call session", () => {
+    for (const action of [
+      "accept",
+      "reject",
+      "busy",
+      "cancel",
+      "miss",
+      "end",
+    ]) {
+      const schema =
+        document.paths[`/api/v1/calls/{callId}/${action}`].post.responses?.[
+          "201"
+        ]?.content?.["application/json"]?.schema;
+      expect(schema).toEqual({
+        $ref: "#/components/schemas/CallSessionResponse",
+      });
+    }
+  });
+
+  it("types blacklist reads and writes without internal relation fields", () => {
+    expect(
+      document.paths["/api/v1/blocks"].get.responses?.["200"]?.content?.[
+        "application/json"
+      ]?.schema,
+    ).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/BlockedUserResponse" },
+    });
+    expect(
+      document.paths["/api/v1/blocks/{userId}"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/BlockedUserResponse" });
+    expect(document.components.schemas.BlockedUserResponse.required).toEqual([
+      "user",
+      "createdAt",
+    ]);
+  });
+
+  it("includes requester details in the typed friend request list", () => {
+    expect(
+      document.paths["/api/v1/friends/requests"].get.responses?.["200"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/FriendRequestResponse" },
+    });
+    const extension =
+      document.components.schemas.FriendRequestResponse.allOf?.[1];
+    expect(extension?.required).toEqual(["requester"]);
+    expect(extension?.properties).toHaveProperty("requester");
+  });
+
+  it("describes the user search query as an optional string", () => {
+    const query = document.paths["/api/v1/users/search"].get.parameters?.find(
+      (parameter) => parameter.name === "q",
+    );
+    expect(query).toMatchObject({
+      name: "q",
+      required: false,
+      schema: { type: "string" },
+    });
+  });
+
+  it("types user reports as an acknowledged operation", () => {
+    expect(
+      document.paths["/api/v1/users/{userId}/report"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/SuccessResponse" });
+  });
+
+  it("types account deactivation as an acknowledged operation", () => {
+    expect(
+      document.paths["/api/v1/auth/account"].delete.responses?.["200"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/SuccessResponse" });
+  });
+
+  it("types forwarded files as stored files", () => {
+    expect(
+      document.paths["/api/v1/files/{fileId}/forward"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/StoredFileResponse" });
+  });
+
+  it("types IM acknowledgements and message receipts", () => {
+    expect(
+      document.paths["/api/v1/im/conversations/read"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/SuccessResponse" });
+    expect(
+      document.paths["/api/v1/im/messages/revoke"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/SuccessResponse" });
+    expect(
+      document.paths["/api/v1/im/messages/receipts"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/MessageReceiptResponse" },
+    });
+  });
+
+  it("types IM conversation and message history envelopes", () => {
+    expect(
+      document.paths["/api/v1/im/conversations/sync"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({
+      type: "array",
+      items: { $ref: "#/components/schemas/ImSyncConversationResponse" },
+    });
+    expect(
+      document.paths["/api/v1/im/messages/sync"].post.responses?.["201"]
+        ?.content?.["application/json"]?.schema,
+    ).toEqual({ $ref: "#/components/schemas/ImSyncMessagesResponse" });
   });
 });

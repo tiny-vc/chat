@@ -13,6 +13,8 @@ prisma/dev.db
 # Local editor and OS state
 .idea/
 .vscode/
+*.tsbuildinfo
+**/.swiftpm/xcode/xcuserdata/
 
 # Certificates, signing keys and provisioning profiles
 *.pem
@@ -23,3 +25,6 @@ prisma/dev.db
 *.keystore
 key.properties
 certs/
+!deploy/certs/
+!deploy/certs/.gitignore
+deploy/nginx/nginx.production.conf

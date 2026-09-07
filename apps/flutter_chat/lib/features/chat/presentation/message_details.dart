@@ -1,5 +1,171 @@
 import 'package:flutter/material.dart';
 
+class TransferProgressPanel extends StatelessWidget {
+  const TransferProgressPanel({
+    super.key,
+    required this.label,
+    required this.progress,
+    required this.onCancel,
+  });
+
+  final String label;
+  final double progress;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = progress.clamp(0.0, 1.0);
+    final status = progress > 0
+        ? '已上传 ${(normalized * 100).round()}%'
+        : '正在准备上传';
+    return Semantics(
+      liveRegion: true,
+      label: '$label，$status',
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 9, 4, 9),
+          child: Row(
+            children: [
+              Icon(
+                Icons.cloud_upload_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 5),
+                    LinearProgressIndicator(
+                      value: progress > 0 ? normalized : null,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(status, style: Theme.of(context).textTheme.labelSmall),
+                  ],
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('cancel-upload'),
+                tooltip: '取消上传',
+                onPressed: onCancel,
+                icon: const Icon(Icons.close, size: 19),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AttachmentSendConfirmation extends StatelessWidget {
+  const AttachmentSendConfirmation({
+    super.key,
+    required this.name,
+    required this.sizeLabel,
+    required this.kindLabel,
+    required this.icon,
+    this.preview,
+  });
+
+  final String name;
+  final String sizeLabel;
+  final String kindLabel;
+  final IconData icon;
+  final Widget? preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('发送$kindLabel', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            if (preview != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ColoredBox(
+                    color: colors.surfaceContainerHighest,
+                    child: preview,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: colors.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        sizeLabel,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, true),
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text('确认发送'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class MessageMeta extends StatelessWidget {
   const MessageMeta({
     super.key,
@@ -50,12 +216,14 @@ class FileMessageTile extends StatelessWidget {
     required this.downloading,
     required this.progress,
     required this.onOpen,
+    this.onCancel,
   });
   final String name;
   final String sizeLabel;
   final bool downloading;
   final double progress;
   final VoidCallback onOpen;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +299,14 @@ class FileMessageTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (downloading && onCancel != null)
+                IconButton(
+                  key: const ValueKey('cancel-file-download'),
+                  tooltip: '取消下载',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onCancel,
+                  icon: const Icon(Icons.close, size: 18),
+                ),
             ],
           ),
         ),

@@ -8,8 +8,8 @@ import 'package:chat_api_client/api.dart';
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**channelId** | **String** |  | 
 **channelType** | **num** |  | 
+**channelId** | **String** |  | 
 **clientMsgNo** | **String** |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

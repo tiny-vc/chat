@@ -23,9 +23,9 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUploadDto, FilePurpose } from "./dto/create-upload.dto";
-import { ForwardFileDto } from './dto/forward-file.dto';
+import { ForwardFileDto } from "./dto/forward-file.dto";
 
-import { fileSizeLimits as limits } from './file-limits';
+import { fileSizeLimits as limits } from "./file-limits";
 
 @Injectable()
 export class FilesService {
@@ -146,6 +146,22 @@ export class FilesService {
       });
       throw new ForbiddenException("Uploaded file type does not match");
     }
+    if (
+      [FilePurpose.AVATAR, FilePurpose.CHAT_IMAGE].includes(
+        file.purpose as FilePurpose,
+      )
+    ) {
+      const detected = await this.detectImageType(file.objectKey);
+      if (!detected || !this.imageTypeMatches(file.mimeType, detected)) {
+        await this.prisma.storedFile.update({
+          where: { id: file.id },
+          data: { status: "REJECTED" },
+        });
+        throw new ForbiddenException(
+          "Uploaded image content does not match its type",
+        );
+      }
+    }
     const updated = await this.prisma.storedFile.update({
       where: { id: file.id },
       data: { status: "READY", uploadedAt: new Date() },
@@ -158,11 +174,18 @@ export class FilesService {
       where: { id: fileId, status: "READY" },
     });
     if (!file) throw new NotFoundException("File not found");
-    if (file.purpose === 'AVATAR' && file.scope === 'PRIVATE' && userId !== file.ownerUserId) {
+    if (
+      file.purpose === "AVATAR" &&
+      file.scope === "PRIVATE" &&
+      userId !== file.ownerUserId
+    ) {
       await this.requireAvatarAccess(userId, file.id);
     } else {
       await this.requireScopeAccess(
-        userId, file.scope, file.scopeId ?? undefined, file.ownerUserId,
+        userId,
+        file.scope,
+        file.scopeId ?? undefined,
+        file.ownerUserId,
       );
     }
     const downloadUrl = await getSignedUrl(
@@ -178,14 +201,14 @@ export class FilesService {
   }
 
   async forward(userId: string, fileId: string, input: ForwardFileDto) {
-    if (input.scope === 'PRIVATE') {
-      throw new ForbiddenException('Forward destination must be a chat');
+    if (input.scope === "PRIVATE") {
+      throw new ForbiddenException("Forward destination must be a chat");
     }
     await this.validateUploadScope(userId, input.scope, input.scopeId);
     const source = await this.prisma.storedFile.findFirst({
-      where: { id: fileId, status: 'READY' },
+      where: { id: fileId, status: "READY" },
     });
-    if (!source) throw new NotFoundException('File not found');
+    if (!source) throw new NotFoundException("File not found");
     await this.requireScopeAccess(
       userId,
       source.scope,
@@ -196,31 +219,35 @@ export class FilesService {
 
     const extension = extname(source.objectKey)
       .toLowerCase()
-      .replace(/[^.a-z0-9]/g, '')
+      .replace(/[^.a-z0-9]/g, "")
       .slice(0, 12);
     const objectKey = `${source.purpose.toLowerCase()}/${userId}/${randomUUID()}${extension}`;
-    await this.client.send(new CopyObjectCommand({
-      Bucket: this.bucket,
-      Key: objectKey,
-      CopySource: encodeURIComponent(`${this.bucket}/${source.objectKey}`).replace(/%2F/g, '/'),
-      ContentType: source.mimeType,
-      MetadataDirective: 'REPLACE',
-    }));
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        CopySource: encodeURIComponent(
+          `${this.bucket}/${source.objectKey}`,
+        ).replace(/%2F/g, "/"),
+        ContentType: source.mimeType,
+        MetadataDirective: "REPLACE",
+      }),
+    );
 
     try {
       const forwarded = await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`
-          SELECT pg_advisory_xact_lock(hashtext(${'storage:' + userId}))::text AS locked
+          SELECT pg_advisory_xact_lock(hashtext(${"storage:" + userId}))::text AS locked
         `;
         const usage = await tx.storedFile.aggregate({
           where: {
             ownerUserId: userId,
-            status: { in: ['PENDING', 'UPLOADED', 'READY'] },
+            status: { in: ["PENDING", "UPLOADED", "READY"] },
           },
           _sum: { sizeBytes: true },
         });
         if ((usage._sum.sizeBytes ?? 0n) + source.sizeBytes > this.quotaBytes) {
-          throw new ConflictException('User storage quota exceeded');
+          throw new ConflictException("User storage quota exceeded");
         }
         return tx.storedFile.create({
           data: {
@@ -233,7 +260,7 @@ export class FilesService {
             purpose: source.purpose,
             scope: input.scope,
             scopeId: input.scopeId,
-            status: 'READY',
+            status: "READY",
             uploadedAt: new Date(),
           },
         });
@@ -374,32 +401,84 @@ export class FilesService {
     }
   }
 
+  private async detectImageType(objectKey: string) {
+    const object = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        Range: "bytes=0-511",
+      }),
+    );
+    const bytes = await object.Body?.transformToByteArray();
+    if (!bytes || bytes.length < 4) return undefined;
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
+      return "image/jpeg";
+    if (
+      bytes
+        .slice(0, 8)
+        .every(
+          (value, index) =>
+            value === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index],
+        )
+    )
+      return "image/png";
+    const ascii = Buffer.from(bytes).toString("ascii");
+    if (ascii.startsWith("GIF87a") || ascii.startsWith("GIF89a"))
+      return "image/gif";
+    if (ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WEBP")
+      return "image/webp";
+    if (
+      ascii.slice(4, 8) === "ftyp" &&
+      /^(heic|heix|hevc|hevx|mif1|msf1)$/.test(ascii.slice(8, 12))
+    )
+      return "image/heic";
+    return undefined;
+  }
+
+  private imageTypeMatches(declared: string, detected: string) {
+    const normalized = declared.toLowerCase();
+    if (detected === "image/jpeg")
+      return normalized === "image/jpeg" || normalized === "image/jpg";
+    if (detected === "image/heic")
+      return normalized === "image/heic" || normalized === "image/heif";
+    return normalized === detected;
+  }
+
   private async requireAvatarAccess(userId: string, fileId: string) {
     // Only the current binding grants access; old/unbound private images stay private.
     const profile = await this.prisma.user.findFirst({
-      where: { avatarFileId: fileId, status: 'ACTIVE' }, select: { id: true },
+      where: { avatarFileId: fileId, status: "ACTIVE" },
+      select: { id: true },
     });
     if (profile) {
       const blocked = await this.prisma.userBlock.findFirst({
-        where: { OR: [
-          { blockerId: userId, blockedId: profile.id },
-          { blockerId: profile.id, blockedId: userId },
-        ] }, select: { blockerId: true },
+        where: {
+          OR: [
+            { blockerId: userId, blockedId: profile.id },
+            { blockerId: profile.id, blockedId: userId },
+          ],
+        },
+        select: { blockerId: true },
       });
       const friend = await this.prisma.friendship.findFirst({
-        where: { pairKey: [userId, profile.id].sort().join(':'), status: 'ACCEPTED' },
+        where: {
+          pairKey: [userId, profile.id].sort().join(":"),
+          status: "ACCEPTED",
+        },
         select: { id: true },
       });
       if (!blocked && friend) return;
-      throw new ForbiddenException('Avatar access denied');
+      throw new ForbiddenException("Avatar access denied");
     }
     const membership = await this.prisma.groupMember.findFirst({
       where: {
-        userId, status: 'ACTIVE',
-        group: { avatarFileId: fileId, status: 'ACTIVE' },
-      }, select: { userId: true },
+        userId,
+        status: "ACTIVE",
+        group: { avatarFileId: fileId, status: "ACTIVE" },
+      },
+      select: { userId: true },
     });
-    if (!membership) throw new ForbiddenException('Avatar access denied');
+    if (!membership) throw new ForbiddenException("Avatar access denied");
   }
 
   private async requireScopeAccess(

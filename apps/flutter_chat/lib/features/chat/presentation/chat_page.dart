@@ -4,10 +4,10 @@ import 'message_details.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
@@ -20,14 +20,25 @@ import 'package:wukongimfluttersdk/wkim.dart';
 
 import '../../../config/app_config.dart';
 import '../../../core/im/im_service.dart';
+import '../../../core/permissions/permission_ui.dart';
 import '../../../core/im/conversation_draft_store.dart';
 import '../../../core/files/file_transfer_service.dart';
+import '../../../core/files/file_open_service.dart';
+import '../../../core/files/file_size.dart';
+import '../../../core/files/image_send_preparation.dart';
 import '../../../core/calls/call_service.dart';
+import '../../../core/permissions/app_permission_service.dart';
 import '../../../core/im/chat_message_content.dart';
-import '../../calls/presentation/call_page.dart';
+import '../../calls/presentation/outgoing_call_launcher.dart';
 import '../../../core/widgets/app_feedback.dart';
+import '../../../core/widgets/im_connection_banner.dart';
 import '../../../core/im/recording_session.dart';
+import '../../../core/im/message_pagination.dart';
+import '../../../core/text/utf16_length_formatter.dart';
+import '../../../core/widgets/message_text.dart';
 import 'composer_action_button.dart';
+import 'message_renderer_registry.dart';
+import '../../../config/server_settings.dart';
 
 class ForwardTarget {
   const ForwardTarget({
@@ -52,6 +63,7 @@ class ChatPage extends StatefulWidget {
     required this.forwardTargets,
     required this.callService,
     this.memberNames = const {},
+    this.capabilities = ServerCapabilities.all,
   });
 
   final String channelId;
@@ -62,12 +74,15 @@ class ChatPage extends StatefulWidget {
   final List<ForwardTarget> forwardTargets;
   final CallService callService;
   final Map<String, String> memberNames;
+  final ServerCapabilities capabilities;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
 
 class _ChatPageState extends State<ChatPage> {
+  ServerCapabilities get _capabilities =>
+      ServerCapabilitiesScope.maybeOf(context) ?? widget.capabilities;
   static const _listenerKey = 'flutter-chat-page';
   static const _emojis = [
     '😀',
@@ -150,6 +165,8 @@ class _ChatPageState extends State<ChatPage> {
   bool _voiceBusy = false;
   bool _uploading = false;
   double _uploadProgress = 0;
+  String _uploadLabel = '附件';
+  CancelToken? _uploadCancelToken;
   bool _recording = false;
   DateTime? _recordingStartedAt;
   Timer? _recordingTimer;
@@ -161,7 +178,12 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _receiptTimer;
   Timer? _draftTimer;
   bool _loadingReceipts = false;
+  bool _loadingOlder = false;
+  bool _hasOlderMessages = true;
+  bool _olderLoadFailed = false;
+  bool _attemptedOlderLoad = false;
   int _historyRevision = 0;
+  late ImConnectionState _connectionState;
 
   String get _draftUid => WKIM.shared.options.uid ?? 'unknown-user';
 
@@ -199,9 +221,11 @@ class _ChatPageState extends State<ChatPage> {
     );
     _loadMessages();
     _historyRevision = widget.imService.historyRevision;
+    _connectionState = widget.imService.connectionState;
     widget.imService.addListener(_onHistorySync);
     _loadDraft();
     _composer.addListener(_scheduleDraftSave);
+    _scrollController.addListener(_onMessageScroll);
     widget.imService.markRead(widget.channelId, widget.channelType);
     _receiptTimer = Timer.periodic(
       const Duration(seconds: 5),
@@ -236,9 +260,14 @@ class _ChatPageState extends State<ChatPage> {
 
   void _onHistorySync() {
     final revision = widget.imService.historyRevision;
-    if (revision == _historyRevision) return;
-    _historyRevision = revision;
-    _loadMessages();
+    if (revision != _historyRevision) {
+      _historyRevision = revision;
+      _loadMessages();
+    }
+    final connectionState = widget.imService.connectionState;
+    if (mounted && connectionState != _connectionState) {
+      setState(() => _connectionState = connectionState);
+    }
   }
 
   void _loadMessages() {
@@ -250,9 +279,77 @@ class _ChatPageState extends State<ChatPage> {
       0,
       50,
       0,
-      (List<WKMsg> messages) => _replaceMessages(messages),
+      (List<WKMsg> messages) {
+        _replaceMessages(messages);
+        if (mounted) {
+          setState(() => _hasOlderMessages = messages.length >= 50);
+        }
+      },
       () {},
     );
+  }
+
+  void _onMessageScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 160) {
+      return;
+    }
+    _loadOlderMessages();
+  }
+
+  Future<void> _loadOlderMessages() async {
+    if (_loadingOlder || !_hasOlderMessages || _messages.isEmpty || !mounted) {
+      return;
+    }
+    final oldestOrderSeq = _messages
+        .map((message) => message.orderSeq)
+        .where((orderSeq) => orderSeq > 0)
+        .fold<int>(
+          0,
+          (oldest, value) => oldest == 0 || value < oldest ? value : oldest,
+        );
+    if (oldestOrderSeq == 0) {
+      setState(() {
+        _attemptedOlderLoad = true;
+        _hasOlderMessages = false;
+      });
+      return;
+    }
+    setState(() {
+      _loadingOlder = true;
+      _olderLoadFailed = false;
+      _attemptedOlderLoad = true;
+    });
+    try {
+      await WKIM.shared.messageManager.getOrSyncHistoryMessages(
+        widget.channelId,
+        widget.channelType,
+        oldestOrderSeq,
+        false,
+        0,
+        50,
+        0,
+        (List<WKMsg> older) {
+          if (!mounted) return;
+          final merged = mergeOlderMessagePage(_messages, older);
+          setState(() {
+            _messages
+              ..clear()
+              ..addAll(merged.messages);
+            _hasOlderMessages = older.length >= 50 && merged.addedCount > 0;
+            _loadingOlder = false;
+          });
+        },
+        () {},
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loadingOlder = false;
+          _olderLoadFailed = true;
+        });
+      }
+    }
   }
 
   void _replaceMessages(List<WKMsg> messages, {bool scrollBottom = true}) {
@@ -382,29 +479,15 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _startCall({required bool video}) async {
-    try {
-      final call = await widget.callService.create(
-        widget.channelId,
-        video: video,
-      );
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CallPage(
-            callId: call.id,
-            title: widget.title,
-            video: video,
-            incoming: false,
-            callService: widget.callService,
-            imService: widget.imService,
-          ),
-        ),
-      );
-    } catch (error) {
-      if (mounted) {
-        AppFeedback.error(context, error, fallback: '无法发起通话，请稍后重试');
-      }
-    }
+    await launchOutgoingCall(
+      context: context,
+      targetUserId: widget.channelId,
+      title: widget.title,
+      video: video,
+      callService: widget.callService,
+      imService: widget.imService,
+      capabilities: _capabilities,
+    );
   }
 
   Future<void> _focusMessage(WKMsg target) async {
@@ -441,6 +524,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _send() {
+    if (!_capabilities.messaging) {
+      AppFeedback.show(context, '当前服务器暂停了消息发送');
+      return;
+    }
     final text = _composer.text.trim();
     if (text.isEmpty) return;
     _composer.clear();
@@ -499,8 +586,35 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _showMessageActions(WKMsg message, bool mine) async {
     final textMessage = message.messageContent is WKTextContent;
+    final fileMessage =
+        message.messageContent is ChatImageContent ||
+        message.messageContent is ChatVideoContent ||
+        message.messageContent is ChatFileContent ||
+        message.messageContent is ChatAudioContent;
+    final hasForwardTarget = widget.forwardTargets.any(
+      (target) =>
+          (_capabilities.groups || target.channelType != 2) &&
+          (target.channelId != widget.channelId ||
+              target.channelType != widget.channelType),
+    );
+    final canForward =
+        _capabilities.messaging &&
+        isForwardableChatContent(message.messageContent) &&
+        hasForwardTarget &&
+        (!fileMessage || _capabilities.canSendFiles);
+    final canRetry =
+        mine &&
+        message.status == WKSendMsgResult.sendFail &&
+        _capabilities.messaging &&
+        isForwardableChatContent(message.messageContent) &&
+        (!fileMessage || _capabilities.canSendFiles);
+    final canReply =
+        _capabilities.messaging &&
+        message.messageID.isNotEmpty &&
+        isForwardableChatContent(message.messageContent);
     final canRevoke =
         mine &&
+        _capabilities.messaging &&
         message.messageID.isNotEmpty &&
         message.timestamp > 0 &&
         DateTime.now().millisecondsSinceEpoch ~/ 1000 - message.timestamp <=
@@ -510,12 +624,20 @@ class _ChatPageState extends State<ChatPage> {
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
-            ListTile(
-              leading: const Icon(Icons.forward_outlined),
-              title: const Text('转发'),
-              onTap: () => Navigator.pop(context, 'forward'),
-            ),
-            if (message.messageID.isNotEmpty)
+            if (canRetry)
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('重新发送'),
+                subtitle: const Text('将替换这条发送失败的本机记录'),
+                onTap: () => Navigator.pop(context, 'retry'),
+              ),
+            if (canForward)
+              ListTile(
+                leading: const Icon(Icons.forward_outlined),
+                title: const Text('转发'),
+                onTap: () => Navigator.pop(context, 'forward'),
+              ),
+            if (canReply)
               ListTile(
                 leading: const Icon(Icons.reply),
                 title: const Text('回复'),
@@ -547,6 +669,8 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted || action == null) return;
     try {
       switch (action) {
+        case 'retry':
+          await _retryMessage(message);
         case 'forward':
           await _forwardMessage(message);
         case 'reply':
@@ -598,12 +722,41 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> _retryMessage(WKMsg message) async {
+    if (!_capabilities.messaging) throw StateError('服务器已暂停消息发送');
+    final content = message.messageContent;
+    if (content == null) throw StateError('无法重新发送此消息');
+    await WKIM.shared.messageManager.deleteWithClientMsgNo(message.clientMsgNO);
+    if (mounted) {
+      setState(() {
+        _messages.removeWhere(
+          (item) => item.clientMsgNO == message.clientMsgNO,
+        );
+      });
+    }
+    await WKIM.shared.messageManager.sendMessage(
+      content,
+      WKChannel(widget.channelId, widget.channelType),
+    );
+  }
+
   Future<void> _forwardMessage(WKMsg message) async {
+    if (!_capabilities.messaging) throw StateError('服务器已暂停消息发送');
+    final source = message.messageContent;
+    final fileMessage =
+        source is ChatImageContent ||
+        source is ChatVideoContent ||
+        source is ChatFileContent ||
+        source is ChatAudioContent;
+    if (fileMessage && !_capabilities.canSendFiles) {
+      throw StateError('服务器已暂停文件发送');
+    }
     final targets = widget.forwardTargets
         .where(
           (target) =>
-              target.channelId != widget.channelId ||
-              target.channelType != widget.channelType,
+              (_capabilities.groups || target.channelType != 2) &&
+              (target.channelId != widget.channelId ||
+                  target.channelType != widget.channelType),
         )
         .toList();
     if (targets.isEmpty) {
@@ -645,7 +798,6 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
     if (target == null) return;
-    final source = message.messageContent;
     if (source == null) throw StateError('无法转发此消息');
     final WKMessageContent forwarded;
     if (source case WKTextContent text) {
@@ -713,20 +865,72 @@ class _ChatPageState extends State<ChatPage> {
       type: image ? FileType.image : FileType.any,
     );
     if (file == null || !mounted) return;
+    final limits = ServerCapabilitiesScope.uploadLimitsOf(context);
+    if (!await _validateSelectedFileSize(
+      file,
+      maxBytes: image ? limits.chatImage : limits.chatFile,
+      kindLabel: image ? '图片' : '文件',
+    )) {
+      return;
+    }
+    var uploadFile = file;
+    Uint8List? imageBytes;
+    if (image) {
+      try {
+        imageBytes = await readPlatformFileBytes(file);
+        if (!mounted) return;
+        final compress = await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (context) => _ImageSendPreview(
+            name: file.name,
+            bytes: imageBytes!,
+            canCompress: canCompressChatImage(file),
+          ),
+        );
+        if (compress == null || !mounted) return;
+        final prepared = await prepareChatImage(file, compress: compress);
+        uploadFile = prepared.file;
+        imageBytes = prepared.previewBytes;
+      } catch (error) {
+        if (mounted) {
+          AppFeedback.error(context, error, fallback: '图片处理失败，请重新选择');
+        }
+        return;
+      }
+    } else {
+      try {
+        final confirmed = await _confirmAttachmentSend(
+          file: file,
+          kindLabel: '文件',
+          icon: Icons.description_outlined,
+        );
+        if (!confirmed || !mounted) return;
+      } catch (error) {
+        if (mounted) {
+          AppFeedback.error(context, error, fallback: '无法读取文件，请重新选择');
+        }
+        return;
+      }
+    }
     setState(() {
       _uploading = true;
       _uploadProgress = 0;
+      _uploadLabel = image ? '图片 · ${file.name}' : '文件 · ${file.name}';
     });
+    final cancelToken = CancelToken();
+    _uploadCancelToken = cancelToken;
     try {
       var width = 0;
       var height = 0;
       if (image) {
-        final dimensions = await _imageDimensions(await file.readAsBytes());
+        final dimensions = await _imageDimensions(imageBytes!);
         width = dimensions.$1;
         height = dimensions.$2;
       }
       final uploaded = await widget.fileTransferService.upload(
-        file: file,
+        file: uploadFile,
         channelId: widget.channelId,
         channelType: widget.channelType,
         image: image,
@@ -735,6 +939,7 @@ class _ChatPageState extends State<ChatPage> {
             setState(() => _uploadProgress = sent / total);
           }
         },
+        cancelToken: cancelToken,
       );
       final content = image
           ? ChatImageContent(
@@ -753,11 +958,32 @@ class _ChatPageState extends State<ChatPage> {
         content,
         WKChannel(widget.channelId, widget.channelType),
       );
+    } on DioException catch (error) {
+      if (mounted && CancelToken.isCancel(error)) {
+        AppFeedback.show(context, '已取消上传，未发送');
+      } else if (mounted) {
+        AppFeedback.error(
+          context,
+          error,
+          fallback: '发送失败，请稍后重试',
+          actionLabel: '重新选择',
+          onAction: _showAttachments,
+        );
+      }
     } catch (error) {
       if (mounted) {
-        AppFeedback.error(context, error, fallback: '发送失败，请稍后重试');
+        AppFeedback.error(
+          context,
+          error,
+          fallback: '发送失败，请稍后重试',
+          actionLabel: '重新选择',
+          onAction: _showAttachments,
+        );
       }
     } finally {
+      if (identical(_uploadCancelToken, cancelToken)) {
+        _uploadCancelToken = null;
+      }
       if (mounted) setState(() => _uploading = false);
     }
   }
@@ -773,18 +999,55 @@ class _ChatPageState extends State<ChatPage> {
     Navigator.of(context).pop();
     final file = await FilePicker.pickFile(type: FileType.video);
     if (file == null || !mounted) return;
-    setState(() {
-      _uploading = true;
-      _uploadProgress = 0;
-    });
+    if (!await _validateSelectedFileSize(
+      file,
+      maxBytes: ServerCapabilitiesScope.uploadLimitsOf(context).chatVideo,
+      kindLabel: '视频',
+    )) {
+      return;
+    }
     VideoPlayerController? metadataController;
+    var durationMs = 0;
+    var confirmed = false;
     try {
-      var durationMs = 0;
       if (file.path case final path?) {
         metadataController = VideoPlayerController.file(File(path));
         await metadataController.initialize();
         durationMs = metadataController.value.duration.inMilliseconds;
       }
+      if (!mounted) return;
+      confirmed = await _confirmAttachmentSend(
+        file: file,
+        kindLabel: '视频',
+        icon: Icons.video_library_outlined,
+        preview: metadataController == null
+            ? null
+            : AspectRatio(
+                aspectRatio: metadataController.value.aspectRatio > 0
+                    ? metadataController.value.aspectRatio
+                    : 16 / 9,
+                child: VideoPlayer(metadataController),
+              ),
+      );
+    } catch (error) {
+      await metadataController?.dispose();
+      if (mounted) {
+        AppFeedback.error(context, error, fallback: '无法读取视频，请重新选择');
+      }
+      return;
+    }
+    if (!confirmed || !mounted) {
+      await metadataController?.dispose();
+      return;
+    }
+    setState(() {
+      _uploading = true;
+      _uploadProgress = 0;
+      _uploadLabel = '视频 · ${file.name}';
+    });
+    final cancelToken = CancelToken();
+    _uploadCancelToken = cancelToken;
+    try {
       final uploaded = await widget.fileTransferService.uploadVideo(
         file: file,
         channelId: widget.channelId,
@@ -794,6 +1057,7 @@ class _ChatPageState extends State<ChatPage> {
             setState(() => _uploadProgress = sent / total);
           }
         },
+        cancelToken: cancelToken,
       );
       final content = ChatVideoContent(
         fileId: uploaded.fileId,
@@ -806,17 +1070,90 @@ class _ChatPageState extends State<ChatPage> {
         content,
         WKChannel(widget.channelId, widget.channelType),
       );
+    } on DioException catch (error) {
+      if (mounted && CancelToken.isCancel(error)) {
+        AppFeedback.show(context, '已取消上传，未发送');
+      } else if (mounted) {
+        AppFeedback.error(
+          context,
+          error,
+          fallback: '视频发送失败，请稍后重试',
+          actionLabel: '重新选择',
+          onAction: _showAttachments,
+        );
+      }
     } catch (error) {
       if (mounted) {
-        AppFeedback.error(context, error, fallback: '视频发送失败，请稍后重试');
+        AppFeedback.error(
+          context,
+          error,
+          fallback: '视频发送失败，请稍后重试',
+          actionLabel: '重新选择',
+          onAction: _showAttachments,
+        );
       }
     } finally {
       await metadataController?.dispose();
+      if (identical(_uploadCancelToken, cancelToken)) {
+        _uploadCancelToken = null;
+      }
       if (mounted) setState(() => _uploading = false);
     }
   }
 
+  Future<bool> _confirmAttachmentSend({
+    required PlatformFile file,
+    required String kindLabel,
+    required IconData icon,
+    Widget? preview,
+  }) async {
+    final size = await file.length();
+    if (!mounted) return false;
+    return await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (context) => AttachmentSendConfirmation(
+            name: file.name,
+            sizeLabel: formatFileSize(size),
+            kindLabel: kindLabel,
+            icon: icon,
+            preview: preview,
+          ),
+        ) ??
+        false;
+  }
+
+  Future<bool> _validateSelectedFileSize(
+    PlatformFile file, {
+    required int maxBytes,
+    required String kindLabel,
+  }) async {
+    try {
+      final size = await file.length();
+      if (!mounted) return false;
+      if (size > maxBytes) {
+        AppFeedback.show(
+          context,
+          '$kindLabel大小为 ${formatFileSize(size)}，服务器上限为 ${formatFileSize(maxBytes)}',
+          kind: FeedbackKind.error,
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        AppFeedback.error(context, error, fallback: '无法读取$kindLabel大小，请重新选择');
+      }
+      return false;
+    }
+  }
+
   void _showAttachments() {
+    if (!_capabilities.canSendFiles) {
+      AppFeedback.show(context, '当前服务器未提供文件发送功能');
+      return;
+    }
     _composerFocus.unfocus();
     if (_showEmojiPanel) setState(() => _showEmojiPanel = false);
     showModalBottomSheet<void>(
@@ -874,6 +1211,15 @@ class _ChatPageState extends State<ChatPage> {
       await _stopAndSendVoice();
       return;
     }
+    if (!await ensureAppPermission(
+      context,
+      AppPermission.microphone,
+      title: '允许使用麦克风',
+      rationale: '发送语音消息需要麦克风权限。录音只会在你主动录制期间进行。',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _voiceBusy = true);
     try {
       if (!await _recordingSession.start() || !mounted) return;
@@ -910,11 +1256,29 @@ class _ChatPageState extends State<ChatPage> {
           .difference(_recordingStartedAt!)
           .inMilliseconds;
       if (!mounted) return;
+      final voiceLimit = ServerCapabilitiesScope.uploadLimitsOf(
+        context,
+      ).chatVoice;
+      final voiceSize = path == null ? 0 : await File(path).length();
+      if (!mounted) return;
+      if (voiceSize > voiceLimit) {
+        setState(() {
+          _recording = false;
+          _voiceBusy = false;
+        });
+        AppFeedback.show(
+          context,
+          '语音大小为 ${formatFileSize(voiceSize)}，服务器上限为 ${formatFileSize(voiceLimit)}',
+          kind: FeedbackKind.error,
+        );
+        return;
+      }
       if (mounted) {
         setState(() {
           _recording = false;
           _uploading = true;
           _uploadProgress = 0;
+          _uploadLabel = '语音消息';
         });
       }
       if (path == null || duration < 500) {
@@ -924,6 +1288,8 @@ class _ChatPageState extends State<ChatPage> {
         }
         return;
       }
+      final cancelToken = CancelToken();
+      _uploadCancelToken = cancelToken;
       final uploaded = await widget.fileTransferService.uploadVoice(
         path: path,
         channelId: widget.channelId,
@@ -933,6 +1299,7 @@ class _ChatPageState extends State<ChatPage> {
             setState(() => _uploadProgress = sent / total);
           }
         },
+        cancelToken: cancelToken,
       );
       if (!mounted) return;
       final content = ChatAudioContent(
@@ -944,14 +1311,33 @@ class _ChatPageState extends State<ChatPage> {
         content,
         WKChannel(widget.channelId, widget.channelType),
       );
+    } on DioException catch (error) {
+      if (mounted && CancelToken.isCancel(error)) {
+        AppFeedback.show(context, '已取消上传，未发送');
+      } else if (mounted) {
+        AppFeedback.error(
+          context,
+          error,
+          fallback: '语音发送失败，请稍后重试',
+          actionLabel: '重新录制',
+          onAction: _toggleRecording,
+        );
+      }
     } catch (error) {
       if (mounted) {
-        AppFeedback.error(context, error, fallback: '语音发送失败，请稍后重试');
+        AppFeedback.error(
+          context,
+          error,
+          fallback: '语音发送失败，请稍后重试',
+          actionLabel: '重新录制',
+          onAction: _toggleRecording,
+        );
       }
     } finally {
       if (path != null) {
         await File(path).delete().catchError((_) => File(path!));
       }
+      _uploadCancelToken = null;
       if (mounted) {
         setState(() {
           _uploading = false;
@@ -979,6 +1365,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    _uploadCancelToken?.cancel('聊天页面已关闭');
     widget.imService.removeListener(_onHistorySync);
     WKIM.shared.messageManager.removeNewMsgListener(_listenerKey);
     WKIM.shared.messageManager.removeOnRefreshMsgListener(_listenerKey);
@@ -1004,7 +1391,7 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
-          if (widget.channelType == 1)
+          if (widget.channelType == 1 && _capabilities.canAudioCall)
             IconButton(
               tooltip: '语音通话',
               onPressed: _recording || _voiceBusy || _uploading
@@ -1012,7 +1399,7 @@ class _ChatPageState extends State<ChatPage> {
                   : () => _startCall(video: false),
               icon: const Icon(Icons.call_outlined),
             ),
-          if (widget.channelType == 1)
+          if (widget.channelType == 1 && _capabilities.canVideoCall)
             IconButton(
               tooltip: '视频通话',
               onPressed: _recording || _voiceBusy || _uploading
@@ -1029,6 +1416,51 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
+          if (_connectionState != ImConnectionState.connected)
+            ImConnectionBanner(
+              state: _connectionState,
+              onRetry: widget.imService.reconnect,
+            ),
+          if (!_capabilities.messaging)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: const ListTile(
+                dense: true,
+                leading: Icon(Icons.visibility_outlined),
+                title: Text('服务器已暂停消息服务'),
+                subtitle: Text('你仍可查看和搜索已有聊天记录'),
+              ),
+            ),
+          if (_messages.isNotEmpty &&
+              (_loadingOlder ||
+                  _olderLoadFailed ||
+                  (_attemptedOlderLoad && !_hasOlderMessages)))
+            SizedBox(
+              height: 34,
+              child: Center(
+                child: _loadingOlder
+                    ? const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox.square(
+                            dimension: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 8),
+                          Text('正在加载更早消息'),
+                        ],
+                      )
+                    : _olderLoadFailed
+                    ? TextButton(
+                        onPressed: _loadOlderMessages,
+                        child: const Text('更早消息加载失败，点击重试'),
+                      )
+                    : Text(
+                        '已经是最早的消息',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+              ),
+            ),
           Expanded(
             child: _messages.isEmpty
                 ? Center(
@@ -1044,12 +1476,14 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            '开始聊天',
+                            _capabilities.messaging ? '开始聊天' : '只读聊天记录',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '发送第一条消息，或分享图片和文件',
+                            _capabilities.canSendFiles
+                                ? '发送第一条消息，或分享图片和文件'
+                                : '发送第一条消息，开始对话',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.outline,
@@ -1212,6 +1646,16 @@ class _ChatPageState extends State<ChatPage> {
                                                           ? _SendStatus(
                                                               status: message
                                                                   .status,
+                                                              onRetry:
+                                                                  message.status ==
+                                                                      WKSendMsgResult
+                                                                          .sendFail
+                                                                  ? () {
+                                                                      _retryMessage(
+                                                                        message,
+                                                                      );
+                                                                    }
+                                                                  : null,
                                                             )
                                                           : null,
                                                       receipt:
@@ -1311,33 +1755,62 @@ class _ChatPageState extends State<ChatPage> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: '发送图片或文件',
-                    onPressed: _uploading || _recording || _voiceBusy
+                    tooltip: _capabilities.canSendFiles
+                        ? '发送图片或文件'
+                        : '服务器已暂停文件发送',
+                    onPressed:
+                        !_capabilities.canSendFiles ||
+                            _uploading ||
+                            _recording ||
+                            _voiceBusy
                         ? null
                         : _showAttachments,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                   Expanded(
-                    child: TextField(
-                      controller: _composer,
-                      focusNode: _composerFocus,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      onTap: () {
-                        if (_showEmojiPanel) {
-                          setState(() => _showEmojiPanel = false);
-                        }
-                      },
-                      decoration: ChatStyles.composer(
-                        Theme.of(context).colorScheme,
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _composer,
+                      builder: (context, value, _) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          TextField(
+                            enabled: _capabilities.messaging,
+                            controller: _composer,
+                            focusNode: _composerFocus,
+                            minLines: 1,
+                            maxLines: 4,
+                            inputFormatters: const [
+                              Utf16LengthLimitingTextInputFormatter(10000),
+                            ],
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _send(),
+                            onTap: () {
+                              if (_showEmojiPanel) {
+                                setState(() => _showEmojiPanel = false);
+                              }
+                            },
+                            decoration: ChatStyles.composer(
+                              Theme.of(context).colorScheme,
+                            ),
+                          ),
+                          if (value.text.length >= 9000)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2, right: 4),
+                              child: Text(
+                                '${value.text.length}/10000',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                   IconButton(
                     tooltip: _showEmojiPanel ? '显示键盘' : '表情',
-                    onPressed: _toggleEmojiPanel,
+                    onPressed: _capabilities.messaging
+                        ? _toggleEmojiPanel
+                        : null,
                     icon: Icon(
                       _showEmojiPanel
                           ? Icons.keyboard_alt_outlined
@@ -1350,6 +1823,7 @@ class _ChatPageState extends State<ChatPage> {
                     voiceBusy: _uploading || _voiceBusy,
                     onSend: _send,
                     onVoice: _toggleRecording,
+                    voiceEnabled: _capabilities.canSendFiles,
                   ),
                 ],
               ),
@@ -1358,21 +1832,12 @@ class _ChatPageState extends State<ChatPage> {
           if (_uploading)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: _uploadProgress > 0 ? _uploadProgress : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    _uploadProgress > 0
-                        ? '${(_uploadProgress * 100).round()}%'
-                        : '正在处理…',
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ],
+              child: TransferProgressPanel(
+                label: _uploadLabel,
+                progress: _uploadProgress,
+                onCancel: _uploadCancelToken == null
+                    ? null
+                    : () => _uploadCancelToken?.cancel('用户取消上传'),
               ),
             ),
           if (_recording)
@@ -1446,6 +1911,111 @@ class _ChatPageState extends State<ChatPage> {
     final a = DateTime.fromMillisecondsSinceEpoch(first * 1000);
     final b = DateTime.fromMillisecondsSinceEpoch(second * 1000);
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+}
+
+class _ImageSendPreview extends StatefulWidget {
+  const _ImageSendPreview({
+    required this.name,
+    required this.bytes,
+    required this.canCompress,
+  });
+
+  final String name;
+  final Uint8List bytes;
+  final bool canCompress;
+
+  @override
+  State<_ImageSendPreview> createState() => _ImageSendPreviewState();
+}
+
+class _ImageSendPreviewState extends State<_ImageSendPreview> {
+  late bool _compress = widget.canCompress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('发送图片', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: ColoredBox(
+                  color: colors.surfaceContainerHighest,
+                  child: Image.memory(
+                    widget.bytes,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const SizedBox(
+                      height: 180,
+                      child: Center(child: Icon(Icons.broken_image_outlined)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            Text(
+              formatFileSize(widget.bytes.length),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('压缩发送'),
+              subtitle: Text(
+                widget.canCompress
+                    ? '最长边 2048 像素，节省流量；关闭可发送原图'
+                    : '此格式将按原图发送，避免画质或动图损失',
+              ),
+              value: _compress,
+              onChanged: widget.canCompress
+                  ? (value) => setState(() => _compress = value)
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, _compress),
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: Text(_compress ? '压缩并发送' : '发送原图'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1751,33 +2321,43 @@ class _MessageBody extends StatelessWidget {
   final dynamic content;
   final FileTransferService fileTransferService;
 
+  static final MessageRendererRegistry<FileTransferService> _renderers =
+      MessageRendererRegistry<FileTransferService>(
+        renderers: [
+          TypedMessageRenderer<ChatImageContent, FileTransferService>(
+            (_, image, files) =>
+                _ImageMessage(content: image, fileTransferService: files),
+          ),
+          TypedMessageRenderer<ChatFileContent, FileTransferService>(
+            (_, file, files) =>
+                _FileMessage(content: file, fileTransferService: files),
+          ),
+          TypedMessageRenderer<ChatVideoContent, FileTransferService>(
+            (_, video, files) =>
+                _VideoMessage(content: video, fileTransferService: files),
+          ),
+          TypedMessageRenderer<ChatAudioContent, FileTransferService>(
+            (_, audio, files) =>
+                _AudioMessage(content: audio, fileTransferService: files),
+          ),
+          TypedMessageRenderer<WKTextContent, FileTransferService>(
+            (_, text, _) => MessageText(text: text.content),
+          ),
+        ],
+        fallback: (_, content, _) =>
+            Text(content == null ? '[消息]' : _displayMessageContent(content)),
+      );
+
   @override
-  Widget build(BuildContext context) {
-    if (content case ChatImageContent image) {
-      return _ImageMessage(
-        content: image,
-        fileTransferService: fileTransferService,
-      );
-    }
-    if (content case ChatFileContent file) {
-      return _FileMessage(
-        content: file,
-        fileTransferService: fileTransferService,
-      );
-    }
-    if (content case ChatVideoContent video) {
-      return _VideoMessage(
-        content: video,
-        fileTransferService: fileTransferService,
-      );
-    }
-    if (content case ChatAudioContent audio) {
-      return _AudioMessage(
-        content: audio,
-        fileTransferService: fileTransferService,
-      );
-    }
-    return Text(content?.displayText() ?? '[消息]');
+  Widget build(BuildContext context) =>
+      _renderers.build(context, content, fileTransferService);
+}
+
+String _displayMessageContent(Object content) {
+  try {
+    return (content as dynamic).displayText() as String;
+  } catch (_) {
+    return '[暂不支持的消息]';
   }
 }
 
@@ -1910,9 +2490,11 @@ class _FileMessage extends StatefulWidget {
   State<_FileMessage> createState() => _FileMessageState();
 }
 
-class _FileMessageState extends State<_FileMessage> {
+class _FileMessageState extends State<_FileMessage>
+    with AutomaticKeepAliveClientMixin<_FileMessage> {
   bool _downloading = false;
   double _progress = 0;
+  CancelToken? _downloadCancelToken;
 
   Future<void> _downloadAndOpen() async {
     if (_downloading) return;
@@ -1920,41 +2502,64 @@ class _FileMessageState extends State<_FileMessage> {
       _downloading = true;
       _progress = 0;
     });
+    updateKeepAlive();
+    final cancelToken = CancelToken();
+    _downloadCancelToken = cancelToken;
     try {
       final file = await widget.fileTransferService.download(
         fileId: widget.content.fileId,
         fileName: widget.content.name,
+        expectedSize: widget.content.size,
         onProgress: (received, total) {
           if (mounted && total > 0) {
             setState(() => _progress = received / total);
           }
         },
+        cancelToken: cancelToken,
       );
-      final result = await OpenFilex.open(file.path);
-      if (result.type != ResultType.done) throw StateError(result.message);
+      await FileOpenService.open(file.path);
+    } on DioException catch (error) {
+      if (mounted && CancelToken.isCancel(error)) {
+        AppFeedback.show(context, '已取消下载');
+      } else if (mounted) {
+        AppFeedback.error(context, error, fallback: '文件打开失败，请稍后重试');
+      }
     } catch (error) {
       if (mounted) {
         AppFeedback.error(context, error, fallback: '文件打开失败，请稍后重试');
       }
     } finally {
-      if (mounted) setState(() => _downloading = false);
+      if (identical(_downloadCancelToken, cancelToken)) {
+        _downloadCancelToken = null;
+      }
+      if (mounted) {
+        setState(() => _downloading = false);
+        updateKeepAlive();
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context) => FileMessageTile(
-    name: widget.content.name,
-    sizeLabel: _formatBytes(widget.content.size),
-    downloading: _downloading,
-    progress: _progress,
-    onOpen: _downloadAndOpen,
-  );
-}
+  void dispose() {
+    _downloadCancelToken?.cancel('文件消息已离开屏幕');
+    super.dispose();
+  }
 
-String _formatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+  @override
+  bool get wantKeepAlive => _downloading;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return FileMessageTile(
+      name: widget.content.name,
+      sizeLabel: formatFileSize(widget.content.size),
+      downloading: _downloading,
+      progress: _progress,
+      onOpen: _downloadAndOpen,
+      onCancel: () => _downloadCancelToken?.cancel('用户取消下载'),
+    );
+  }
 }
 
 class _VideoMessage extends StatefulWidget {
@@ -2120,7 +2725,7 @@ class _VideoMessageState extends State<_VideoMessage> {
           ),
           VideoProgressIndicator(controller, allowScrubbing: true),
           Text(
-            '${_formatDuration(controller.value.duration)} · ${_formatBytes(widget.content.size)}',
+            '${_formatDuration(controller.value.duration)} · ${formatFileSize(widget.content.size)}',
             style: Theme.of(context).textTheme.labelSmall,
           ),
         ],
@@ -2372,9 +2977,10 @@ class _AudioMessageState extends State<_AudioMessage> {
 }
 
 class _SendStatus extends StatelessWidget {
-  const _SendStatus({required this.status});
+  const _SendStatus({required this.status, this.onRetry});
 
   final int status;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -2386,6 +2992,15 @@ class _SendStatus extends StatelessWidget {
       WKSendMsgResult.notOnWhiteList => (Icons.error_outline, Colors.red),
       _ => (Icons.schedule, Theme.of(context).colorScheme.outline),
     };
-    return Icon(icon, size: 14, color: color);
+    final statusIcon = Icon(icon, size: 14, color: color);
+    if (onRetry == null) return statusIcon;
+    return Tooltip(
+      message: '发送失败，点击重试',
+      child: InkResponse(
+        onTap: onRetry,
+        radius: 18,
+        child: Padding(padding: const EdgeInsets.all(3), child: statusIcon),
+      ),
+    );
   }
 }

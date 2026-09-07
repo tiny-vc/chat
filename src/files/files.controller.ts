@@ -6,6 +6,8 @@ import { CreateUploadDto } from './dto/create-upload.dto';
 import { FilesService } from './files.service';
 import { SetThumbnailDto } from './dto/set-thumbnail.dto';
 import { ForwardFileDto } from './dto/forward-file.dto';
+import { RequireRuntimeCapability } from '../config/runtime-capability.decorator';
+import { RuntimeCapabilityGuard } from '../config/runtime-capability.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('files')
@@ -13,16 +15,22 @@ export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
   @Post('uploads')
+  @RequireRuntimeCapability('files')
+  @UseGuards(RuntimeCapabilityGuard)
   createUpload(@CurrentUser() user: JwtPayload, @Body() input: CreateUploadDto) {
     return this.filesService.createUpload(user.sub, input);
   }
 
   @Post(':fileId/complete')
+  @RequireRuntimeCapability('files')
+  @UseGuards(RuntimeCapabilityGuard)
   complete(@CurrentUser() user: JwtPayload, @Param('fileId') fileId: string) {
     return this.filesService.complete(user.sub, fileId);
   }
 
   @Post(':fileId/forward')
+  @RequireRuntimeCapability('files')
+  @UseGuards(RuntimeCapabilityGuard)
   forward(
     @CurrentUser() user: JwtPayload,
     @Param('fileId') fileId: string,
@@ -42,6 +50,8 @@ export class FilesController {
   }
 
   @Post(':fileId/thumbnail')
+  @RequireRuntimeCapability('files')
+  @UseGuards(RuntimeCapabilityGuard)
   setThumbnail(
     @CurrentUser() user: JwtPayload,
     @Param('fileId') fileId: string,

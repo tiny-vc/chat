@@ -139,6 +139,7 @@
                     "apiVersion",
                     "name",
                     "registrationEnabled",
+                    "capabilities",
                     "uploadLimits"
                   ],
                   "properties": {
@@ -159,6 +160,33 @@
                     },
                     "registrationEnabled": {
                       "type": "boolean"
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "required": [
+                        "messaging",
+                        "files",
+                        "groups",
+                        "audioCalls",
+                        "videoCalls"
+                      ],
+                      "properties": {
+                        "messaging": {
+                          "type": "boolean"
+                        },
+                        "files": {
+                          "type": "boolean"
+                        },
+                        "groups": {
+                          "type": "boolean"
+                        },
+                        "audioCalls": {
+                          "type": "boolean"
+                        },
+                        "videoCalls": {
+                          "type": "boolean"
+                        }
+                      }
                     },
                     "uploadLimits": {
                       "type": "object",
@@ -393,11 +421,11 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/StoredFileResponse"
                 }
               }
             }
@@ -828,6 +856,77 @@
     "/api/v1/auth/login": {
       "post": {
         "operationId": "Auth_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/admin-login": {
+      "post": {
+        "operationId": "Auth_adminLogin",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1335,11 +1434,11 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
@@ -1472,14 +1571,110 @@
       },
       "get": {
         "operationId": "Calls_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "beforeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CallHistoryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Calls"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/api/v1/calls/{callId}": {
+      "get": {
+        "operationId": "Calls_get",
+        "parameters": [
+          {
+            "name": "callId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallSessionResponse"
                 }
               }
             }
@@ -1775,11 +1970,11 @@
         ],
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/CallSessionResponse"
                 }
               }
             }
@@ -1925,11 +2120,11 @@
         ],
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/CallSessionResponse"
                 }
               }
             }
@@ -2146,7 +2341,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/FriendshipResponse"
+                    "$ref": "#/components/schemas/FriendRequestResponse"
                   }
                 }
               }
@@ -2785,7 +2980,9 @@
             "name": "q",
             "required": false,
             "in": "query",
-            "schema": {}
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2878,11 +3075,11 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
@@ -4848,6 +5045,67 @@
         ]
       }
     },
+    "/api/v1/webhooks/livekit": {
+      "post": {
+        "operationId": "LivekitWebhook_receive",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "LivekitWebhook"
+        ]
+      }
+    },
     "/api/v1/admin/overview": {
       "get": {
         "operationId": "Admin_overview",
@@ -4859,6 +5117,146 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminOverviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/runtime-settings": {
+      "get": {
+        "operationId": "Admin_getRuntimeSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSettingsResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "Admin_updateRuntimeSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRuntimeSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSettingsResponseDto"
                 }
               }
             }
@@ -5110,6 +5508,110 @@
         ]
       }
     },
+    "/api/v1/admin/users/{userId}/devices": {
+      "get": {
+        "operationId": "Admin_listUserDevices",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDeviceSessionPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/users/{userId}/suspend": {
       "patch": {
         "operationId": "Admin_suspendUser",
@@ -5198,6 +5700,91 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/role": {
+      "patch": {
+        "operationId": "Admin_setUserRole",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserRoleDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful response",
@@ -5857,6 +6444,503 @@
         ]
       }
     },
+    "/api/v1/admin/calls": {
+      "get": {
+        "operationId": "Admin_listCalls",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AUDIO",
+                "VIDEO"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REJECTED",
+                "FAILED",
+                "ACCEPTED",
+                "INVITING",
+                "RINGING",
+                "CONNECTED",
+                "CANCELLED",
+                "MISSED",
+                "ENDED"
+              ]
+            }
+          },
+          {
+            "name": "participant",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCallPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/files": {
+      "get": {
+        "operationId": "Admin_listFiles",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "UPLOADED",
+                "READY",
+                "REJECTED",
+                "DELETED"
+              ]
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRIVATE",
+                "DIRECT",
+                "GROUP"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFilePageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/reports": {
+      "get": {
+        "operationId": "Admin_listReports",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "RESOLVED",
+                "DISMISSED"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReportPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/reports/{reportId}/decision": {
+      "patch": {
+        "operationId": "Admin_decideReport",
+        "parameters": [
+          {
+            "name": "reportId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminReportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/jobs/runs": {
       "get": {
         "operationId": "Admin_listJobRuns",
@@ -6167,11 +7251,14 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImSyncConversationResponse"
+                  }
                 }
               }
             }
@@ -6243,11 +7330,11 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/ImSyncMessagesResponse"
                 }
               }
             }
@@ -6319,11 +7406,11 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
@@ -6395,11 +7482,14 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageReceiptResponse"
+                  }
                 }
               }
             }
@@ -6471,11 +7561,11 @@
         },
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "$ref": "#/components/schemas/SuccessResponse"
                 }
               }
             }
@@ -6763,11 +7853,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GenericObjectResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlockedUserResponse"
+                  }
                 }
               }
             }
@@ -6838,11 +7931,11 @@
         ],
         "responses": {
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/BlockedUserResponse"
                 }
               }
             }
@@ -7133,12 +8226,12 @@
             "maxLength": 120
           },
           "deviceType": {
-            "type": "string",
             "enum": [
               "APP",
               "WEB",
               "DESKTOP"
-            ]
+            ],
+            "type": "string"
           },
           "deviceName": {
             "type": "string",
@@ -7406,6 +8499,135 @@
           "fileId"
         ]
       },
+      "RuntimeCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "messaging": {
+            "type": "boolean"
+          },
+          "files": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "boolean"
+          },
+          "audioCalls": {
+            "type": "boolean"
+          },
+          "videoCalls": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "messaging",
+          "files",
+          "groups",
+          "audioCalls",
+          "videoCalls"
+        ]
+      },
+      "MessagingPolicySyncDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SYNCING",
+              "SYNCED",
+              "FAILED"
+            ]
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "syncedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "attempts",
+          "lastError",
+          "syncedAt"
+        ]
+      },
+      "RuntimeSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "registrationEnabled": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/RuntimeCapabilitiesDto"
+          },
+          "messagingPolicy": {
+            "$ref": "#/components/schemas/MessagingPolicySyncDto"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "registrationEnabled",
+          "capabilities",
+          "messagingPolicy",
+          "updatedAt"
+        ]
+      },
+      "UpdateRuntimeSettingsDto": {
+        "type": "object",
+        "properties": {
+          "registrationEnabled": {
+            "type": "boolean"
+          },
+          "messaging": {
+            "type": "boolean"
+          },
+          "files": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "boolean"
+          },
+          "audioCalls": {
+            "type": "boolean"
+          },
+          "videoCalls": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "registrationEnabled",
+          "messaging",
+          "files",
+          "groups",
+          "audioCalls",
+          "videoCalls"
+        ]
+      },
+      "SetUserRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "enum": [
+              "USER",
+              "ADMIN"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
       "SetGroupPolicyDto": {
         "type": "object",
         "properties": {
@@ -7416,6 +8638,25 @@
             "type": "boolean"
           }
         }
+      },
+      "DecideReportDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "RESOLVED",
+              "DISMISSED"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "SyncImConversationsDto": {
         "type": "object",
@@ -7441,10 +8682,20 @@
       "SyncImChannelMessagesDto": {
         "type": "object",
         "properties": {
+          "channelType": {
+            "enum": [
+              1,
+              2
+            ],
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
+          },
           "startMessageSeq": {
             "type": "number",
             "default": 0,
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1
           },
           "endMessageSeq": {
             "type": "number",
@@ -7461,13 +8712,6 @@
             "type": "string",
             "maxLength": 120
           },
-          "channelType": {
-            "type": "number",
-            "enum": [
-              1,
-              2
-            ]
-          },
           "pullMode": {
             "type": "number",
             "default": 0,
@@ -7478,24 +8722,26 @@
           }
         },
         "required": [
-          "channelId",
           "channelType",
+          "channelId",
           "pullMode"
         ]
       },
       "MarkImReadDto": {
         "type": "object",
         "properties": {
-          "channelId": {
-            "type": "string",
-            "maxLength": 120
-          },
           "channelType": {
-            "type": "number",
             "enum": [
               1,
               2
-            ]
+            ],
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "channelId": {
+            "type": "string",
+            "maxLength": 120
           },
           "messageSeq": {
             "type": "number",
@@ -7503,8 +8749,8 @@
           }
         },
         "required": [
-          "channelId",
           "channelType",
+          "channelId",
           "messageSeq"
         ]
       },
@@ -7528,16 +8774,18 @@
       "SyncImReceiptsDto": {
         "type": "object",
         "properties": {
-          "channelId": {
-            "type": "string",
-            "maxLength": 120
-          },
           "channelType": {
-            "type": "number",
             "enum": [
               1,
               2
-            ]
+            ],
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "channelId": {
+            "type": "string",
+            "maxLength": 120
           },
           "messages": {
             "maxItems": 100,
@@ -7548,24 +8796,26 @@
           }
         },
         "required": [
-          "channelId",
           "channelType",
+          "channelId",
           "messages"
         ]
       },
       "RevokeImMessageDto": {
         "type": "object",
         "properties": {
-          "channelId": {
-            "type": "string",
-            "maxLength": 120
-          },
           "channelType": {
-            "type": "number",
             "enum": [
               1,
               2
-            ]
+            ],
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "channelId": {
+            "type": "string",
+            "maxLength": 120
           },
           "clientMsgNo": {
             "type": "string",
@@ -7573,8 +8823,8 @@
           }
         },
         "required": [
-          "channelId",
           "channelType",
+          "channelId",
           "clientMsgNo"
         ]
       },
@@ -7672,6 +8922,153 @@
           }
         }
       },
+      "MessageReceiptResponse": {
+        "type": "object",
+        "required": [
+          "messageId",
+          "readCount",
+          "unreadCount"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "readCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unreadCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ImSyncMessageResponse": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "message_id",
+          "message_seq",
+          "client_msg_no",
+          "from_uid",
+          "timestamp",
+          "setting",
+          "payload"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_type": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "message_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "client_msg_no": {
+            "type": "string"
+          },
+          "from_uid": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "setting": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ImSyncConversationResponse": {
+        "type": "object",
+        "required": [
+          "channel_id",
+          "channel_type",
+          "unread",
+          "timestamp",
+          "last_msg_seq",
+          "last_client_msg_no",
+          "version",
+          "recents"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_type": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "unread": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "timestamp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_msg_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_client_msg_no": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImSyncMessageResponse"
+            }
+          }
+        }
+      },
+      "ImSyncMessagesResponse": {
+        "type": "object",
+        "required": [
+          "start_message_seq",
+          "end_message_seq",
+          "more",
+          "messages"
+        ],
+        "properties": {
+          "start_message_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_message_seq": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "more": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImSyncMessageResponse"
+            }
+          }
+        }
+      },
       "UserResponse": {
         "type": "object",
         "required": [
@@ -7698,6 +9095,22 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          }
+        }
+      },
+      "BlockedUserResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "createdAt"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -7915,6 +9328,83 @@
           }
         }
       },
+      "AdminDeviceSessionResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "deviceId",
+          "deviceType",
+          "deviceName",
+          "lastSeenAt",
+          "expiresAt",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deviceId": {
+            "type": "string"
+          },
+          "deviceType": {
+            "type": "string",
+            "enum": [
+              "APP",
+              "WEB",
+              "DESKTOP"
+            ]
+          },
+          "deviceName": {
+            "type": "string"
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminDeviceSessionPageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminDeviceSessionResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
       "AdminGroupPageResponse": {
         "type": "object",
         "required": [
@@ -8031,10 +9521,14 @@
           "calls": {
             "type": "object",
             "required": [
-              "active"
+              "active",
+              "failed24h"
             ],
             "properties": {
               "active": {
+                "type": "integer"
+              },
+              "failed24h": {
                 "type": "integer"
               }
             }
@@ -8042,10 +9536,18 @@
           "moderation": {
             "type": "object",
             "required": [
-              "pendingGroupJoinRequests"
+              "pendingGroupJoinRequests",
+              "pendingReports",
+              "abnormalFiles"
             ],
             "properties": {
               "pendingGroupJoinRequests": {
+                "type": "integer"
+              },
+              "pendingReports": {
+                "type": "integer"
+              },
+              "abnormalFiles": {
                 "type": "integer"
               }
             }
@@ -8107,6 +9609,300 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AuditLogResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "AdminCallResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "initiatorUserId",
+          "livekitRoomName",
+          "type",
+          "status",
+          "startedAt",
+          "initiator"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "initiatorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "livekitRoomName": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "AUDIO",
+              "VIDEO"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "INVITING",
+              "RINGING",
+              "ACCEPTED",
+              "CONNECTED",
+              "REJECTED",
+              "CANCELLED",
+              "MISSED",
+              "ENDED",
+              "FAILED"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "answeredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "initiator": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "AdminCallPageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminCallResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "AdminFileResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "ownerUserId",
+          "originalName",
+          "mimeType",
+          "sizeBytes",
+          "purpose",
+          "scope",
+          "status",
+          "createdAt",
+          "owner"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PRIVATE",
+              "DIRECT",
+              "GROUP"
+            ]
+          },
+          "scopeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "UPLOADED",
+              "READY",
+              "REJECTED",
+              "DELETED"
+            ]
+          },
+          "thumbnailFileId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "owner": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "AdminFilePageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminFileResponse"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "AdminReportResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "reporterUserId",
+          "targetUserId",
+          "reason",
+          "status",
+          "createdAt",
+          "reporter",
+          "target"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reporterUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RESOLVED",
+              "DISMISSED"
+            ]
+          },
+          "decidedById": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "decisionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reporter": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "decidedBy": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        }
+      },
+      "AdminReportPageResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminReportResponse"
             }
           },
           "nextCursor": {
@@ -8676,6 +10472,33 @@
           }
         }
       },
+      "CallHistoryResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CallSessionResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "outgoing",
+              "peer"
+            ],
+            "properties": {
+              "outgoing": {
+                "type": "boolean"
+              },
+              "peer": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UserResponse"
+                  }
+                ],
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
       "LiveKitTokenResponse": {
         "type": "object",
         "required": [
@@ -8731,6 +10554,24 @@
           }
         }
       },
+      "FriendRequestResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FriendshipResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "requester"
+            ],
+            "properties": {
+              "requester": {
+                "$ref": "#/components/schemas/UserResponse"
+              }
+            }
+          }
+        ]
+      },
       "FriendResponse": {
         "type": "object",
         "required": [
@@ -8772,10 +10613,8 @@
           },
           "channelType": {
             "type": "integer",
-            "enum": [
-              1,
-              2
-            ]
+            "minimum": 1,
+            "maximum": 2
           },
           "pinned": {
             "type": "boolean"

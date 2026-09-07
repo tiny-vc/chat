@@ -38,7 +38,7 @@ void main() {
         ChatApp(tokenStore: EmptyTokens(), serverStore: store),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('服务器设置'));
+      await tester.tap(find.byKey(const ValueKey('server-settings-entry')));
       await tester.pumpAndSettle();
       expect(find.byType(ServerSettingsPage), findsOneWidget);
       await tester.enterText(
@@ -50,11 +50,11 @@ void main() {
       await tester.ensureVisible(find.text('检测连接'));
       await tester.tap(find.text('检测连接'));
       final deadline = DateTime.now().add(const Duration(seconds: 20));
-      while (find.textContaining('检测成功：').evaluate().isEmpty &&
+      while (find.text('连接正常').evaluate().isEmpty &&
           DateTime.now().isBefore(deadline)) {
         await tester.pump(const Duration(milliseconds: 200));
       }
-      expect(find.textContaining('检测成功：'), findsOneWidget);
+      expect(find.text('连接正常'), findsOneWidget);
       await tester.ensureVisible(find.text('保存并使用'));
       await tester.tap(find.text('保存并使用'));
       await tester.pumpAndSettle();

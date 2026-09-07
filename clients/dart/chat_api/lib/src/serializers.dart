@@ -15,6 +15,12 @@ import 'package:chat_api_client/src/date_serializer.dart';
 import 'package:chat_api_client/src/model/date.dart';
 
 import 'package:chat_api_client/src/model/add_group_members_dto.dart';
+import 'package:chat_api_client/src/model/admin_call_page_response.dart';
+import 'package:chat_api_client/src/model/admin_call_response.dart';
+import 'package:chat_api_client/src/model/admin_device_session_page_response.dart';
+import 'package:chat_api_client/src/model/admin_device_session_response.dart';
+import 'package:chat_api_client/src/model/admin_file_page_response.dart';
+import 'package:chat_api_client/src/model/admin_file_response.dart';
 import 'package:chat_api_client/src/model/admin_group_member_page_response.dart';
 import 'package:chat_api_client/src/model/admin_group_member_response.dart';
 import 'package:chat_api_client/src/model/admin_group_page_response.dart';
@@ -25,11 +31,15 @@ import 'package:chat_api_client/src/model/admin_overview_response_files.dart';
 import 'package:chat_api_client/src/model/admin_overview_response_groups.dart';
 import 'package:chat_api_client/src/model/admin_overview_response_moderation.dart';
 import 'package:chat_api_client/src/model/admin_overview_response_users.dart';
+import 'package:chat_api_client/src/model/admin_report_page_response.dart';
+import 'package:chat_api_client/src/model/admin_report_response.dart';
 import 'package:chat_api_client/src/model/admin_user_page_response.dart';
 import 'package:chat_api_client/src/model/admin_user_response.dart';
 import 'package:chat_api_client/src/model/audit_log_page_response.dart';
 import 'package:chat_api_client/src/model/audit_log_response.dart';
 import 'package:chat_api_client/src/model/auth_session_response.dart';
+import 'package:chat_api_client/src/model/blocked_user_response.dart';
+import 'package:chat_api_client/src/model/call_history_response.dart';
 import 'package:chat_api_client/src/model/call_session_response.dart';
 import 'package:chat_api_client/src/model/change_password_dto.dart';
 import 'package:chat_api_client/src/model/conversation_setting_response.dart';
@@ -39,12 +49,14 @@ import 'package:chat_api_client/src/model/create_friend_request_dto.dart';
 import 'package:chat_api_client/src/model/create_group_dto.dart';
 import 'package:chat_api_client/src/model/create_upload_dto.dart';
 import 'package:chat_api_client/src/model/deactivate_account_dto.dart';
+import 'package:chat_api_client/src/model/decide_report_dto.dart';
 import 'package:chat_api_client/src/model/device_session_response.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
 import 'package:chat_api_client/src/model/file_download_response.dart';
 import 'package:chat_api_client/src/model/file_upload_response.dart';
 import 'package:chat_api_client/src/model/file_usage_response.dart';
 import 'package:chat_api_client/src/model/forward_file_dto.dart';
+import 'package:chat_api_client/src/model/friend_request_response.dart';
 import 'package:chat_api_client/src/model/friend_response.dart';
 import 'package:chat_api_client/src/model/friendship_response.dart';
 import 'package:chat_api_client/src/model/group_join_message_dto.dart';
@@ -52,23 +64,33 @@ import 'package:chat_api_client/src/model/group_join_request_response.dart';
 import 'package:chat_api_client/src/model/group_member_response.dart';
 import 'package:chat_api_client/src/model/group_response.dart';
 import 'package:chat_api_client/src/model/im_connection_response.dart';
+import 'package:chat_api_client/src/model/im_sync_conversation_response.dart';
+import 'package:chat_api_client/src/model/im_sync_message_response.dart';
+import 'package:chat_api_client/src/model/im_sync_messages_response.dart';
 import 'package:chat_api_client/src/model/invite_group_member_dto.dart';
 import 'package:chat_api_client/src/model/job_run_page_response.dart';
 import 'package:chat_api_client/src/model/job_run_response.dart';
 import 'package:chat_api_client/src/model/live_kit_token_response.dart';
 import 'package:chat_api_client/src/model/login_dto.dart';
 import 'package:chat_api_client/src/model/mark_im_read_dto.dart';
+import 'package:chat_api_client/src/model/message_receipt_response.dart';
+import 'package:chat_api_client/src/model/messaging_policy_sync_dto.dart';
 import 'package:chat_api_client/src/model/mute_member_dto.dart';
 import 'package:chat_api_client/src/model/receipt_message_dto.dart';
 import 'package:chat_api_client/src/model/refresh_token_dto.dart';
 import 'package:chat_api_client/src/model/register_dto.dart';
 import 'package:chat_api_client/src/model/report_user_dto.dart';
 import 'package:chat_api_client/src/model/revoke_im_message_dto.dart';
+import 'package:chat_api_client/src/model/runtime_capabilities_dto.dart';
+import 'package:chat_api_client/src/model/runtime_settings_response_dto.dart';
+import 'package:chat_api_client/src/model/server_info_get_info200_response.dart';
+import 'package:chat_api_client/src/model/server_info_get_info200_response_capabilities.dart';
 import 'package:chat_api_client/src/model/set_avatar_dto.dart';
 import 'package:chat_api_client/src/model/set_group_avatar_dto.dart';
 import 'package:chat_api_client/src/model/set_group_policy_dto.dart';
 import 'package:chat_api_client/src/model/set_member_role_dto.dart';
 import 'package:chat_api_client/src/model/set_thumbnail_dto.dart';
+import 'package:chat_api_client/src/model/set_user_role_dto.dart';
 import 'package:chat_api_client/src/model/stored_file_response.dart';
 import 'package:chat_api_client/src/model/success_response.dart';
 import 'package:chat_api_client/src/model/sync_im_channel_messages_dto.dart';
@@ -78,12 +100,19 @@ import 'package:chat_api_client/src/model/transfer_owner_dto.dart';
 import 'package:chat_api_client/src/model/update_conversation_setting_dto.dart';
 import 'package:chat_api_client/src/model/update_group_dto.dart';
 import 'package:chat_api_client/src/model/update_profile_dto.dart';
+import 'package:chat_api_client/src/model/update_runtime_settings_dto.dart';
 import 'package:chat_api_client/src/model/user_response.dart';
 
 part 'serializers.g.dart';
 
 @SerializersFor([
   AddGroupMembersDto,
+  AdminCallPageResponse,
+  AdminCallResponse,
+  AdminDeviceSessionPageResponse,
+  AdminDeviceSessionResponse,
+  AdminFilePageResponse,
+  AdminFileResponse,
   AdminGroupMemberPageResponse,
   AdminGroupMemberResponse,
   AdminGroupPageResponse,
@@ -94,12 +123,16 @@ part 'serializers.g.dart';
   AdminOverviewResponseGroups,
   AdminOverviewResponseModeration,
   AdminOverviewResponseUsers,
+  AdminReportPageResponse,
+  AdminReportResponse,
   AdminUserPageResponse,
   AdminUserResponse,
   AuditLogPageResponse,
   AuditLogResponse,
   AuthSessionResponse,
-  CallSessionResponse,
+  BlockedUserResponse,
+  CallHistoryResponse,
+  CallSessionResponse,$CallSessionResponse,
   ChangePasswordDto,
   ConversationSettingResponse,
   CountResponse,
@@ -108,36 +141,48 @@ part 'serializers.g.dart';
   CreateGroupDto,
   CreateUploadDto,
   DeactivateAccountDto,
+  DecideReportDto,
   DeviceSessionResponse,
   ErrorResponse,
   FileDownloadResponse,
   FileUploadResponse,
   FileUsageResponse,
   ForwardFileDto,
+  FriendRequestResponse,
   FriendResponse,
-  FriendshipResponse,
+  FriendshipResponse,$FriendshipResponse,
   GroupJoinMessageDto,
   GroupJoinRequestResponse,
   GroupMemberResponse,
   GroupResponse,
   ImConnectionResponse,
+  ImSyncConversationResponse,
+  ImSyncMessageResponse,
+  ImSyncMessagesResponse,
   InviteGroupMemberDto,
   JobRunPageResponse,
   JobRunResponse,
   LiveKitTokenResponse,
   LoginDto,
   MarkImReadDto,
+  MessageReceiptResponse,
+  MessagingPolicySyncDto,
   MuteMemberDto,
   ReceiptMessageDto,
   RefreshTokenDto,
   RegisterDto,
   ReportUserDto,
   RevokeImMessageDto,
+  RuntimeCapabilitiesDto,
+  RuntimeSettingsResponseDto,
+  ServerInfoGetInfo200Response,
+  ServerInfoGetInfo200ResponseCapabilities,
   SetAvatarDto,
   SetGroupAvatarDto,
   SetGroupPolicyDto,
   SetMemberRoleDto,
   SetThumbnailDto,
+  SetUserRoleDto,
   StoredFileResponse,
   SuccessResponse,
   SyncImChannelMessagesDto,
@@ -147,6 +192,7 @@ part 'serializers.g.dart';
   UpdateConversationSettingDto,
   UpdateGroupDto,
   UpdateProfileDto,
+  UpdateRuntimeSettingsDto,
   UserResponse,
 ])
 Serializers serializers = (_$serializers.toBuilder()
@@ -157,10 +203,6 @@ Serializers serializers = (_$serializers.toBuilder()
       ..addBuilderFactory(
         const FullType(BuiltList, [FullType(ConversationSettingResponse)]),
         () => ListBuilder<ConversationSettingResponse>(),
-      )
-      ..addBuilderFactory(
-        const FullType(BuiltSet, [FullType(String)]),
-        () => SetBuilder<String>(),
       )
       ..addBuilderFactory(
         const FullType(BuiltList, [FullType(DeviceSessionResponse)]),
@@ -175,40 +217,40 @@ Serializers serializers = (_$serializers.toBuilder()
         () => ListBuilder<AuditLogResponse>(),
       )
       ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(FriendshipResponse)]),
-        () => ListBuilder<FriendshipResponse>(),
-      )
-      ..addBuilderFactory(
         const FullType(BuiltList, [FullType(GroupJoinRequestResponse)]),
         () => ListBuilder<GroupJoinRequestResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(ImSyncMessageResponse)]),
+        () => ListBuilder<ImSyncMessageResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(FriendRequestResponse)]),
+        () => ListBuilder<FriendRequestResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(MessageReceiptResponse)]),
+        () => ListBuilder<MessageReceiptResponse>(),
       )
       ..addBuilderFactory(
         const FullType(BuiltList, [FullType(AdminUserResponse)]),
         () => ListBuilder<AdminUserResponse>(),
       )
       ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(GroupResponse)]),
-        () => ListBuilder<GroupResponse>(),
-      )
-      ..addBuilderFactory(
         const FullType(BuiltList, [FullType(BuiltMap, [FullType(String), FullType(JsonObject)])]),
         () => ListBuilder<BuiltMap<String, JsonObject>>(),
-      )
-      ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(GroupMemberResponse)]),
-        () => ListBuilder<GroupMemberResponse>(),
       )
       ..addBuilderFactory(
         const FullType(BuiltList, [FullType(FriendResponse)]),
         () => ListBuilder<FriendResponse>(),
       )
       ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(AdminGroupMemberResponse)]),
-        () => ListBuilder<AdminGroupMemberResponse>(),
+        const FullType(BuiltList, [FullType(BlockedUserResponse)]),
+        () => ListBuilder<BlockedUserResponse>(),
       )
       ..addBuilderFactory(
-        const FullType(BuiltMap, [FullType(String), FullType.nullable(JsonObject)]),
-        () => MapBuilder<String, JsonObject?>(),
+        const FullType(BuiltList, [FullType(AdminGroupMemberResponse)]),
+        () => ListBuilder<AdminGroupMemberResponse>(),
       )
       ..addBuilderFactory(
         const FullType(BuiltMap, [FullType(String), FullType(int)]),
@@ -219,17 +261,59 @@ Serializers serializers = (_$serializers.toBuilder()
         () => ListBuilder<UserResponse>(),
       )
       ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(AdminGroupResponse)]),
-        () => ListBuilder<AdminGroupResponse>(),
-      )
-      ..addBuilderFactory(
         const FullType(BuiltList, [FullType(JobRunResponse)]),
         () => ListBuilder<JobRunResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltSet, [FullType(String)]),
+        () => SetBuilder<String>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(AdminDeviceSessionResponse)]),
+        () => ListBuilder<AdminDeviceSessionResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(AdminReportResponse)]),
+        () => ListBuilder<AdminReportResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(CallHistoryResponse)]),
+        () => ListBuilder<CallHistoryResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(ImSyncConversationResponse)]),
+        () => ListBuilder<ImSyncConversationResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(AdminFileResponse)]),
+        () => ListBuilder<AdminFileResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(GroupResponse)]),
+        () => ListBuilder<GroupResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(GroupMemberResponse)]),
+        () => ListBuilder<GroupMemberResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltMap, [FullType(String), FullType.nullable(JsonObject)]),
+        () => MapBuilder<String, JsonObject?>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(AdminCallResponse)]),
+        () => ListBuilder<AdminCallResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(AdminGroupResponse)]),
+        () => ListBuilder<AdminGroupResponse>(),
       )
       ..addBuilderFactory(
         const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
         () => MapBuilder<String, JsonObject>(),
       )
+      ..add(CallSessionResponse.serializer)
+      ..add(FriendshipResponse.serializer)
       ..add(const OneOfSerializer())
       ..add(const AnyOfSerializer())
       ..add(const DateSerializer())

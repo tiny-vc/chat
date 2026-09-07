@@ -5,6 +5,45 @@ import 'package:flutter_chat/features/calls/presentation/incoming_call_dialog.da
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('another device acceptance closes the matching invitation', (
+    tester,
+  ) async {
+    final signals = StreamController<ChatCallSignalContent>.broadcast();
+    IncomingCallResult? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                result = await showIncomingCallDialog(
+                  context: context,
+                  callId: 'call',
+                  caller: 'Test',
+                  video: false,
+                  signals: signals.stream,
+                );
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    signals.add(
+      ChatCallSignalContent()
+        ..callId = 'call'
+        ..action = 'answered_elsewhere',
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async => Future<void>.delayed(Duration.zero));
+    expect(result, IncomingCallResult.answeredElsewhere);
+    expect(find.text('语音来电'), findsNothing);
+    await signals.close();
+  });
+
   for (final action in ['cancel', 'miss', 'end']) {
     testWidgets('$action closes only matching invitation and permits another', (
       tester,

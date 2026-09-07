@@ -14,17 +14,18 @@ describe("WuKongImService device disconnect", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          total: 3,
-          connections: [
-            { id: 11, node_id: 1001, uid: "u1", device_id: "phone-a" },
-            { id: 12, node_id: 1001, uid: "u1", device_id: "phone-b" },
-            { id: 13, node_id: 1001, uid: "u2", device_id: "phone-a" },
-          ],
-        }),
+        json: () =>
+          Promise.resolve({
+            total: 3,
+            connections: [
+              { id: 11, node_id: 1001, uid: "u1", device_id: "phone-a" },
+              { id: 12, node_id: 1001, uid: "u1", device_id: "phone-b" },
+              { id: 13, node_id: 1001, uid: "u2", device_id: "phone-a" },
+            ],
+          }),
       })
-      .mockResolvedValueOnce({ ok: true, text: async () => "" });
-    global.fetch = fetchMock as unknown as typeof fetch;
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve("") });
+    global.fetch = fetchMock;
     const config = {
       getOrThrow: jest.fn().mockReturnValue("http://wukongim:5001"),
       get: jest.fn().mockReturnValue(undefined),
@@ -47,17 +48,18 @@ describe("WuKongImService device disconnect", () => {
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          total: 3,
-          connections: [
-            { id: 21, node_id: 1001, uid: "u1", device_id: "current" },
-            { id: 22, node_id: 1001, uid: "u1", device_id: "old-a" },
-            { id: 23, node_id: 1002, uid: "u1", device_id: "old-b" },
-          ],
-        }),
+        json: () =>
+          Promise.resolve({
+            total: 3,
+            connections: [
+              { id: 21, node_id: 1001, uid: "u1", device_id: "current" },
+              { id: 22, node_id: 1001, uid: "u1", device_id: "old-a" },
+              { id: 23, node_id: 1002, uid: "u1", device_id: "old-b" },
+            ],
+          }),
       })
-      .mockResolvedValue({ ok: true, text: async () => "" });
-    global.fetch = fetchMock as unknown as typeof fetch;
+      .mockResolvedValue({ ok: true, text: () => Promise.resolve("") });
+    global.fetch = fetchMock;
     const config = {
       getOrThrow: jest.fn().mockReturnValue("http://wukongim:5001"),
       get: jest.fn().mockReturnValue(undefined),

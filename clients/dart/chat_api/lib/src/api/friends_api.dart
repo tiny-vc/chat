@@ -12,6 +12,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:chat_api_client/src/api_util.dart';
 import 'package:chat_api_client/src/model/create_friend_request_dto.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
+import 'package:chat_api_client/src/model/friend_request_response.dart';
 import 'package:chat_api_client/src/model/friend_response.dart';
 import 'package:chat_api_client/src/model/friendship_response.dart';
 import 'package:chat_api_client/src/model/success_response.dart';
@@ -195,9 +196,9 @@ class FriendsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltList<FriendshipResponse>] as data
+  /// Returns a [Future] containing a [Response] with a [BuiltList<FriendRequestResponse>] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltList<FriendshipResponse>>> friendsListRequests({ 
+  Future<Response<BuiltList<FriendRequestResponse>>> friendsListRequests({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -232,14 +233,14 @@ class FriendsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltList<FriendshipResponse>? _responseData;
+    BuiltList<FriendRequestResponse>? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltList, [FullType(FriendshipResponse)]),
-      ) as BuiltList<FriendshipResponse>;
+        specifiedType: const FullType(BuiltList, [FullType(FriendRequestResponse)]),
+      ) as BuiltList<FriendRequestResponse>;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -251,7 +252,7 @@ class FriendsApi {
       );
     }
 
-    return Response<BuiltList<FriendshipResponse>>(
+    return Response<BuiltList<FriendRequestResponse>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

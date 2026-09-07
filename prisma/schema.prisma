@@ -100,6 +100,12 @@ enum CallStatus {
   FAILED
 }
 
+enum UserReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
 model User {
   id                   String                @id @default(uuid()) @db.Uuid
   username             String                @unique @db.VarChar(40)
@@ -128,6 +134,9 @@ model User {
   groupJoinTargets     GroupJoinRequest[]    @relation("groupJoinTarget")
   groupJoinRequesters  GroupJoinRequest[]    @relation("groupJoinRequester")
   groupJoinDeciders    GroupJoinRequest[]    @relation("groupJoinDecider")
+  submittedReports     UserReport[]          @relation("reporter")
+  receivedReports      UserReport[]          @relation("reportedUser")
+  decidedReports       UserReport[]          @relation("reportDecider")
 
   @@map("users")
 }
@@ -217,6 +226,7 @@ model WebhookEvent {
   eventType   String    @map("event_type") @db.VarChar(120)
   payload     Json
   receivedAt  DateTime  @default(now()) @map("received_at")
+  processingStartedAt DateTime? @map("processing_started_at")
   processedAt DateTime? @map("processed_at")
 
   @@index([source, eventType, receivedAt])
@@ -236,6 +246,55 @@ model AuditLog {
   @@index([actorUserId, createdAt])
   @@index([targetType, targetId, createdAt])
   @@map("audit_logs")
+}
+
+model RuntimeSettings {
+  id                  Int      @id @default(1)
+  registrationEnabled Boolean  @default(true) @map("registration_enabled")
+  messagingEnabled    Boolean  @default(true) @map("messaging_enabled")
+  filesEnabled        Boolean  @default(true) @map("files_enabled")
+  groupsEnabled       Boolean  @default(true) @map("groups_enabled")
+  audioCallsEnabled   Boolean  @default(true) @map("audio_calls_enabled")
+  videoCallsEnabled   Boolean  @default(true) @map("video_calls_enabled")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("runtime_settings")
+}
+
+model RuntimePolicySync {
+  key            String    @id @db.VarChar(80)
+  desiredEnabled Boolean   @map("desired_enabled")
+  status         String    @default("PENDING") @db.VarChar(20)
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at")
+  lastError      String?   @map("last_error") @db.VarChar(1000)
+  syncedAt       DateTime? @map("synced_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, nextAttemptAt])
+  @@map("runtime_policy_syncs")
+}
+
+model UserReport {
+  id             String           @id @default(uuid()) @db.Uuid
+  reporterUserId String           @map("reporter_user_id") @db.Uuid
+  targetUserId   String           @map("target_user_id") @db.Uuid
+  reason         String           @db.VarChar(80)
+  details        String?          @db.VarChar(1000)
+  status         UserReportStatus @default(PENDING)
+  decidedById    String?          @map("decided_by_id") @db.Uuid
+  decisionNote   String?          @map("decision_note") @db.VarChar(500)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  decidedAt      DateTime?        @map("decided_at")
+  reporter       User             @relation("reporter", fields: [reporterUserId], references: [id])
+  target         User             @relation("reportedUser", fields: [targetUserId], references: [id])
+  decidedBy      User?            @relation("reportDecider", fields: [decidedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([targetUserId, status, createdAt])
+  @@index([reporterUserId, createdAt])
+  @@map("user_reports")
 }
 
 model Friendship {
@@ -344,20 +403,25 @@ model StoredFile {
 }
 
 model CallSession {
-  id              String     @id @default(uuid()) @db.Uuid
-  initiatorUserId String     @map("initiator_user_id") @db.Uuid
-  targetUserId    String?    @map("target_user_id") @db.Uuid
-  groupId         String?    @map("group_id") @db.Uuid
-  livekitRoomName String     @unique @map("livekit_room_name") @db.VarChar(120)
-  type            CallType
-  status          CallStatus @default(INVITING)
-  startedAt       DateTime   @default(now()) @map("started_at")
-  answeredAt      DateTime?  @map("answered_at")
-  endedAt         DateTime?  @map("ended_at")
-  endReason       String?    @map("end_reason") @db.VarChar(80)
-  initiator       User       @relation("callInitiator", fields: [initiatorUserId], references: [id])
+  id                 String     @id @default(uuid()) @db.Uuid
+  initiatorUserId    String     @map("initiator_user_id") @db.Uuid
+  initiatorSessionId String?    @map("initiator_session_id") @db.Uuid
+  targetUserId       String?    @map("target_user_id") @db.Uuid
+  targetSessionId    String?    @map("target_session_id") @db.Uuid
+  groupId            String?    @map("group_id") @db.Uuid
+  livekitRoomName    String     @unique @map("livekit_room_name") @db.VarChar(120)
+  type               CallType
+  status             CallStatus @default(INVITING)
+  startedAt          DateTime   @default(now()) @map("started_at")
+  answeredAt         DateTime?  @map("answered_at")
+  endedAt            DateTime?  @map("ended_at")
+  endReason          String?    @map("end_reason") @db.VarChar(80)
+  mediaMissingSince  DateTime?  @map("media_missing_since")
+  initiator          User       @relation("callInitiator", fields: [initiatorUserId], references: [id])
 
   @@index([targetUserId, status])
+  @@index([initiatorSessionId])
+  @@index([targetSessionId])
   @@index([groupId, status])
   @@map("call_sessions")
 }

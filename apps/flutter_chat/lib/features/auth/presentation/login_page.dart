@@ -4,18 +4,30 @@ import '../../../core/widgets/brand_header.dart';
 import '../../../core/widgets/about_page.dart';
 import 'auth_controller.dart';
 
+enum ServerMetadataState { checking, available, unavailable }
+
 class LoginPage extends StatefulWidget {
   const LoginPage({
     required this.controller,
     required this.onLoggedIn,
     this.onServerSettings,
     this.serverAddress,
+    this.notice,
+    this.registrationEnabled = true,
+    this.serverName,
+    this.serverMetadataState,
+    this.onRetryServerInfo,
     super.key,
   });
   final AuthController controller;
   final VoidCallback onLoggedIn;
   final VoidCallback? onServerSettings;
   final String? serverAddress;
+  final String? notice;
+  final bool registrationEnabled;
+  final String? serverName;
+  final ServerMetadataState? serverMetadataState;
+  final VoidCallback? onRetryServerInfo;
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
@@ -95,17 +107,121 @@ class _LoginPageState extends State<LoginPage> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const BrandHeader(),
+                          if (widget.notice case final notice?) ...[
+                            const SizedBox(height: 20),
+                            Material(
+                              color: colors.errorContainer,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: colors.onErrorContainer,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(notice)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                           if (widget.onServerSettings != null) ...[
                             const SizedBox(height: 16),
-                            Text(
-                              widget.serverAddress ?? '',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            TextButton.icon(
-                              onPressed: busy ? null : widget.onServerSettings,
-                              icon: const Icon(Icons.dns_outlined),
-                              label: const Text('服务器设置'),
+                            Material(
+                              color: colors.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(14),
+                              child: InkWell(
+                                key: const ValueKey('server-settings-entry'),
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: busy ? null : widget.onServerSettings,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 11,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.dns_outlined,
+                                        color: colors.primary,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              widget.serverName ?? '当前业务服务器',
+                                            ),
+                                            Text(
+                                              widget.serverAddress ?? '',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                            if (widget.serverMetadataState
+                                                case final state?)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 3,
+                                                ),
+                                                child: Text(
+                                                  switch (state) {
+                                                    ServerMetadataState
+                                                        .checking =>
+                                                      '正在读取服务器配置…',
+                                                    ServerMetadataState
+                                                        .available =>
+                                                      '配置已同步',
+                                                    ServerMetadataState
+                                                        .unavailable =>
+                                                      '配置读取失败，仍可尝试登录',
+                                                  },
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .labelSmall
+                                                      ?.copyWith(
+                                                        color:
+                                                            state ==
+                                                                ServerMetadataState
+                                                                    .unavailable
+                                                            ? colors.error
+                                                            : colors
+                                                                  .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (widget.serverMetadataState ==
+                                              ServerMetadataState.unavailable &&
+                                          widget.onRetryServerInfo != null)
+                                        IconButton(
+                                          tooltip: '重新读取服务器配置',
+                                          onPressed: busy
+                                              ? null
+                                              : widget.onRetryServerInfo,
+                                          icon: const Icon(Icons.refresh),
+                                        )
+                                      else if (widget.serverMetadataState ==
+                                          ServerMetadataState.checking)
+                                        const SizedBox.square(
+                                          dimension: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      else
+                                        const Icon(Icons.chevron_right),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                           const SizedBox(height: 36),
@@ -254,9 +370,18 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 12),
                           TextButton(
-                            onPressed: busy ? null : _switchMode,
+                            onPressed:
+                                busy ||
+                                    (!widget.registrationEnabled &&
+                                        !_registering)
+                                ? null
+                                : _switchMode,
                             child: Text(
-                              _registering ? '已有账号？返回登录' : '没有账号？立即注册',
+                              _registering
+                                  ? '已有账号？返回登录'
+                                  : widget.registrationEnabled
+                                  ? '没有账号？立即注册'
+                                  : '服务器暂未开放注册',
                             ),
                           ),
                           TextButton(

@@ -9,10 +9,13 @@ import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 
 import 'package:built_collection/built_collection.dart';
-import 'package:built_value/json_object.dart';
 import 'package:chat_api_client/src/model/error_response.dart';
+import 'package:chat_api_client/src/model/im_sync_conversation_response.dart';
+import 'package:chat_api_client/src/model/im_sync_messages_response.dart';
 import 'package:chat_api_client/src/model/mark_im_read_dto.dart';
+import 'package:chat_api_client/src/model/message_receipt_response.dart';
 import 'package:chat_api_client/src/model/revoke_im_message_dto.dart';
+import 'package:chat_api_client/src/model/success_response.dart';
 import 'package:chat_api_client/src/model/sync_im_channel_messages_dto.dart';
 import 'package:chat_api_client/src/model/sync_im_conversations_dto.dart';
 import 'package:chat_api_client/src/model/sync_im_receipts_dto.dart';
@@ -37,9 +40,9 @@ class ImSyncApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [SuccessResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> imSyncMarkRead({ 
+  Future<Response<SuccessResponse>> imSyncMarkRead({ 
     required MarkImReadDto markImReadDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -95,14 +98,14 @@ class ImSyncApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    SuccessResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(SuccessResponse),
+      ) as SuccessResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -114,7 +117,7 @@ class ImSyncApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<SuccessResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -138,9 +141,9 @@ class ImSyncApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [BuiltList<MessageReceiptResponse>] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> imSyncReceipts({ 
+  Future<Response<BuiltList<MessageReceiptResponse>>> imSyncReceipts({ 
     required SyncImReceiptsDto syncImReceiptsDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -196,14 +199,14 @@ class ImSyncApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    BuiltList<MessageReceiptResponse>? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(BuiltList, [FullType(MessageReceiptResponse)]),
+      ) as BuiltList<MessageReceiptResponse>;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -215,7 +218,7 @@ class ImSyncApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<BuiltList<MessageReceiptResponse>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -239,9 +242,9 @@ class ImSyncApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [SuccessResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> imSyncRevokeMessage({ 
+  Future<Response<SuccessResponse>> imSyncRevokeMessage({ 
     required RevokeImMessageDto revokeImMessageDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -297,14 +300,14 @@ class ImSyncApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    SuccessResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(SuccessResponse),
+      ) as SuccessResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -316,7 +319,7 @@ class ImSyncApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<SuccessResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -340,9 +343,9 @@ class ImSyncApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [BuiltList<ImSyncConversationResponse>] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> imSyncSyncConversations({ 
+  Future<Response<BuiltList<ImSyncConversationResponse>>> imSyncSyncConversations({ 
     required SyncImConversationsDto syncImConversationsDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -398,14 +401,14 @@ class ImSyncApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    BuiltList<ImSyncConversationResponse>? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(BuiltList, [FullType(ImSyncConversationResponse)]),
+      ) as BuiltList<ImSyncConversationResponse>;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -417,7 +420,7 @@ class ImSyncApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<BuiltList<ImSyncConversationResponse>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -441,9 +444,9 @@ class ImSyncApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future] containing a [Response] with a [ImSyncMessagesResponse] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> imSyncSyncMessages({ 
+  Future<Response<ImSyncMessagesResponse>> imSyncSyncMessages({ 
     required SyncImChannelMessagesDto syncImChannelMessagesDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -499,14 +502,14 @@ class ImSyncApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    ImSyncMessagesResponse? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
+        specifiedType: const FullType(ImSyncMessagesResponse),
+      ) as ImSyncMessagesResponse;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -518,7 +521,7 @@ class ImSyncApi {
       );
     }
 
-    return Response<BuiltMap<String, JsonObject>>(
+    return Response<ImSyncMessagesResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

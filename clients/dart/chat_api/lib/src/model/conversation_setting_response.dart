@@ -3,7 +3,6 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -29,8 +28,7 @@ abstract class ConversationSettingResponse implements Built<ConversationSettingR
   String get channelId;
 
   @BuiltValueField(wireName: r'channelType')
-  ConversationSettingResponseChannelTypeEnum get channelType;
-  // enum channelTypeEnum {  1,  2,  };
+  int get channelType;
 
   @BuiltValueField(wireName: r'pinned')
   bool get pinned;
@@ -83,7 +81,7 @@ class _$ConversationSettingResponseSerializer implements PrimitiveSerializer<Con
     yield r'channelType';
     yield serializers.serialize(
       object.channelType,
-      specifiedType: const FullType(ConversationSettingResponseChannelTypeEnum),
+      specifiedType: const FullType(int),
     );
     yield r'pinned';
     yield serializers.serialize(
@@ -154,8 +152,8 @@ class _$ConversationSettingResponseSerializer implements PrimitiveSerializer<Con
         case r'channelType':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(ConversationSettingResponseChannelTypeEnum),
-          ) as ConversationSettingResponseChannelTypeEnum;
+            specifiedType: const FullType(int),
+          ) as int;
           result.channelType = valueDes;
           break;
         case r'pinned':
@@ -222,22 +220,5 @@ class _$ConversationSettingResponseSerializer implements PrimitiveSerializer<Con
     );
     return result.build();
   }
-}
-
-class ConversationSettingResponseChannelTypeEnum extends EnumClass {
-
-  @BuiltValueEnumConst(wireNumber: 1)
-  static const ConversationSettingResponseChannelTypeEnum number1 = _$conversationSettingResponseChannelTypeEnum_number1;
-  @BuiltValueEnumConst(wireNumber: 2)
-  static const ConversationSettingResponseChannelTypeEnum number2 = _$conversationSettingResponseChannelTypeEnum_number2;
-  @BuiltValueEnumConst(wireNumber: 11184809, fallback: true)
-  static const ConversationSettingResponseChannelTypeEnum unknownDefaultOpenApi = _$conversationSettingResponseChannelTypeEnum_unknownDefaultOpenApi;
-
-  static Serializer<ConversationSettingResponseChannelTypeEnum> get serializer => _$conversationSettingResponseChannelTypeEnumSerializer;
-
-  const ConversationSettingResponseChannelTypeEnum._(String name): super(name);
-
-  static BuiltSet<ConversationSettingResponseChannelTypeEnum> get values => _$conversationSettingResponseChannelTypeEnumValues;
-  static ConversationSettingResponseChannelTypeEnum valueOf(String name) => _$conversationSettingResponseChannelTypeEnumValueOf(name);
 }
 

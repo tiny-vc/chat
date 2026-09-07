@@ -1,0 +1,16 @@
+# Local development only. Public deployments must use the production template.
+port: 7880
+log_level: info
+
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+
+keys:
+  devkey: local-livekit-secret-at-least-32-chars
+
+webhook:
+  api_key: devkey
+  urls:
+    - http://api:3000/api/v1/webhooks/livekit

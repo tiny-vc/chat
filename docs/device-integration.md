@@ -4,6 +4,8 @@
 
 手机与 Mac 接入同一可信 Wi-Fi，避免访客网络/AP 隔离。`LAN_HOST` 使用 Mac 的局域网 IPv4，不是手机 IP、localhost、Docker 容器 IP 或 10.0.2.2。
 
+无线 iOS 集成测试使用 `flutter drive --driver=test_driver/integration_test.dart`；当前 Flutter 的 `flutter test` 会要求 publish-port，但该子命令并未暴露对应参数。测试命令必须显式传 `--dart-define=TEST_ALLOW_LAN=true`，且测试仍只允许 loopback/RFC1918 私网 API。
+
 ```sh
 export LAN_HOST=你的Mac局域网IPv4
 # 当前网络受限下的修复镜像；标准完整构建恢复后使用 chat-api:latest。
@@ -59,10 +61,17 @@ flutter test integration_test/auth_flow_test.dart -d 模拟器ID \
 
 - iPhone 17 Pro 与 iPhone 17 Pro Max（均 iOS 26.5），分别运行 alice_test、bob_test 两个独立客户端，`TEST_RUN_ID=20260903-text-01`。
 - 两端 `messages_flow_test.dart` 均通过：真实聊天输入框发送 HELLO/REPLY、刷新令牌后断开重连、继续发送 AGAIN/DONE、重建聊天页面恢复本地历史、服务端历史四条正文各出现一次。READY/FINISH 为测试协调消息。
-- 修复刷新令牌只更新本机存储、没有同步 SDK 内存中 IM 凭据的问题。刷新回调仅更新当前同账号的 SDK 凭据，不重新初始化数据库或在刷新拦截器内请求网络。
+- 修复刷新令牌只更新本机存储、没有同步 SDK 内存中 IM 凭据的问题。当前服务端按 uid + device flag 派生稳定 IM 凭据，因此刷新后 Token 可以保持不变；测试验证 SDK 与持久会话凭据一致并成功自动重连，不再错误要求每次刷新必须轮换 IM Token。策略停发恢复会显式完整重建 SDK 会话。
 - 保留六条带上述 run ID 的测试消息作为证据，不删除既有历史；测试会话已退出。测试使用独立内存 TokenStore，不覆盖普通 App 的登录凭据。
 - 静态检查通过，31 项单元/UI 测试通过；普通 iOS 模拟器版本已重新构建。双端设备测试分别通过，不包含音视频验收。
 - 本次连接中断是主动断开 SDK 连接，不是关闭 Wi-Fi；离线积压、丢包、真实弱网及音视频仍待测。重建页面验证的是本地历史，服务端历史另以真实 API 请求核对，未清空数据库验证全量重新下载。
+
+### 2026-09-04 消息策略恢复后的数据面验收
+
+- 先在 iPhone 17 Pro 与 iPhone 17 Pro Max 完成消息能力关闭、两端策略断连、保留业务登录态、恢复后刷新凭据并完整重建 SDK 会话的真实测试，两端均通过。
+- 随后使用 `alice_test` / `bob_test` 和 `TEST_RUN_ID=20260904-policy-recovery-02` 验证恢复后的数据面：READY、HELLO、REPLY、AGAIN、DONE、FINISH 双向送达；A 端刷新业务凭据并自动重连后继续成功收发；本地聊天页历史和服务端同步历史检查通过，两端均 `All tests passed`。
+- 首次回归使用旧断言要求刷新后 IM Token 必须变化，实际按 uid + device flag 派生的稳定凭据正确保持不变，导致测试在已经完成 HELLO/REPLY 后误判。已修正为检查刷新成功、持久凭据与 SDK 一致及自动重连；该次失败不属于产品数据面故障。
+- 最终又以 `20260904-combined-01` 将策略切换和收发合并在同一测试：alice/bob 同时在线，同一次停发中均收到策略断连，恢复并重建会话后各发送一个唯一标记且互相收到正文，两端发送 ACK 与 `All tests passed` 均确认。此结果直接证明恢复后的 WuKongIM 数据面可用。
 
 重复测试需要两个专用模拟器和两个已互为好友的测试账号。在两个终端依次启动 A、B，第二端应在第一端输出 `MESSAGE_TEST_A_READY` 后三分钟内启动完成。每轮使用新的同一 `TEST_RUN_ID`，不要复用旧标记：
 

@@ -46,10 +46,14 @@ export class WuKongImService {
       for (const value of connections) {
         const connection = this.asRecord(value);
         if (connection.uid !== uid) continue;
-        if (
-          deviceIds !== undefined &&
-          !deviceIds.has(String(connection.device_id ?? ""))
-        )
+        const rawDeviceId = connection.device_id;
+        const connectionDeviceId =
+          typeof rawDeviceId === "string"
+            ? rawDeviceId
+            : typeof rawDeviceId === "number"
+              ? String(rawDeviceId)
+              : "";
+        if (deviceIds !== undefined && !deviceIds.has(connectionDeviceId))
           continue;
         const connId = Number(connection.conn_id ?? connection.id);
         const nodeId = Number(connection.node_id);

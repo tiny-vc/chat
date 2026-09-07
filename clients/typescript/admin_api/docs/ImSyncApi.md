@@ -11,7 +11,7 @@ All URIs are relative to *http://localhost:3000*
 |[**imSyncSyncMessages**](#imsyncsyncmessages) | **POST** /api/v1/im/messages/sync | |
 
 # **imSyncMarkRead**
-> { [key: string]: any; } imSyncMarkRead(markImReadDto)
+> SuccessResponse imSyncMarkRead(markImReadDto)
 
 
 ### Example
@@ -42,7 +42,7 @@ const { status, data } = await apiInstance.imSyncMarkRead(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**SuccessResponse**
 
 ### Authorization
 
@@ -57,7 +57,7 @@ const { status, data } = await apiInstance.imSyncMarkRead(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -66,7 +66,7 @@ const { status, data } = await apiInstance.imSyncMarkRead(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncReceipts**
-> { [key: string]: any; } imSyncReceipts(syncImReceiptsDto)
+> Array<MessageReceiptResponse> imSyncReceipts(syncImReceiptsDto)
 
 
 ### Example
@@ -97,7 +97,7 @@ const { status, data } = await apiInstance.imSyncReceipts(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**Array<MessageReceiptResponse>**
 
 ### Authorization
 
@@ -112,7 +112,7 @@ const { status, data } = await apiInstance.imSyncReceipts(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -121,7 +121,7 @@ const { status, data } = await apiInstance.imSyncReceipts(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncRevokeMessage**
-> { [key: string]: any; } imSyncRevokeMessage(revokeImMessageDto)
+> SuccessResponse imSyncRevokeMessage(revokeImMessageDto)
 
 
 ### Example
@@ -152,7 +152,7 @@ const { status, data } = await apiInstance.imSyncRevokeMessage(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**SuccessResponse**
 
 ### Authorization
 
@@ -167,7 +167,7 @@ const { status, data } = await apiInstance.imSyncRevokeMessage(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -176,7 +176,7 @@ const { status, data } = await apiInstance.imSyncRevokeMessage(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncSyncConversations**
-> { [key: string]: any; } imSyncSyncConversations(syncImConversationsDto)
+> Array<ImSyncConversationResponse> imSyncSyncConversations(syncImConversationsDto)
 
 
 ### Example
@@ -207,7 +207,7 @@ const { status, data } = await apiInstance.imSyncSyncConversations(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**Array<ImSyncConversationResponse>**
 
 ### Authorization
 
@@ -222,7 +222,7 @@ const { status, data } = await apiInstance.imSyncSyncConversations(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |
@@ -231,7 +231,7 @@ const { status, data } = await apiInstance.imSyncSyncConversations(
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **imSyncSyncMessages**
-> { [key: string]: any; } imSyncSyncMessages(syncImChannelMessagesDto)
+> ImSyncMessagesResponse imSyncSyncMessages(syncImChannelMessagesDto)
 
 
 ### Example
@@ -262,7 +262,7 @@ const { status, data } = await apiInstance.imSyncSyncMessages(
 
 ### Return type
 
-**{ [key: string]: any; }**
+**ImSyncMessagesResponse**
 
 ### Authorization
 
@@ -277,7 +277,7 @@ const { status, data } = await apiInstance.imSyncSyncMessages(
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**201** |  |  -  |
+|**201** | Successful response |  -  |
 |**400** | Request rejected |  -  |
 |**401** | Request rejected |  -  |
 |**403** | Request rejected |  -  |

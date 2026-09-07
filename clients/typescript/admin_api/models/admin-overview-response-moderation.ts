@@ -16,5 +16,7 @@
 
 export interface AdminOverviewResponseModeration {
     'pendingGroupJoinRequests': number;
+    'pendingReports': number;
+    'abnormalFiles': number;
 }
 

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
@@ -41,6 +41,7 @@ export class SyncImChannelMessagesDto {
   @MaxLength(120)
   channelId: string;
 
+  @ApiProperty({ type: Number, minimum: 1, maximum: 2 })
   @Type(() => Number)
   @IsInt()
   @IsIn([1, 2])
@@ -48,6 +49,7 @@ export class SyncImChannelMessagesDto {
 
   @ApiPropertyOptional({ type: Number, default: 0 })
   @IsOptional()
+  @ApiPropertyOptional({ type: Number, minimum: 0, maximum: 1, default: 0 })
   @Type(() => Number)
   @IsInt()
   @Min(0)
@@ -80,6 +82,7 @@ export class RevokeImMessageDto {
   @MaxLength(120)
   channelId: string;
 
+  @ApiProperty({ type: Number, minimum: 1, maximum: 2 })
   @Type(() => Number)
   @IsInt()
   @IsIn([1, 2])
@@ -95,6 +98,7 @@ export class MarkImReadDto {
   @MaxLength(120)
   channelId: string;
 
+  @ApiProperty({ type: Number, minimum: 1, maximum: 2 })
   @Type(() => Number)
   @IsInt()
   @IsIn([1, 2])
@@ -122,6 +126,7 @@ export class SyncImReceiptsDto {
   @MaxLength(120)
   channelId: string;
 
+  @ApiProperty({ type: Number, minimum: 1, maximum: 2 })
   @Type(() => Number)
   @IsInt()
   @IsIn([1, 2])

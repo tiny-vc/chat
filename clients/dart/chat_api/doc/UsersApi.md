@@ -134,7 +134,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **usersReport**
-> BuiltMap<String, JsonObject> usersReport(userId, reportUserDto)
+> SuccessResponse usersReport(userId, reportUserDto)
 
 
 
@@ -163,7 +163,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**SuccessResponse**](SuccessResponse.md)
 
 ### Authorization
 
@@ -186,7 +186,7 @@ Name | Type | Description  | Notes
 import 'package:chat_api_client/api.dart';
 
 final api = ChatApiClient().getUsersApi();
-final JsonObject q = ; // JsonObject | 
+final String q = q_example; // String | 
 
 try {
     final response = api.usersSearch(q);
@@ -200,7 +200,7 @@ try {
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **q** | [**JsonObject**](.md)|  | [optional] 
+ **q** | **String**|  | [optional] 
 
 ### Return type
 

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:chat_api_client/chat_api_client.dart';
 import 'package:flutter/material.dart';
 
 import 'config/app_config.dart';
 import 'config/server_settings.dart';
+import 'config/runtime_capability_interceptor.dart';
 import 'features/auth/presentation/server_settings_page.dart';
 import 'package:wukongimfluttersdk/db/wk_db_helper.dart';
 import 'config/app_identity.dart';
@@ -131,7 +134,8 @@ class _ServerSessionApp extends StatefulWidget {
   State<_ServerSessionApp> createState() => _ServerSessionAppState();
 }
 
-class _ServerSessionAppState extends State<_ServerSessionApp> {
+class _ServerSessionAppState extends State<_ServerSessionApp>
+    with WidgetsBindingObserver {
   late final ChatApiClient _api;
   late final SessionManager _session;
   late final ImService _imService;
@@ -140,14 +144,24 @@ class _ServerSessionAppState extends State<_ServerSessionApp> {
   late final AuthRepository _repository;
   late final AuthController _authController;
   late final HomeController _homeController;
+  late final ServerProbe _serverProbe;
   late Future<bool> _restoreSession;
   // Once the user logs in/out, that choice overrides the startup snapshot.
   bool? _loggedIn;
+  bool _handlingDeviceKick = false;
+  String? _loginNotice;
+  ServerInfo? _serverInfo;
+  bool _serverInfoLoading = false;
+  bool _serverInfoFailed = false;
+  DateTime? _serverInfoLastAttempt;
+  Timer? _pausedCapabilityRefreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _api = ChatApiClient(basePathOverride: widget.address);
+    _serverProbe = ServerProbe();
     _api.dio.options.followRedirects = false;
     _api.dio.options.connectTimeout = const Duration(seconds: 15);
     _api.dio.options.receiveTimeout = const Duration(seconds: 20);
@@ -170,6 +184,9 @@ class _ServerSessionAppState extends State<_ServerSessionApp> {
     _api.dio.interceptors.add(
       RefreshTokenInterceptor(dio: _api.dio, sessionManager: _session),
     );
+    _api.dio.interceptors.add(
+      RuntimeCapabilityInterceptor(onCapabilitiesChanged: _loadServerInfo),
+    );
     _repository = AuthRepository(
       api: _api,
       session: _session,
@@ -177,15 +194,143 @@ class _ServerSessionAppState extends State<_ServerSessionApp> {
     );
     _authController = AuthController(repository: _repository);
     _homeController = HomeController(HomeRepository(_api));
+    _imService.addListener(_handleImState);
     _restoreSession = _session.restore();
+    _restoreSession.then((_) {
+      if (mounted) unawaited(_restoreServerInfo());
+    }, onError: (_) {});
+  }
+
+  Future<void> _restoreServerInfo() async {
+    try {
+      final cached = await widget.serverStore.readInfo(widget.address);
+      if (mounted && cached != null) setState(() => _serverInfo = cached);
+    } catch (_) {
+      // A cache failure must not block login or the network refresh.
+    }
+    if (mounted) await _loadServerInfo();
+  }
+
+  Future<void> _loadServerInfo() async {
+    if (!mounted || _serverInfoLoading) return;
+    _serverInfoLastAttempt = DateTime.now();
+    setState(() {
+      _serverInfoLoading = true;
+      _serverInfoFailed = false;
+    });
+    try {
+      final info = await _serverProbe.check(widget.address);
+      final messagingWasPaused = _serverInfo?.capabilities.messaging == false;
+      if (mounted) {
+        setState(() {
+          _serverInfo = info;
+          _serverInfoFailed = false;
+        });
+      }
+      try {
+        await widget.serverStore.saveInfo(info);
+      } catch (_) {
+        // The verified in-memory value remains usable if persistence fails.
+      }
+      if (info.capabilities.messaging) {
+        _pausedCapabilityRefreshTimer?.cancel();
+        _pausedCapabilityRefreshTimer = null;
+      } else {
+        _schedulePausedCapabilityRefresh();
+      }
+      if (messagingWasPaused &&
+          info.capabilities.messaging &&
+          _session.hasSession) {
+        if (await _session.refreshOnce()) {
+          await _session.reapplySession();
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _serverInfoFailed = true);
+    } finally {
+      if (mounted) setState(() => _serverInfoLoading = false);
+    }
+  }
+
+  void _schedulePausedCapabilityRefresh() {
+    if (_pausedCapabilityRefreshTimer != null) return;
+    _pausedCapabilityRefreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) {
+        if (mounted && !_serverInfoLoading) unawaited(_loadServerInfo());
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        shouldRefreshServerInfo(
+          now: DateTime.now(),
+          lastAttempt: _serverInfoLastAttempt,
+        )) {
+      unawaited(_loadServerInfo());
+    }
+  }
+
+  void _handleImState() {
+    if (_imService.connectionState != ImConnectionState.kicked ||
+        _handlingDeviceKick) {
+      return;
+    }
+    _handlingDeviceKick = true;
+    unawaited(_resolveImKick());
+  }
+
+  Future<void> _resolveImKick() async {
+    try {
+      final info = await _serverProbe.check(widget.address);
+      if (!info.capabilities.messaging) {
+        if (!mounted) return;
+        setState(() {
+          _serverInfo = info;
+          _serverInfoFailed = false;
+          _serverInfoLastAttempt = DateTime.now();
+          _handlingDeviceKick = false;
+        });
+        try {
+          await widget.serverStore.saveInfo(info);
+        } catch (_) {
+          // The verified in-memory pause state is enough to retain the session.
+        }
+        _schedulePausedCapabilityRefresh();
+        return;
+      }
+    } catch (_) {
+      // Fail closed: an unverifiable kick still revokes the local session.
+    }
+    await _clearKickedSession();
+  }
+
+  Future<void> _clearKickedSession() async {
+    try {
+      await _repository.logout();
+    } catch (_) {
+      // AuthRepository always clears the local session in finally.
+    }
+    if (!mounted) return;
+    setState(() {
+      _loginNotice = '当前设备已被下线，请重新登录。';
+      _loggedIn = false;
+      _handlingDeviceKick = false;
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _imService.removeListener(_handleImState);
     _authController.dispose();
     _homeController.dispose();
     _imService.dispose();
     _fileTransferService.dispose();
+    _serverProbe.dispose();
+    _pausedCapabilityRefreshTimer?.cancel();
     _api.dio.close(force: true);
     super.dispose();
   }
@@ -198,6 +343,11 @@ class _ServerSessionAppState extends State<_ServerSessionApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
+      builder: (context, child) => ServerCapabilitiesScope(
+        capabilities: _serverInfo?.capabilities ?? ServerCapabilities.all,
+        uploadLimits: _serverInfo?.uploadLimits ?? UploadLimits.defaults,
+        child: child!,
+      ),
       home: FutureBuilder<bool>(
         future: _restoreSession,
         builder: (context, snapshot) {
@@ -248,12 +398,27 @@ class _ServerSessionAppState extends State<_ServerSessionApp> {
               callService: _callService,
               authRepository: _repository,
               onLoggedOut: () => setState(() => _loggedIn = false),
+              capabilities: _serverInfo?.capabilities ?? ServerCapabilities.all,
             );
           }
           return LoginPage(
             controller: _authController,
-            onLoggedIn: () => setState(() => _loggedIn = true),
+            notice: _loginNotice,
+            onLoggedIn: () => setState(() {
+              _loginNotice = null;
+              _loggedIn = true;
+            }),
             serverAddress: widget.address,
+            serverName: _serverInfo?.name,
+            serverMetadataState: _serverInfoLoading
+                ? ServerMetadataState.checking
+                : _serverInfo != null
+                ? ServerMetadataState.available
+                : _serverInfoFailed
+                ? ServerMetadataState.unavailable
+                : null,
+            onRetryServerInfo: () => unawaited(_loadServerInfo()),
+            registrationEnabled: _serverInfo?.registrationEnabled ?? true,
             onServerSettings: () async {
               if (_session.hasSession || _authController.isLoading) return;
               final address = await Navigator.of(context).push<String>(

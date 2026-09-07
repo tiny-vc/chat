@@ -26,6 +26,8 @@ import type { CreateFriendRequestDto } from '../models';
 // @ts-ignore
 import type { ErrorResponse } from '../models';
 // @ts-ignore
+import type { FriendRequestResponse } from '../models';
+// @ts-ignore
 import type { FriendResponse } from '../models';
 // @ts-ignore
 import type { FriendshipResponse } from '../models';
@@ -288,7 +290,7 @@ export const FriendsApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async friendsListRequests(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<FriendshipResponse>>> {
+        async friendsListRequests(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<FriendRequestResponse>>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.friendsListRequests(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['FriendsApi.friendsListRequests']?.[localVarOperationServerIndex]?.url;
@@ -361,7 +363,7 @@ export const FriendsApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        friendsListRequests(options?: RawAxiosRequestConfig): AxiosPromise<Array<FriendshipResponse>> {
+        friendsListRequests(options?: RawAxiosRequestConfig): AxiosPromise<Array<FriendRequestResponse>> {
             return localVarFp.friendsListRequests(options).then((request) => request(axios, basePath));
         },
         /**

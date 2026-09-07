@@ -60,6 +60,22 @@ void main() {
     expect(controls.busy, isFalse);
   });
 
+  test('explicit speaker route keeps hardware and UI state aligned', () async {
+    final routes = <bool>[];
+    final controls = CallControls(
+      speaker: true,
+      setMicrophone: (_) async {},
+      setCamera: (_) async {},
+      setSpeaker: (enabled) async => routes.add(enabled),
+    );
+    addTearDown(controls.dispose);
+
+    await controls.setSpeakerEnabled(false);
+
+    expect(routes, [false]);
+    expect(controls.speaker, isFalse);
+  });
+
   test(
     'disposal during device change does not notify or accept new operations',
     () async {

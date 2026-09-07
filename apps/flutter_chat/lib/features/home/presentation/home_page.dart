@@ -9,20 +9,26 @@ import '../../auth/data/auth_repository.dart';
 import '../../../core/im/im_service.dart';
 import '../../../core/files/file_transfer_service.dart';
 import '../../../core/calls/call_service.dart';
+import '../../../core/calls/call_coordinator.dart';
+import '../../../core/calls/call_recovery.dart';
 import '../../../core/im/chat_message_content.dart';
 import '../../calls/presentation/call_page.dart';
 import '../../calls/presentation/incoming_call_dialog.dart';
+import '../../calls/presentation/outgoing_call_launcher.dart';
 import '../data/home_repository.dart';
 import 'home_controller.dart';
 import '../../../core/widgets/app_feedback.dart';
 import '../../../core/widgets/app_avatar.dart';
 import '../../../core/widgets/conversation_list_tile.dart';
+import '../../../core/widgets/im_connection_banner.dart';
+import '../../../core/permissions/permission_ui.dart';
 import 'contact_management_page.dart';
 import 'group_settings_page.dart';
 import 'group_join_page.dart';
 import 'profile_page.dart';
 import 'friend_profile_page.dart';
 import '../../chat/presentation/chat_page.dart';
+import '../../../config/server_settings.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -33,6 +39,7 @@ class HomePage extends StatefulWidget {
     required this.callService,
     required this.authRepository,
     required this.onLoggedOut,
+    this.capabilities = ServerCapabilities.all,
   });
 
   final HomeController controller;
@@ -41,6 +48,7 @@ class HomePage extends StatefulWidget {
   final CallService callService;
   final AuthRepository authRepository;
   final VoidCallback onLoggedOut;
+  final ServerCapabilities capabilities;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -50,8 +58,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _tab = 0;
   StreamSubscription<ChatCallSignalContent>? _callSignals;
   StreamSubscription<String>? _groupChanges;
-  bool _showingCall = false;
-  String? _incomingCallId;
 
   @override
   void initState() {
@@ -60,6 +66,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     widget.controller.addListener(_refresh);
     widget.imService.addListener(_refresh);
     widget.controller.load();
+    unawaited(widget.callService.flushTerminalReports());
     _callSignals = widget.imService.callSignals.listen(_handleCallSignal);
     _groupChanges = widget.imService.groupChanges.listen(
       widget.controller.refreshRemoteGroup,
@@ -83,18 +90,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       widget.controller.load();
       widget.imService.reconcileRemoteState();
+      unawaited(widget.callService.flushTerminalReports());
     }
   }
 
   Future<void> _handleCallSignal(ChatCallSignalContent signal) async {
-    if (signal.action != 'invite' || !mounted) return;
-    if (_showingCall) {
-      if (_incomingCallId == signal.callId) return;
+    if (!mounted) return;
+    final coordinator = CallCoordinator.instance;
+    if (signal.action != 'invite') {
+      coordinator.recordTerminalSignal(signal.callId, signal.action);
+      return;
+    }
+    final supported = signal.callType == 'video'
+        ? widget.capabilities.canVideoCall
+        : widget.capabilities.canAudioCall;
+    if (!supported) {
+      await widget.callService.reject(signal.callId).catchError((_) {});
+      return;
+    }
+    if (coordinator.hasActiveCall) {
+      if (coordinator.ownsCall(signal.callId)) return;
       await widget.callService.busy(signal.callId).catchError((_) {});
       return;
     }
-    _showingCall = true;
-    _incomingCallId = signal.callId;
+    final lease = coordinator.beginIncoming(
+      callId: signal.callId,
+      video: signal.callType == 'video',
+    );
+    if (lease == null) {
+      await widget.callService.busy(signal.callId).catchError((_) {});
+      return;
+    }
     final caller = _callerName(signal.fromUserId);
     try {
       final result = await showIncomingCallDialog(
@@ -106,24 +132,64 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       if (!mounted) return;
       if (result == IncomingCallResult.accept) {
+        try {
+          // Confirm immediately so the server invitation cannot expire while
+          // the user is completing microphone/camera permission prompts.
+          await widget.callService.accept(signal.callId);
+        } catch (error) {
+          if (mounted) {
+            AppFeedback.error(context, error, fallback: '接听失败，通话可能已结束');
+          }
+          return;
+        }
+        coordinator.update(lease, CoordinatedCallPhase.connecting);
+        if (!mounted) {
+          unawaited(
+            reportCallEnd(
+              () => widget.callService.queueTerminal(signal.callId, 'end'),
+              widget.callService.flushTerminalReports,
+              () {},
+            ),
+          );
+          return;
+        }
+        final effectiveVideo = await prepareCallPermissions(
+          context,
+          video: signal.callType == 'video',
+        );
+        if (effectiveVideo == null || !mounted) {
+          unawaited(
+            reportCallEnd(
+              () => widget.callService.queueTerminal(signal.callId, 'end'),
+              widget.callService.flushTerminalReports,
+              () {},
+            ),
+          );
+          return;
+        }
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => CallPage(
               callId: signal.callId,
               title: caller,
-              video: signal.callType == 'video',
+              video: effectiveVideo,
               incoming: true,
               callService: widget.callService,
               imService: widget.imService,
+              callLease: lease,
+              alreadyAccepted: true,
             ),
           ),
         );
+        final endedAction = coordinator.terminalAction(lease);
+        if (mounted && endedAction != null) {
+          AppFeedback.show(context, callTerminalMessage(endedAction));
+        }
       } else if (result == IncomingCallResult.reject) {
         await widget.callService.reject(signal.callId).catchError((_) {});
       }
     } finally {
-      _showingCall = false;
-      _incomingCallId = null;
+      coordinator.release(lease);
     }
   }
 
@@ -157,23 +223,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                   icon: const Icon(Icons.person_add_outlined),
                 ),
-                IconButton(
-                  tooltip: '创建群聊',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          CreateGroupPage(controller: widget.controller),
+                if (widget.capabilities.groups)
+                  IconButton(
+                    tooltip: '创建群聊',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            CreateGroupPage(controller: widget.controller),
+                      ),
                     ),
+                    icon: const Icon(Icons.group_add_outlined),
                   ),
-                  icon: const Icon(Icons.group_add_outlined),
-                ),
-                IconButton(
-                  tooltip: '刷新',
-                  onPressed: widget.controller.loading
-                      ? null
-                      : widget.controller.load,
-                  icon: const Icon(Icons.refresh),
-                ),
+                if (widget.capabilities.groups)
+                  IconButton(
+                    tooltip: '刷新',
+                    onPressed: widget.controller.loading
+                        ? null
+                        : widget.controller.load,
+                    icon: const Icon(Icons.refresh),
+                  ),
                 IconButton(
                   tooltip: '入群申请与邀请',
                   onPressed: () async {
@@ -251,6 +319,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         fileTransferService: widget.fileTransferService,
         callService: widget.callService,
         snapshot: widget.controller.snapshot,
+        capabilities: widget.capabilities,
       ),
       1 => ContactsView(
         controller: widget.controller,
@@ -258,6 +327,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         imService: widget.imService,
         fileTransferService: widget.fileTransferService,
         callService: widget.callService,
+        capabilities: widget.capabilities,
       ),
       _ => ProfilePage(
         controller: widget.controller,
@@ -265,12 +335,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         callService: widget.callService,
         authRepository: widget.authRepository,
         onDeactivated: widget.onLoggedOut,
+        onRedial: _redial,
         onLogout: () async {
           await widget.authRepository.logout();
           widget.onLoggedOut();
         },
+        allowAvatarUpload: widget.capabilities.files,
       ),
     };
+  }
+
+  Future<void> _redial(CallHistoryItem item) async {
+    await launchOutgoingCall(
+      context: context,
+      targetUserId: item.peerId,
+      title: item.peerName,
+      video: item.video,
+      callService: widget.callService,
+      imService: widget.imService,
+      capabilities: widget.capabilities,
+    );
   }
 }
 
@@ -281,6 +365,7 @@ class ConversationsView extends StatelessWidget {
     required this.fileTransferService,
     required this.callService,
     required this.snapshot,
+    this.capabilities = ServerCapabilities.all,
     this.archived = false,
   });
 
@@ -288,6 +373,7 @@ class ConversationsView extends StatelessWidget {
   final FileTransferService fileTransferService;
   final CallService callService;
   final HomeSnapshot? snapshot;
+  final ServerCapabilities capabilities;
   final bool archived;
 
   @override
@@ -300,21 +386,47 @@ class ConversationsView extends StatelessWidget {
     final conversations = imService.conversationsFor(archived: archived);
     final archivedCount = imService.conversationsFor(archived: true).length;
     if (conversations.isEmpty && (archived || archivedCount == 0)) {
-      return _EmptyState(
-        icon: archived ? Icons.archive_outlined : Icons.forum_outlined,
-        title: archived ? '暂无归档会话' : '开始第一次对话',
-        description: archived
-            ? '长按会话可归档，聊天记录仍会保留'
-            : _statusText(imService.connectionState),
-        action:
-            imService.connectionState == ImConnectionState.disconnected ||
-                imService.connectionState == ImConnectionState.noNetwork
-            ? OutlinedButton.icon(
-                onPressed: imService.reconnect,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重新连接'),
-              )
-            : null,
+      return Column(
+        children: [
+          if (imService.connectionState != ImConnectionState.connected)
+            ImConnectionBanner(
+              state: imService.connectionState,
+              onRetry: imService.reconnect,
+            ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => _refresh(context),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.62,
+                    child: _EmptyState(
+                      icon: archived
+                          ? Icons.archive_outlined
+                          : Icons.forum_outlined,
+                      title: archived ? '暂无归档会话' : '开始第一次对话',
+                      description: archived
+                          ? '长按会话可归档，聊天记录仍会保留'
+                          : _statusText(imService.connectionState),
+                      action:
+                          imService.connectionState ==
+                                  ImConnectionState.disconnected ||
+                              imService.connectionState ==
+                                  ImConnectionState.noNetwork
+                          ? OutlinedButton.icon(
+                              onPressed: imService.reconnect,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('重新连接'),
+                            )
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -359,161 +471,202 @@ class ConversationsView extends StatelessWidget {
             ),
           ),
         if (imService.connectionState != ImConnectionState.connected)
-          _ConnectionBanner(
+          ImConnectionBanner(
             state: imService.connectionState,
             onRetry: imService.reconnect,
           ),
+        if (imService.lastReconciledAt case final synchronizedAt?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                imService.isReconciling
+                    ? '正在刷新…'
+                    : '最近同步 ${_formatSyncTime(synchronizedAt)}',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
+          ),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            itemCount: conversations.length,
-            separatorBuilder: (_, _) =>
-                const Divider(height: 1, indent: 82, endIndent: 20),
-            itemBuilder: (context, index) {
-              final conversation = conversations[index];
-              final working = imService.isUpdatingSetting(
-                conversation.channelID,
-                conversation.channelType,
-              );
-              final setting = imService.settingFor(
-                conversation.channelID,
-                conversation.channelType,
-              );
-              final title = _channelTitle(
-                conversation.channelID,
-                conversation.channelType,
-              );
-              return Dismissible(
-                key: ValueKey(
-                  '${conversation.channelType}:${conversation.channelID}',
-                ),
-                direction: working
-                    ? DismissDirection.none
-                    : DismissDirection.endToStart,
-                confirmDismiss: (_) => _confirmDelete(context, title),
-                onDismissed: (_) => _deleteConversation(context, conversation),
-                background: Container(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 24),
-                  child: Icon(
-                    Icons.delete_outline,
-                    color: Theme.of(context).colorScheme.onErrorContainer,
+          child: RefreshIndicator(
+            onRefresh: () => _refresh(context),
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              itemCount: conversations.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, indent: 82, endIndent: 20),
+              itemBuilder: (context, index) {
+                final conversation = conversations[index];
+                final working = imService.isUpdatingSetting(
+                  conversation.channelID,
+                  conversation.channelType,
+                );
+                final setting = imService.settingFor(
+                  conversation.channelID,
+                  conversation.channelType,
+                );
+                final title = _channelTitle(
+                  conversation.channelID,
+                  conversation.channelType,
+                );
+                return Dismissible(
+                  key: ValueKey(
+                    '${conversation.channelType}:${conversation.channelID}',
                   ),
-                ),
-                child: Material(
-                  color: setting.pinned
-                      ? Theme.of(
-                          context,
-                        ).colorScheme.primaryContainer.withValues(alpha: 0.22)
-                      : Colors.transparent,
-                  child: ConversationListTile(
-                    leading: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        AppAvatar(
-                          name: title,
-                          fileId: conversation.channelType == 2
-                              ? snapshot?.groups
-                                    .where(
-                                      (g) => g.id == conversation.channelID,
-                                    )
-                                    .firstOrNull
-                                    ?.avatarFileId
-                              : snapshot?.friends
-                                    .where(
-                                      (f) =>
-                                          f.user.id == conversation.channelID,
-                                    )
-                                    .firstOrNull
-                                    ?.user
-                                    .avatarFileId,
-                          group: conversation.channelType == 2,
-                          resolveUrl: fileTransferService.downloadUrl,
-                        ),
-                        if (setting.pinned)
-                          Positioned(
-                            right: -3,
-                            top: -3,
-                            child: Icon(
-                              Icons.push_pin,
-                              size: 15,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                      ],
+                  direction: working
+                      ? DismissDirection.none
+                      : DismissDirection.endToStart,
+                  confirmDismiss: (_) => _confirmDelete(context, title),
+                  onDismissed: (_) =>
+                      _deleteConversation(context, conversation),
+                  background: Container(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    child: Icon(
+                      Icons.delete_outline,
+                      color: Theme.of(context).colorScheme.onErrorContainer,
                     ),
-                    title: Text(title),
-                    subtitle: _ConversationSubtitle(conversation: conversation),
-                    trailing: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (working)
-                          const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  child: Material(
+                    color: setting.pinned
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer.withValues(alpha: 0.22)
+                        : Colors.transparent,
+                    child: ConversationListTile(
+                      leading: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          AppAvatar(
+                            name: title,
+                            fileId: conversation.channelType == 2
+                                ? snapshot?.groups
+                                      .where(
+                                        (g) => g.id == conversation.channelID,
+                                      )
+                                      .firstOrNull
+                                      ?.avatarFileId
+                                : snapshot?.friends
+                                      .where(
+                                        (f) =>
+                                            f.user.id == conversation.channelID,
+                                      )
+                                      .firstOrNull
+                                      ?.user
+                                      .avatarFileId,
+                            group: conversation.channelType == 2,
+                            resolveUrl: fileTransferService.downloadUrl,
                           ),
-                        Text(
-                          _formatConversationTime(
-                            conversation.lastMsgTimestamp,
-                          ),
-                          style: Theme.of(context).textTheme.labelSmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (conversation.unreadCount > 0) ...[
-                          const SizedBox(height: 4),
-                          Badge(
-                            backgroundColor: setting.muted
-                                ? Theme.of(context).colorScheme.outline
-                                : Theme.of(context).colorScheme.error,
-                            label: Text(
-                              conversation.unreadCount > 99
-                                  ? '99+'
-                                  : '${conversation.unreadCount}',
+                          if (setting.pinned)
+                            Positioned(
+                              right: -3,
+                              top: -3,
+                              child: Icon(
+                                Icons.push_pin,
+                                size: 15,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                             ),
-                          ),
                         ],
-                        if (setting.muted && conversation.unreadCount == 0)
-                          const Icon(
-                            Icons.notifications_off_outlined,
-                            size: 16,
+                      ),
+                      title: Text(title),
+                      subtitle: _ConversationSubtitle(
+                        conversation: conversation,
+                      ),
+                      trailing: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (working)
+                            const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          Text(
+                            _formatConversationTime(
+                              conversation.lastMsgTimestamp,
+                            ),
+                            style: Theme.of(context).textTheme.labelSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                      ],
-                    ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ChatPage(
-                          channelId: conversation.channelID,
-                          channelType: conversation.channelType,
-                          title: title,
-                          imService: imService,
-                          fileTransferService: fileTransferService,
-                          forwardTargets: _forwardTargets(snapshot),
-                          callService: callService,
-                          memberNames: _memberNamesFor(
-                            snapshot,
-                            conversation.channelID,
+                          if (conversation.unreadCount > 0) ...[
+                            const SizedBox(height: 4),
+                            Badge(
+                              backgroundColor: setting.muted
+                                  ? Theme.of(context).colorScheme.outline
+                                  : Theme.of(context).colorScheme.error,
+                              label: Text(
+                                conversation.unreadCount > 99
+                                    ? '99+'
+                                    : '${conversation.unreadCount}',
+                              ),
+                            ),
+                          ],
+                          if (setting.muted && conversation.unreadCount == 0)
+                            const Icon(
+                              Icons.notifications_off_outlined,
+                              size: 16,
+                            ),
+                        ],
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ChatPage(
+                            channelId: conversation.channelID,
+                            channelType: conversation.channelType,
+                            title: title,
+                            imService: imService,
+                            fileTransferService: fileTransferService,
+                            forwardTargets: _forwardTargets(snapshot),
+                            callService: callService,
+                            capabilities: capabilities,
+                            memberNames: _memberNamesFor(
+                              snapshot,
+                              conversation.channelID,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    onLongPress: () => _showConversationActions(
-                      context,
-                      conversation,
-                      title,
-                      setting,
+                      onLongPress: () => _showConversationActions(
+                        context,
+                        conversation,
+                        title,
+                        setting,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _refresh(BuildContext context) async {
+    if (imService.connectionState == ImConnectionState.disconnected ||
+        imService.connectionState == ImConnectionState.noNetwork) {
+      await imService.reconnect();
+    }
+    final refreshed = await imService.reconcileRemoteState();
+    if (!refreshed && context.mounted && !imService.isReconciling) {
+      AppFeedback.show(context, '刷新失败，请检查网络后重试', kind: FeedbackKind.error);
+    }
+  }
+
+  String _formatSyncTime(DateTime value) {
+    final local = value.toLocal();
+    final elapsed = DateTime.now().difference(local);
+    if (elapsed.inSeconds < 10) return '刚刚';
+    if (elapsed.inMinutes < 1) return '${elapsed.inSeconds} 秒前';
+    if (elapsed.inHours < 1) return '${elapsed.inMinutes} 分钟前';
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
 
   Future<bool> _confirmDelete(BuildContext context, String title) async {
@@ -691,6 +844,7 @@ class ConversationsView extends StatelessWidget {
 
   String _statusText(ImConnectionState state) => switch (state) {
     ImConnectionState.connecting => '正在连接消息服务器…',
+    ImConnectionState.syncing => '正在同步新消息…',
     ImConnectionState.connected => '已连接，选择好友即可开始聊天',
     ImConnectionState.noNetwork => '当前网络不可用',
     ImConnectionState.kicked => '账号已在其他设备登录',
@@ -707,66 +861,6 @@ class ConversationsView extends StatelessWidget {
       return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     }
     return '${time.month}/${time.day}';
-  }
-}
-
-class _ConnectionBanner extends StatelessWidget {
-  const _ConnectionBanner({required this.state, required this.onRetry});
-
-  final ImConnectionState state;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final connecting = state == ImConnectionState.connecting;
-    final colorScheme = Theme.of(context).colorScheme;
-    final message = switch (state) {
-      ImConnectionState.connecting => '正在连接消息服务…',
-      ImConnectionState.noNetwork => '网络不可用，请检查网络设置',
-      ImConnectionState.kicked => '当前账号已在其他设备登录',
-      _ => '消息服务已断开',
-    };
-    return Material(
-      color: connecting
-          ? colorScheme.secondaryContainer
-          : colorScheme.errorContainer,
-      child: InkWell(
-        onTap: connecting ? null : onRetry,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          child: Row(
-            children: [
-              if (connecting)
-                const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                Icon(
-                  Icons.cloud_off_outlined,
-                  size: 18,
-                  color: colorScheme.onErrorContainer,
-                ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              if (!connecting)
-                Text(
-                  '重试',
-                  style: TextStyle(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -796,6 +890,7 @@ class ContactsView extends StatefulWidget {
     required this.imService,
     required this.fileTransferService,
     required this.callService,
+    this.capabilities = ServerCapabilities.all,
   });
 
   final HomeController controller;
@@ -803,6 +898,7 @@ class ContactsView extends StatefulWidget {
   final ImService imService;
   final FileTransferService fileTransferService;
   final CallService callService;
+  final ServerCapabilities capabilities;
 
   @override
   State<ContactsView> createState() => _ContactsState();
@@ -825,8 +921,11 @@ class _ContactsState extends State<ContactsView> {
     final imService = widget.imService;
     final fileTransferService = widget.fileTransferService;
     final callService = widget.callService;
+    final capabilities = widget.capabilities;
     final allFriends = snapshot?.friends ?? const <FriendResponse>[];
-    final allGroups = snapshot?.groups ?? const <GroupResponse>[];
+    final allGroups = capabilities.groups
+        ? snapshot?.groups ?? const <GroupResponse>[]
+        : const <GroupResponse>[];
     final query = _query.trim().toLowerCase();
     final friends = query.isEmpty
         ? allFriends
@@ -920,6 +1019,7 @@ class _ContactsState extends State<ContactsView> {
                               groupId: group.id,
                               controller: controller,
                               fileTransferService: fileTransferService,
+                              allowAvatarUpload: capabilities.files,
                             ),
                           ),
                         );
@@ -936,6 +1036,7 @@ class _ContactsState extends State<ContactsView> {
                           fileTransferService: fileTransferService,
                           forwardTargets: _forwardTargets(snapshot),
                           callService: callService,
+                          capabilities: capabilities,
                           memberNames: {
                             for (final member
                                 in group.members ??
@@ -972,6 +1073,7 @@ class _ContactsState extends State<ContactsView> {
                               fileTransferService: fileTransferService,
                               callService: callService,
                               forwardTargets: _forwardTargets(snapshot),
+                              capabilities: capabilities,
                             ),
                           ),
                         );
@@ -988,6 +1090,7 @@ class _ContactsState extends State<ContactsView> {
                           fileTransferService: fileTransferService,
                           forwardTargets: _forwardTargets(snapshot),
                           callService: callService,
+                          capabilities: capabilities,
                         ),
                       ),
                     ),

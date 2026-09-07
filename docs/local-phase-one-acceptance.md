@@ -1,5 +1,18 @@
 # 第一阶段本机联调（2026-09-03）
 
+## 2026-09-06 标准 Compose 可重复部署验收
+
+- 使用基础 `docker-compose.yml` 从当前工作区源码执行 `docker compose build api migrate admin`，API、Prisma 迁移器和 React 管理端镜像均成功构建；随后执行 `docker compose up -d --force-recreate --wait`，保留既有数据卷并重建完整服务栈。
+- 迁移容器识别 14 个迁移且无待执行项，正常以 0 退出；PostgreSQL、WuKongIM、LiveKit、MinIO、API 与管理端全部达到 healthy。迁移容器是一次性任务，退出后不能再用 `docker compose exec migrate`，应读取其日志或通过一次性 `run` 检查。
+- `/api/v1/ready` 的四项依赖均为 ok；管理端 `/healthz` 返回 ok，同源 `/api/v1/server-info` 代理返回完整 `capabilities`。核心 `smoke`、六项运行能力/三个读取路径的 `smoke:runtime-enforcement`、运行配置恢复测试以及 `smoke:admin` 全部通过。
+- 验收过程中确认叠加 LAN 测试覆盖文件若显式指定旧 `CHAT_API_IMAGE`，容器重建会回退旧镜像。基础 Compose 自带 `build:`，标准部署不依赖本机临时标签；本地默认 `chat-api:latest` 也已更新为当前源码构建。生产发布仍应使用不可变版本号或 digest，不能依赖 `latest`。
+
+## 2026-09-06 构建依赖安全修复
+
+- npm 的 3 条 high 告警来自同一构建依赖链：Prisma CLI 6.19.3 经 `@prisma/config` 引入存在递归对象栈耗尽公告的 `deepmerge-ts <8`。按审计提供的兼容修复路径，将 `prisma` 与 `@prisma/client` 成对精确锁定为 6.12.0，没有单独覆盖其内部合并库。
+- 重新生成 Prisma Client 后根项目 `npm audit` 为 0 项；后端 lint、23 套件/109 项测试、构建、OpenAPI 生成及 87 路径基线均通过。API/迁移镜像重新构建时，完整依赖与 prune 后生产依赖均为 0 漏洞；容器重建后核心业务、运行能力守卫和管理 API 烟雾测试全部通过。
+- 管理平台独立 lockfile 的 3 条 high 来自 Pro Layout 引入的 `path-to-regexp 8.3.0` ReDoS 公告。保留当前 Pro Components，通过 npm override 锁定同主版本修复版 8.4.0；独立 `npm audit` 为 0，lint、6 个测试文件/16 项测试和生产构建通过。
+
 用户明确允许本地测试，不连接外部部署。使用 localhost:3000、本机 WuKongIM/LiveKit/对象存储及两台 iOS 模拟器。全部新建隔离账号，未修改既有账号/群；测试标记和测试图片保留供核对。
 
 ## 本轮隔离数据
@@ -103,6 +116,8 @@
 首次原生测试在检测阶段失败，未记通过：Dio get<Object> 自动把 ResponseType.plain 改为 JSON，探测器收到对象而非预期的有大小限制文本。改为 get<String>，增加经过真实 Dio 转换器的无网络测试后复测。
 
 iPhone 17 Pro Max 的 integration_test/server_settings_test.dart 通过，输出 SERVER_SETTINGS_REAL_DETECT_SAVE_SWITCH_RESTORE_PASSED，5 秒内 All tests passed。实际从登录页打开设置，检测 http://127.0.0.1:3000/api/v1，确认保存并切换到规范化地址，再销毁/重建完整 App 验证原生安全存储读回。使用空登录会话，不发送用户凭据；测试结束还原原服务器设置。localhost 与 127.0.0.1 指向同一本地 API，不是两套独立部署。
+
+2026-09-06 在 iPhone 17 Pro 重新执行当前 UI 的同一真实用例：本地 API、PostgreSQL、MinIO、WuKongIM、LiveKit 和管理端均为 healthy。修复集成测试仍查找旧“服务器设置/检测成功”文案的问题，改为稳定的服务器卡片 key 和当前“连接正常”状态；随后真实检测、确认保存、安全存储重建恢复及原地址还原全部通过，输出 `SERVER_SETTINGS_REAL_DETECT_SAVE_SWITCH_RESTORE_PASSED`，6 秒内 All tests passed。该调整只更新测试定位并为服务器卡片增加稳定 key，没有改变用户操作或服务端数据。
 
 Token/草稿的命名空间隔离、SDK 数据库身份及迁移命名、缓存键、路径标识安全校验由代码及无网络测试覆盖；尚未做两台独立服务端相同 UID 的实际消息/文件交叉验收。遵循未上线不做旧版兼容的要求，旧未隔离缓存和凭据不迁移、不删除，需重新登录。
 

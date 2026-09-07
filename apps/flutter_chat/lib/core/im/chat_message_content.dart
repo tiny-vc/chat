@@ -1,4 +1,5 @@
 import 'package:wukongimfluttersdk/model/wk_message_content.dart';
+import 'package:wukongimfluttersdk/model/wk_text_content.dart';
 
 abstract final class ChatMessageType {
   static const image = 2;
@@ -9,6 +10,13 @@ abstract final class ChatMessageType {
   static const callSignal = 2001;
   static const system = 9002;
 }
+
+bool isForwardableChatContent(WKMessageContent? content) =>
+    content is WKTextContent ||
+    content is ChatImageContent ||
+    content is ChatVideoContent ||
+    content is ChatAudioContent ||
+    content is ChatFileContent;
 
 class ChatSystemContent extends WKMessageContent {
   ChatSystemContent() {

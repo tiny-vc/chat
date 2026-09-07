@@ -5,8 +5,8 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**channelId** | **string** |  | [default to undefined]
 **channelType** | **number** |  | [default to undefined]
+**channelId** | **string** |  | [default to undefined]
 **messages** | [**Array&lt;ReceiptMessageDto&gt;**](ReceiptMessageDto.md) |  | [default to undefined]
 
 ## Example
@@ -15,8 +15,8 @@ Name | Type | Description | Notes
 import { SyncImReceiptsDto } from '@chat/admin-api-client';
 
 const instance: SyncImReceiptsDto = {
-    channelId,
     channelType,
+    channelId,
     messages,
 };
 ```

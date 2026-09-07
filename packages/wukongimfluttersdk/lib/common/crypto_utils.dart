@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
-import 'package:encrypt/encrypt.dart';
+import 'package:pointycastle/export.dart';
 
 import 'package:x25519/x25519.dart';
 
@@ -34,19 +34,30 @@ class CryptoUtils {
 
   // 加密
   static String aesEncrypt(String content) {
-    final iv = IV(Uint8List.fromList(salt.codeUnits));
-    final key = Key(Uint8List.fromList(aesKey.codeUnits));
-    final encrypter = Encrypter(AES(key, mode: AESMode.cbc));
-    return encrypter.encrypt(content, iv: iv).base64;
+    final cipher = _aesCipher(true);
+    return base64Encode(cipher.process(Uint8List.fromList(utf8.encode(content))));
   }
 
   // 解密
   static String aesDecrypt(String content) {
-    final iv = IV(Uint8List.fromList(salt.codeUnits));
-    final key = Key(Uint8List.fromList(aesKey.codeUnits));
-    var encrypter = Encrypter(AES(key, mode: AESMode.cbc));
-    Encrypted encrypted = Encrypted(base64Decode(content));
-    var decrypted = encrypter.decrypt(encrypted, iv: iv);
-    return decrypted;
+    final cipher = _aesCipher(false);
+    return utf8.decode(cipher.process(base64Decode(content)));
+  }
+
+  static PaddedBlockCipher _aesCipher(bool encrypting) {
+    final key = Uint8List.fromList(aesKey.codeUnits);
+    final iv = Uint8List.fromList(salt.codeUnits);
+    final cipher = PaddedBlockCipherImpl(
+      PKCS7Padding(),
+      CBCBlockCipher(AESEngine()),
+    );
+    cipher.init(
+      encrypting,
+      PaddedBlockCipherParameters<ParametersWithIV<KeyParameter>, Null>(
+        ParametersWithIV<KeyParameter>(KeyParameter(key), iv),
+        null,
+      ),
+    );
+    return cipher;
   }
 }

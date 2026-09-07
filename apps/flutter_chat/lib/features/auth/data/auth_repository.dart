@@ -68,10 +68,14 @@ class AuthRepository {
   }
 
   Future<void> deactivateAccount(String currentPassword) async {
-    await _api.dio.delete<Object>(
-      '/api/v1/auth/account',
-      data: {'currentPassword': currentPassword},
+    final response = await _api.getAuthApi().authDeactivateAccount(
+      deactivateAccountDto: DeactivateAccountDto(
+        (builder) => builder.currentPassword = currentPassword,
+      ),
     );
+    if (response.data?.success != true) {
+      throw StateError('服务器未确认账号注销');
+    }
     await _session.clear();
   }
 }

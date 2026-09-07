@@ -17,6 +17,7 @@ import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { BlocksModule } from './blocks/blocks.module';
 import { JobsModule } from './jobs/jobs.module';
+import { RuntimeSettingsModule } from './config/runtime-settings.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { JobsModule } from './jobs/jobs.module';
       validate: validateEnvironment,
     }),
     PrismaModule,
+    RuntimeSettingsModule,
     WuKongImModule,
     LiveKitModule,
     HealthModule,

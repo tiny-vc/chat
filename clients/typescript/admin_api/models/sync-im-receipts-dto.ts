@@ -18,8 +18,8 @@
 import type { ReceiptMessageDto } from './receipt-message-dto';
 
 export interface SyncImReceiptsDto {
-    'channelId': string;
     'channelType': SyncImReceiptsDtoChannelTypeEnum;
+    'channelId': string;
     'messages': Array<ReceiptMessageDto>;
 }
 

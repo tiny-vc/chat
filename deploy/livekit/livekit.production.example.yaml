@@ -12,12 +12,16 @@ rtc:
 keys:
   replace-with-livekit-key: replace-with-livekit-secret
 
+webhook:
+  api_key: replace-with-livekit-key
+  urls:
+    - https://chat.example.com/api/v1/webhooks/livekit
+
 turn:
   enabled: true
   domain: turn.example.com
-  # Direct-to-host deployment: advertise 443 for restrictive networks.
-  tls_port: 443
+  # A single public IP already uses TCP 443 for HTTPS/WSS at Nginx.
+  tls_port: 5349
   udp_port: 443
   cert_file: /certs/fullchain.pem
   key_file: /certs/privkey.pem
-

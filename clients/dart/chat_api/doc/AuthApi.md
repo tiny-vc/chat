@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost:3000*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**authAdminLogin**](AuthApi.md#authadminlogin) | **POST** /api/v1/auth/admin-login | 
 [**authChangePassword**](AuthApi.md#authchangepassword) | **POST** /api/v1/auth/change-password | 
 [**authDeactivateAccount**](AuthApi.md#authdeactivateaccount) | **DELETE** /api/v1/auth/account | 
 [**authDevices**](AuthApi.md#authdevices) | **GET** /api/v1/auth/devices | 
@@ -19,6 +20,47 @@ Method | HTTP request | Description
 [**authRegister**](AuthApi.md#authregister) | **POST** /api/v1/auth/register | 
 [**authRevokeDevice**](AuthApi.md#authrevokedevice) | **DELETE** /api/v1/auth/devices/{sessionId} | 
 
+
+# **authAdminLogin**
+> AuthSessionResponse authAdminLogin(loginDto)
+
+
+
+### Example
+```dart
+import 'package:chat_api_client/api.dart';
+
+final api = ChatApiClient().getAuthApi();
+final LoginDto loginDto = ; // LoginDto | 
+
+try {
+    final response = api.authAdminLogin(loginDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling AuthApi->authAdminLogin: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **loginDto** | [**LoginDto**](LoginDto.md)|  | 
+
+### Return type
+
+[**AuthSessionResponse**](AuthSessionResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authChangePassword**
 > SuccessResponse authChangePassword(changePasswordDto)
@@ -62,7 +104,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authDeactivateAccount**
-> BuiltMap<String, JsonObject> authDeactivateAccount(deactivateAccountDto)
+> SuccessResponse authDeactivateAccount(deactivateAccountDto)
 
 
 
@@ -89,7 +131,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltMap&lt;String, JsonObject&gt;**](JsonObject.md)
+[**SuccessResponse**](SuccessResponse.md)
 
 ### Authorization
 

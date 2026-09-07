@@ -66,18 +66,27 @@ All URIs are relative to *http://localhost:3000*
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 [*AdminApi*](doc/AdminApi.md) | [**adminActivateUser**](doc/AdminApi.md#adminactivateuser) | **PATCH** /api/v1/admin/users/{userId}/activate | 
+[*AdminApi*](doc/AdminApi.md) | [**adminDecideReport**](doc/AdminApi.md#admindecidereport) | **PATCH** /api/v1/admin/reports/{reportId}/decision | 
 [*AdminApi*](doc/AdminApi.md) | [**adminGetGroup**](doc/AdminApi.md#admingetgroup) | **GET** /api/v1/admin/groups/{groupId} | 
+[*AdminApi*](doc/AdminApi.md) | [**adminGetRuntimeSettings**](doc/AdminApi.md#admingetruntimesettings) | **GET** /api/v1/admin/runtime-settings | 
 [*AdminApi*](doc/AdminApi.md) | [**adminGetUser**](doc/AdminApi.md#admingetuser) | **GET** /api/v1/admin/users/{userId} | 
 [*AdminApi*](doc/AdminApi.md) | [**adminListAuditLogs**](doc/AdminApi.md#adminlistauditlogs) | **GET** /api/v1/admin/audit-logs | 
+[*AdminApi*](doc/AdminApi.md) | [**adminListCalls**](doc/AdminApi.md#adminlistcalls) | **GET** /api/v1/admin/calls | 
+[*AdminApi*](doc/AdminApi.md) | [**adminListFiles**](doc/AdminApi.md#adminlistfiles) | **GET** /api/v1/admin/files | 
 [*AdminApi*](doc/AdminApi.md) | [**adminListGroupMembers**](doc/AdminApi.md#adminlistgroupmembers) | **GET** /api/v1/admin/groups/{groupId}/members | 
 [*AdminApi*](doc/AdminApi.md) | [**adminListGroups**](doc/AdminApi.md#adminlistgroups) | **GET** /api/v1/admin/groups | 
 [*AdminApi*](doc/AdminApi.md) | [**adminListJobRuns**](doc/AdminApi.md#adminlistjobruns) | **GET** /api/v1/admin/jobs/runs | 
+[*AdminApi*](doc/AdminApi.md) | [**adminListReports**](doc/AdminApi.md#adminlistreports) | **GET** /api/v1/admin/reports | 
+[*AdminApi*](doc/AdminApi.md) | [**adminListUserDevices**](doc/AdminApi.md#adminlistuserdevices) | **GET** /api/v1/admin/users/{userId}/devices | 
 [*AdminApi*](doc/AdminApi.md) | [**adminListUsers**](doc/AdminApi.md#adminlistusers) | **GET** /api/v1/admin/users | 
 [*AdminApi*](doc/AdminApi.md) | [**adminOverview**](doc/AdminApi.md#adminoverview) | **GET** /api/v1/admin/overview | 
 [*AdminApi*](doc/AdminApi.md) | [**adminRevokeUserDevice**](doc/AdminApi.md#adminrevokeuserdevice) | **DELETE** /api/v1/admin/users/{userId}/devices/{sessionId} | 
 [*AdminApi*](doc/AdminApi.md) | [**adminRunCleanup**](doc/AdminApi.md#adminruncleanup) | **POST** /api/v1/admin/jobs/cleanup/run | 
 [*AdminApi*](doc/AdminApi.md) | [**adminSetGroupPolicy**](doc/AdminApi.md#adminsetgrouppolicy) | **PATCH** /api/v1/admin/groups/{groupId}/policy | 
+[*AdminApi*](doc/AdminApi.md) | [**adminSetUserRole**](doc/AdminApi.md#adminsetuserrole) | **PATCH** /api/v1/admin/users/{userId}/role | 
 [*AdminApi*](doc/AdminApi.md) | [**adminSuspendUser**](doc/AdminApi.md#adminsuspenduser) | **PATCH** /api/v1/admin/users/{userId}/suspend | 
+[*AdminApi*](doc/AdminApi.md) | [**adminUpdateRuntimeSettings**](doc/AdminApi.md#adminupdateruntimesettings) | **PATCH** /api/v1/admin/runtime-settings | 
+[*AuthApi*](doc/AuthApi.md) | [**authAdminLogin**](doc/AuthApi.md#authadminlogin) | **POST** /api/v1/auth/admin-login | 
 [*AuthApi*](doc/AuthApi.md) | [**authChangePassword**](doc/AuthApi.md#authchangepassword) | **POST** /api/v1/auth/change-password | 
 [*AuthApi*](doc/AuthApi.md) | [**authDeactivateAccount**](doc/AuthApi.md#authdeactivateaccount) | **DELETE** /api/v1/auth/account | 
 [*AuthApi*](doc/AuthApi.md) | [**authDevices**](doc/AuthApi.md#authdevices) | **GET** /api/v1/auth/devices | 
@@ -96,6 +105,7 @@ Class | Method | HTTP request | Description
 [*CallsApi*](doc/CallsApi.md) | [**callsCreate**](doc/CallsApi.md#callscreate) | **POST** /api/v1/calls | 
 [*CallsApi*](doc/CallsApi.md) | [**callsCreateToken**](doc/CallsApi.md#callscreatetoken) | **POST** /api/v1/calls/{callId}/token | 
 [*CallsApi*](doc/CallsApi.md) | [**callsEnd**](doc/CallsApi.md#callsend) | **POST** /api/v1/calls/{callId}/end | 
+[*CallsApi*](doc/CallsApi.md) | [**callsGet**](doc/CallsApi.md#callsget) | **GET** /api/v1/calls/{callId} | 
 [*CallsApi*](doc/CallsApi.md) | [**callsList**](doc/CallsApi.md#callslist) | **GET** /api/v1/calls | 
 [*CallsApi*](doc/CallsApi.md) | [**callsMiss**](doc/CallsApi.md#callsmiss) | **POST** /api/v1/calls/{callId}/miss | 
 [*CallsApi*](doc/CallsApi.md) | [**callsReject**](doc/CallsApi.md#callsreject) | **POST** /api/v1/calls/{callId}/reject | 
@@ -144,8 +154,10 @@ Class | Method | HTTP request | Description
 [*ImSyncApi*](doc/ImSyncApi.md) | [**imSyncRevokeMessage**](doc/ImSyncApi.md#imsyncrevokemessage) | **POST** /api/v1/im/messages/revoke | 
 [*ImSyncApi*](doc/ImSyncApi.md) | [**imSyncSyncConversations**](doc/ImSyncApi.md#imsyncsyncconversations) | **POST** /api/v1/im/conversations/sync | 
 [*ImSyncApi*](doc/ImSyncApi.md) | [**imSyncSyncMessages**](doc/ImSyncApi.md#imsyncsyncmessages) | **POST** /api/v1/im/messages/sync | 
+[*LivekitWebhookApi*](doc/LivekitWebhookApi.md) | [**livekitWebhookReceive**](doc/LivekitWebhookApi.md#livekitwebhookreceive) | **POST** /api/v1/webhooks/livekit | 
 [*MessagesApi*](doc/MessagesApi.md) | [**messagesDescribe**](doc/MessagesApi.md#messagesdescribe) | **GET** /api/v1/messages/protocol | 
 [*MessagesApi*](doc/MessagesApi.md) | [**messagesValidate**](doc/MessagesApi.md#messagesvalidate) | **POST** /api/v1/messages/protocol/validate | 
+[*ServerInfoApi*](doc/ServerInfoApi.md) | [**serverInfoGetInfo**](doc/ServerInfoApi.md#serverinfogetinfo) | **GET** /api/v1/server-info | 
 [*UsersApi*](doc/UsersApi.md) | [**usersGetById**](doc/UsersApi.md#usersgetbyid) | **GET** /api/v1/users/{userId} | 
 [*UsersApi*](doc/UsersApi.md) | [**usersGetMe**](doc/UsersApi.md#usersgetme) | **GET** /api/v1/users/me | 
 [*UsersApi*](doc/UsersApi.md) | [**usersRemoveAvatar**](doc/UsersApi.md#usersremoveavatar) | **DELETE** /api/v1/users/me/avatar | 
@@ -159,6 +171,12 @@ Class | Method | HTTP request | Description
 ## Documentation For Models
 
  - [AddGroupMembersDto](doc/AddGroupMembersDto.md)
+ - [AdminCallPageResponse](doc/AdminCallPageResponse.md)
+ - [AdminCallResponse](doc/AdminCallResponse.md)
+ - [AdminDeviceSessionPageResponse](doc/AdminDeviceSessionPageResponse.md)
+ - [AdminDeviceSessionResponse](doc/AdminDeviceSessionResponse.md)
+ - [AdminFilePageResponse](doc/AdminFilePageResponse.md)
+ - [AdminFileResponse](doc/AdminFileResponse.md)
  - [AdminGroupMemberPageResponse](doc/AdminGroupMemberPageResponse.md)
  - [AdminGroupMemberResponse](doc/AdminGroupMemberResponse.md)
  - [AdminGroupPageResponse](doc/AdminGroupPageResponse.md)
@@ -169,11 +187,15 @@ Class | Method | HTTP request | Description
  - [AdminOverviewResponseGroups](doc/AdminOverviewResponseGroups.md)
  - [AdminOverviewResponseModeration](doc/AdminOverviewResponseModeration.md)
  - [AdminOverviewResponseUsers](doc/AdminOverviewResponseUsers.md)
+ - [AdminReportPageResponse](doc/AdminReportPageResponse.md)
+ - [AdminReportResponse](doc/AdminReportResponse.md)
  - [AdminUserPageResponse](doc/AdminUserPageResponse.md)
  - [AdminUserResponse](doc/AdminUserResponse.md)
  - [AuditLogPageResponse](doc/AuditLogPageResponse.md)
  - [AuditLogResponse](doc/AuditLogResponse.md)
  - [AuthSessionResponse](doc/AuthSessionResponse.md)
+ - [BlockedUserResponse](doc/BlockedUserResponse.md)
+ - [CallHistoryResponse](doc/CallHistoryResponse.md)
  - [CallSessionResponse](doc/CallSessionResponse.md)
  - [ChangePasswordDto](doc/ChangePasswordDto.md)
  - [ConversationSettingResponse](doc/ConversationSettingResponse.md)
@@ -183,12 +205,14 @@ Class | Method | HTTP request | Description
  - [CreateGroupDto](doc/CreateGroupDto.md)
  - [CreateUploadDto](doc/CreateUploadDto.md)
  - [DeactivateAccountDto](doc/DeactivateAccountDto.md)
+ - [DecideReportDto](doc/DecideReportDto.md)
  - [DeviceSessionResponse](doc/DeviceSessionResponse.md)
  - [ErrorResponse](doc/ErrorResponse.md)
  - [FileDownloadResponse](doc/FileDownloadResponse.md)
  - [FileUploadResponse](doc/FileUploadResponse.md)
  - [FileUsageResponse](doc/FileUsageResponse.md)
  - [ForwardFileDto](doc/ForwardFileDto.md)
+ - [FriendRequestResponse](doc/FriendRequestResponse.md)
  - [FriendResponse](doc/FriendResponse.md)
  - [FriendshipResponse](doc/FriendshipResponse.md)
  - [GroupJoinMessageDto](doc/GroupJoinMessageDto.md)
@@ -196,23 +220,33 @@ Class | Method | HTTP request | Description
  - [GroupMemberResponse](doc/GroupMemberResponse.md)
  - [GroupResponse](doc/GroupResponse.md)
  - [ImConnectionResponse](doc/ImConnectionResponse.md)
+ - [ImSyncConversationResponse](doc/ImSyncConversationResponse.md)
+ - [ImSyncMessageResponse](doc/ImSyncMessageResponse.md)
+ - [ImSyncMessagesResponse](doc/ImSyncMessagesResponse.md)
  - [InviteGroupMemberDto](doc/InviteGroupMemberDto.md)
  - [JobRunPageResponse](doc/JobRunPageResponse.md)
  - [JobRunResponse](doc/JobRunResponse.md)
  - [LiveKitTokenResponse](doc/LiveKitTokenResponse.md)
  - [LoginDto](doc/LoginDto.md)
  - [MarkImReadDto](doc/MarkImReadDto.md)
+ - [MessageReceiptResponse](doc/MessageReceiptResponse.md)
+ - [MessagingPolicySyncDto](doc/MessagingPolicySyncDto.md)
  - [MuteMemberDto](doc/MuteMemberDto.md)
  - [ReceiptMessageDto](doc/ReceiptMessageDto.md)
  - [RefreshTokenDto](doc/RefreshTokenDto.md)
  - [RegisterDto](doc/RegisterDto.md)
  - [ReportUserDto](doc/ReportUserDto.md)
  - [RevokeImMessageDto](doc/RevokeImMessageDto.md)
+ - [RuntimeCapabilitiesDto](doc/RuntimeCapabilitiesDto.md)
+ - [RuntimeSettingsResponseDto](doc/RuntimeSettingsResponseDto.md)
+ - [ServerInfoGetInfo200Response](doc/ServerInfoGetInfo200Response.md)
+ - [ServerInfoGetInfo200ResponseCapabilities](doc/ServerInfoGetInfo200ResponseCapabilities.md)
  - [SetAvatarDto](doc/SetAvatarDto.md)
  - [SetGroupAvatarDto](doc/SetGroupAvatarDto.md)
  - [SetGroupPolicyDto](doc/SetGroupPolicyDto.md)
  - [SetMemberRoleDto](doc/SetMemberRoleDto.md)
  - [SetThumbnailDto](doc/SetThumbnailDto.md)
+ - [SetUserRoleDto](doc/SetUserRoleDto.md)
  - [StoredFileResponse](doc/StoredFileResponse.md)
  - [SuccessResponse](doc/SuccessResponse.md)
  - [SyncImChannelMessagesDto](doc/SyncImChannelMessagesDto.md)
@@ -222,6 +256,7 @@ Class | Method | HTTP request | Description
  - [UpdateConversationSettingDto](doc/UpdateConversationSettingDto.md)
  - [UpdateGroupDto](doc/UpdateGroupDto.md)
  - [UpdateProfileDto](doc/UpdateProfileDto.md)
+ - [UpdateRuntimeSettingsDto](doc/UpdateRuntimeSettingsDto.md)
  - [UserResponse](doc/UserResponse.md)
 
 
