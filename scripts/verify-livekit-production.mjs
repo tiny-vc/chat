@@ -91,7 +91,7 @@ for (const key of ["cert_file", "key_file"]) {
     continue;
   }
   const hostPath = resolve(
-    "deploy/livekit/certs",
+    "deploy/certs",
     containerPath.slice("/certs/".length),
   );
   try {
