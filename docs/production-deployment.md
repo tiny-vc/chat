@@ -91,6 +91,17 @@ SSH 不是 22 端口时使用 `SSH_PORT=端口号`。目标账户必须对 `/opt
 sh scripts/build-upload-production.sh root@服务器IP /opt/chat 2026.09.07-1
 ```
 
+如果仅修改了 `apps/admin_web` 管理平台，可使用增量脚本，只构建和上传管理端
+镜像，API 与数据库迁移镜像保持不变：
+
+```bash
+sh scripts/build-upload-admin-production.sh root@服务器IP /opt/chat
+```
+
+脚本完成后会输出服务器端的校验、导入镜像、更新 `CHAT_ADMIN_IMAGE` 和部署命令。
+只有管理端代码发生变化时才使用此脚本；包含服务端、数据库结构或生成客户端的
+修改仍必须使用完整的 `build-upload-production.sh`。
+
 第三个参数是发布版本；省略时使用当前完整 Git 提交 SHA。脚本默认拒绝打包尚未
 提交的代码，防止镜像版本与源码记录不一致。Apple Silicon Mac 会通过 Buildx
 明确构建 `linux/amd64`，与 AMD64 服务器匹配。生成的本地压缩包保存在

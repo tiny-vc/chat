@@ -286,6 +286,9 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 默认的本地镜像发布可运行
 `sh scripts/build-upload-production.sh USER@HOST /opt/chat VERSION`，它会构建
 `linux/amd64` 三个业务镜像、压缩并连同部署文件上传；GHCR 工作流保留为手动备用。
+如果仅修改管理平台，可改用
+`sh scripts/build-upload-admin-production.sh USER@HOST /opt/chat`，只构建和上传
+管理端镜像，保留服务器现有的 API 与迁移镜像。
 上传后可在服务器运行 `sh scripts/setup-production-interactive.sh`，通过交互完成
 DNS 解析之外的首次生产配置与启动。
 服务启动后运行 `sh scripts/bootstrap-admin-production.sh` 可直接、安全地创建首个
