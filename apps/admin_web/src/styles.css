@@ -114,6 +114,13 @@ body {
   flex-direction: column;
   padding-block: 4px;
 }
+.account-device-list .ant-list-item {
+  gap: 16px;
+  padding-inline: 4px;
+}
+.account-device-list .ant-list-item-meta {
+  min-width: 0;
+}
 .login-shell {
   position: relative;
   min-height: 100vh;
@@ -491,6 +498,13 @@ body {
   }
   .account-trigger {
     padding-inline: 5px;
+  }
+  .account-device-list .ant-list-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .account-device-list .ant-list-item-action {
+    margin-inline-start: 48px;
   }
   .login-theme-switcher {
     top: max(10px, env(safe-area-inset-top));

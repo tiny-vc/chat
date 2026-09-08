@@ -1,10 +1,15 @@
 import {
   EditOutlined,
+  LaptopOutlined,
   LockOutlined,
   LogoutOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import type { UserResponse } from "@chat/admin-api-client";
+import {
+  DeviceSessionResponseDeviceTypeEnum,
+  type DeviceSessionResponse,
+  type UserResponse,
+} from "@chat/admin-api-client";
 import {
   App,
   Avatar,
@@ -12,10 +17,13 @@ import {
   Dropdown,
   Form,
   Input,
+  List,
   Modal,
+  Popconfirm,
   Space,
   Typography,
 } from "antd";
+import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { authenticatedAuthApi, usersApi } from "../api";
 
@@ -30,6 +38,10 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
   const [profile, setProfile] = useState<UserResponse>();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [devicesOpen, setDevicesOpen] = useState(false);
+  const [devices, setDevices] = useState<DeviceSessionResponse[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [revokingId, setRevokingId] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<PasswordValues>();
   const [profileForm] = Form.useForm<ProfileValues>();
@@ -77,6 +89,32 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  async function openDevices() {
+    setDevicesOpen(true);
+    setDevicesLoading(true);
+    try {
+      const response = await authenticatedAuthApi().authDevices();
+      setDevices(response.data);
+    } catch {
+      message.error("登录设备加载失败");
+    } finally {
+      setDevicesLoading(false);
+    }
+  }
+
+  async function revokeDevice(sessionId: string) {
+    setRevokingId(sessionId);
+    try {
+      await authenticatedAuthApi().authRevokeDevice({ sessionId });
+      setDevices((current) => current.filter((item) => item.id !== sessionId));
+      message.success("该设备已安全退出");
+    } catch {
+      message.error("设备退出失败，请稍后重试");
+    } finally {
+      setRevokingId(undefined);
+    }
+  }
+
   const name = profile?.nickname || profile?.username || "管理员";
   return (
     <>
@@ -100,6 +138,7 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
             },
             { type: "divider" },
             { key: "profile", icon: <EditOutlined />, label: "编辑资料" },
+            { key: "devices", icon: <LaptopOutlined />, label: "登录设备" },
             { key: "password", icon: <LockOutlined />, label: "修改密码" },
             {
               key: "logout",
@@ -113,6 +152,7 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
               profileForm.setFieldsValue({ nickname: profile?.nickname ?? "" });
               setProfileOpen(true);
             }
+            if (key === "devices") void openDevices();
             if (key === "password") setPasswordOpen(true);
             if (key === "logout") onLogout();
           },
@@ -163,6 +203,76 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
             <Input maxLength={80} showCount autoComplete="nickname" />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title="登录设备"
+        open={devicesOpen}
+        footer={null}
+        width={640}
+        onCancel={() => !revokingId && setDevicesOpen(false)}
+      >
+        <Typography.Paragraph type="secondary">
+          撤销设备后，该设备的 API 会话和 WuKongIM 连接都会失效。
+        </Typography.Paragraph>
+        <List
+          className="account-device-list"
+          loading={devicesLoading}
+          locale={{ emptyText: "没有其他登录设备" }}
+          dataSource={devices}
+          renderItem={(device) => (
+            <List.Item
+              actions={
+                device.current
+                  ? [
+                      <Typography.Text key="current" type="success">
+                        当前设备
+                      </Typography.Text>,
+                    ]
+                  : [
+                      <Popconfirm
+                        key="revoke"
+                        title="让该设备退出登录？"
+                        description="该设备需要重新输入管理员账号和密码。"
+                        okText="确认退出"
+                        cancelText="取消"
+                        onConfirm={() => void revokeDevice(device.id)}
+                      >
+                        <Button
+                          danger
+                          type="link"
+                          loading={revokingId === device.id}
+                        >
+                          强制退出
+                        </Button>
+                      </Popconfirm>,
+                    ]
+              }
+            >
+              <List.Item.Meta
+                avatar={<Avatar icon={<LaptopOutlined />} />}
+                title={device.deviceName || "未命名设备"}
+                description={
+                  <Space direction="vertical" size={1}>
+                    <Typography.Text type="secondary">
+                      {device.deviceType ===
+                      DeviceSessionResponseDeviceTypeEnum.App
+                        ? "移动 App"
+                        : device.deviceType ===
+                            DeviceSessionResponseDeviceTypeEnum.Web
+                          ? "网页"
+                          : "桌面端"}
+                      {device.ipAddress ? ` · ${device.ipAddress}` : ""}
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      最近活动：
+                      {dayjs(device.lastSeenAt).format("YYYY-MM-DD HH:mm:ss")}
+                    </Typography.Text>
+                  </Space>
+                }
+              />
+            </List.Item>
+          )}
+        />
       </Modal>
       <Modal
         title="修改管理员密码"
