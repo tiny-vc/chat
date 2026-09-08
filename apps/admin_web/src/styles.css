@@ -83,6 +83,19 @@ body {
   min-height: min(420px, 55vh);
   place-items: center;
 }
+.network-status {
+  position: fixed;
+  z-index: 1200;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  width: min(620px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  filter: drop-shadow(0 10px 28px rgb(0 0 0 / 14%));
+}
+.network-status .ant-alert {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
 .login-shell {
   position: relative;
   min-height: 100vh;

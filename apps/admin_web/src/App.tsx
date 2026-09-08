@@ -32,6 +32,7 @@ import { hrefForRoute, routeFromPath, type RouteKey } from "./routing";
 import { startIdleSessionMonitor } from "./idleSession";
 import { BrandMark } from "./components/BrandMark";
 import { PageErrorBoundary } from "./components/PageErrorBoundary";
+import { NetworkStatus } from "./components/NetworkStatus";
 
 const OverviewPage = lazy(() =>
   import("./pages/OverviewPage").then((module) => ({
@@ -183,6 +184,7 @@ export function App() {
       }}
     >
       <AntApp>
+        <NetworkStatus />
         <AppContent themeMode={themeMode} onThemeModeChange={setThemeMode} />
       </AntApp>
     </ConfigProvider>
