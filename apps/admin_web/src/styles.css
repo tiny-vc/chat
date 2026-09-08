@@ -125,6 +125,9 @@ body {
   position: relative;
   min-height: 100vh;
 }
+.login-shell .ant-pro-form-login-page {
+  min-height: 100vh;
+}
 .login-theme-switcher {
   position: fixed;
   z-index: 20;
@@ -150,7 +153,9 @@ body {
     var(--admin-bg) !important;
 }
 .ant-pro-form-login-page-left {
-  display: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  background: transparent !important;
 }
 .ant-pro-form-login-page-container {
   width: min(430px, calc(100vw - 40px)) !important;
