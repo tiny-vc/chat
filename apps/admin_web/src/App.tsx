@@ -31,6 +31,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { hrefForRoute, routeFromPath, type RouteKey } from "./routing";
 import { startIdleSessionMonitor } from "./idleSession";
 import { BrandMark } from "./components/BrandMark";
+import { PageErrorBoundary } from "./components/PageErrorBoundary";
 
 const OverviewPage = lazy(() =>
   import("./pages/OverviewPage").then((module) => ({
@@ -381,7 +382,17 @@ function AppContent({
         subTitle={descriptions[route]}
         className="admin-page-container"
       >
-        <Suspense fallback={<Spin tip="正在加载页面…" />}>{content}</Suspense>
+        <PageErrorBoundary resetKey={route}>
+          <Suspense
+            fallback={
+              <div className="page-loading-state">
+                <Spin size="large" tip="正在加载页面…" />
+              </div>
+            }
+          >
+            {content}
+          </Suspense>
+        </PageErrorBoundary>
       </PageContainer>
     </ProLayout>
   );

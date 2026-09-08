@@ -78,6 +78,11 @@ body {
   place-items: center;
   background: var(--admin-bg);
 }
+.page-loading-state {
+  display: grid;
+  min-height: min(420px, 55vh);
+  place-items: center;
+}
 .login-shell {
   position: relative;
   min-height: 100vh;
