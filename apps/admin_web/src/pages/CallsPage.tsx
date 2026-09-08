@@ -147,6 +147,19 @@ export function CallsPage() {
       >
         {selected && (
           <Descriptions column={1} bordered size="small">
+            <Descriptions.Item label="通话类型">
+              <Tag
+                color={
+                  selected.type === AdminCallResponseTypeEnum.Video
+                    ? "purple"
+                    : "blue"
+                }
+              >
+                {selected.type === AdminCallResponseTypeEnum.Video
+                  ? "视频通话"
+                  : "语音通话"}
+              </Tag>
+            </Descriptions.Item>
             <Descriptions.Item label="通话 ID">
               <Typography.Text copyable>{selected.id}</Typography.Text>
             </Descriptions.Item>
@@ -169,7 +182,9 @@ export function CallsPage() {
               {selected.groupId ?? "—"}
             </Descriptions.Item>
             <Descriptions.Item label="状态">
-              {statusOptions[selected.status]?.text ?? selected.status}
+              <Tag>
+                {statusOptions[selected.status]?.text ?? selected.status}
+              </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="开始">
               {new Date(selected.startedAt).toLocaleString()}

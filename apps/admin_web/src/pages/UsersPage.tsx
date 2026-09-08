@@ -19,6 +19,20 @@ import { useRef, useState } from "react";
 import { adminApi } from "../api";
 import { cursorPagination, useCursorPagination } from "../cursorPagination";
 
+const roleLabels = { USER: "用户", ADMIN: "管理员" } as const;
+const statusLabels = {
+  ACTIVE: "正常",
+  SUSPENDED: "已封禁",
+  DELETED: "已注销",
+} as const;
+const deviceTypeLabels: Record<string, string> = {
+  APP: "移动 App",
+  IOS: "iPhone / iPad",
+  ANDROID: "Android",
+  WEB: "网页",
+  DESKTOP: "桌面端",
+};
+
 export function UsersPage() {
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [selected, setSelected] = useState<AdminUserResponse>();
@@ -109,7 +123,7 @@ export function UsersPage() {
             row.role === AdminUserResponseRoleEnum.Admin ? "purple" : "default"
           }
         >
-          {row.role}
+          {roleLabels[row.role]}
         </Tag>
       ),
     },
@@ -223,8 +237,14 @@ export function UsersPage() {
                 { title: "用户名", dataIndex: "username", copyable: true },
                 { title: "昵称", dataIndex: "nickname" },
                 { title: "用户 ID", dataIndex: "id", copyable: true },
-                { title: "角色", dataIndex: "role" },
-                { title: "状态", dataIndex: "status" },
+                {
+                  title: "角色",
+                  render: () => roleLabels[selected.role],
+                },
+                {
+                  title: "状态",
+                  render: () => statusLabels[selected.status],
+                },
                 {
                   title: "注册时间",
                   dataIndex: "createdAt",
@@ -274,7 +294,11 @@ export function UsersPage() {
                 {
                   title: "类型",
                   dataIndex: "deviceType",
-                  render: (_, row) => <Tag>{row.deviceType}</Tag>,
+                  render: (_, row) => (
+                    <Tag>
+                      {deviceTypeLabels[row.deviceType] ?? row.deviceType}
+                    </Tag>
+                  ),
                 },
                 { title: "IP", dataIndex: "ipAddress", copyable: true },
                 {

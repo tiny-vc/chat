@@ -22,6 +22,17 @@ const statusLabels = {
   DISBANDED: { text: "已解散", color: "default" },
 } as const;
 
+const memberRoleLabels = {
+  OWNER: "群主",
+  ADMIN: "管理员",
+  MEMBER: "成员",
+} as const;
+const memberStatusLabels = {
+  ACTIVE: "正常",
+  LEFT: "已退出",
+  REMOVED: "已移除",
+} as const;
+
 export function GroupsPage() {
   const loadPage = useCursorPagination<AdminGroupResponse>();
   const actionRef = useRef<ActionType | undefined>(undefined);
@@ -227,11 +238,15 @@ function MemberTable({ groupId }: { groupId: string }) {
                 : "default"
           }
         >
-          {row.role}
+          {memberRoleLabels[row.role]}
         </Tag>
       ),
     },
-    { title: "状态", dataIndex: "status" },
+    {
+      title: "状态",
+      dataIndex: "status",
+      render: (_, row) => memberStatusLabels[row.status],
+    },
     { title: "加入时间", dataIndex: "joinedAt", valueType: "dateTime" },
   ];
   return (

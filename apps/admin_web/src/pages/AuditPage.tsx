@@ -177,7 +177,10 @@ export function AuditPage() {
                 {new Date(selected.createdAt).toLocaleString()}
               </Descriptions.Item>
               <Descriptions.Item label="动作">
-                <Tag>{selected.action}</Tag>
+                <Tag>
+                  {actionOptions[selected.action as keyof typeof actionOptions]
+                    ?.text ?? selected.action}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="操作人">
                 <Space direction="vertical" size={0}>
@@ -194,7 +197,9 @@ export function AuditPage() {
                 </Space>
               </Descriptions.Item>
               <Descriptions.Item label="目标类型">
-                {selected.targetType}
+                {targetTypeOptions[
+                  selected.targetType as keyof typeof targetTypeOptions
+                ]?.text ?? selected.targetType}
               </Descriptions.Item>
               <Descriptions.Item label="目标 ID">
                 <Typography.Text copyable>{selected.targetId}</Typography.Text>

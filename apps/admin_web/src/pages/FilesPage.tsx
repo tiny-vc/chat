@@ -17,6 +17,12 @@ const statuses = {
   DELETED: { text: "已删除", status: "Default" },
 } as const;
 
+const scopeLabels = {
+  PRIVATE: "私有",
+  DIRECT: "单聊",
+  GROUP: "群聊",
+} as const;
+
 function readableBytes(value: string) {
   const size = Number(value);
   if (!Number.isFinite(size)) return value;
@@ -153,7 +159,7 @@ export function FilesPage() {
               <Typography.Text copyable>{selected.ownerUserId}</Typography.Text>
             </Descriptions.Item>
             <Descriptions.Item label="范围目标">
-              {selected.scope} / {selected.scopeId ?? "—"}
+              {scopeLabels[selected.scope]} / {selected.scopeId ?? "—"}
             </Descriptions.Item>
             <Descriptions.Item label="SHA-256">
               <Typography.Text copyable>
