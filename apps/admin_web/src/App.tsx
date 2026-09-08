@@ -1,6 +1,5 @@
 import {
   DesktopOutlined,
-  LogoutOutlined,
   MoonOutlined,
   SunOutlined,
   TeamOutlined,
@@ -33,6 +32,7 @@ import { startIdleSessionMonitor } from "./idleSession";
 import { BrandMark } from "./components/BrandMark";
 import { PageErrorBoundary } from "./components/PageErrorBoundary";
 import { NetworkStatus } from "./components/NetworkStatus";
+import { AccountMenu } from "./components/AccountMenu";
 
 const OverviewPage = lazy(() =>
   import("./pages/OverviewPage").then((module) => ({
@@ -385,18 +385,14 @@ function AppContent({
           mode={themeMode}
           onChange={onThemeModeChange}
         />,
-        <Button
+        <AccountMenu
           key="logout"
-          type="text"
-          icon={<LogoutOutlined />}
-          onClick={() => {
+          onLogout={() => {
             void logoutAdmin()
               .catch(() => undefined)
               .then(() => setAuthenticated(false));
           }}
-        >
-          退出
-        </Button>,
+        />,
       ]}
     >
       <PageContainer

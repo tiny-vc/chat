@@ -96,6 +96,24 @@ body {
   border: 1px solid var(--admin-border);
   border-radius: 12px;
 }
+.account-trigger {
+  height: 38px;
+  padding-inline: 7px 11px;
+  border-radius: 12px;
+}
+.account-trigger-name {
+  display: inline-block;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-identity {
+  display: flex;
+  min-width: 180px;
+  flex-direction: column;
+  padding-block: 4px;
+}
 .login-shell {
   position: relative;
   min-height: 100vh;
@@ -468,6 +486,12 @@ body {
 }
 
 @media (max-width: 767px) {
+  .account-trigger-name {
+    display: none;
+  }
+  .account-trigger {
+    padding-inline: 5px;
+  }
   .login-theme-switcher {
     top: max(10px, env(safe-area-inset-top));
     right: max(10px, env(safe-area-inset-right));

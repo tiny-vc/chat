@@ -3,6 +3,7 @@ import {
   AuthApi,
   Configuration,
   HealthApi,
+  UsersApi,
 } from "@chat/admin-api-client";
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { authStore } from "./auth";
@@ -59,6 +60,14 @@ function authenticatedConfig() {
 
 export function adminApi() {
   return new AdminApi(authenticatedConfig(), basePath, http);
+}
+
+export function authenticatedAuthApi() {
+  return new AuthApi(authenticatedConfig(), basePath, http);
+}
+
+export function usersApi() {
+  return new UsersApi(authenticatedConfig(), basePath, http);
 }
 
 export function healthApi() {
