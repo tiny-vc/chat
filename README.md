@@ -289,6 +289,9 @@ Create call request (requires `Authorization: Bearer <accessToken>`):
 如果仅修改管理平台，可改用
 `sh scripts/build-upload-admin-production.sh USER@HOST /opt/chat`，只构建和上传
 管理端镜像，保留服务器现有的 API 与迁移镜像。
+管理平台频繁更新时还可使用
+`sh scripts/build-upload-admin-assets-production.sh USER@HOST /opt/chat`，只上传编译后
+的静态资源并在服务器使用已有 Nginx 基础镜像组装，传输量更小且仍不上传源码。
 上传后可在服务器运行 `sh scripts/setup-production-interactive.sh`，通过交互完成
 DNS 解析之外的首次生产配置与启动。
 服务启动后运行 `sh scripts/bootstrap-admin-production.sh` 可直接、安全地创建首个

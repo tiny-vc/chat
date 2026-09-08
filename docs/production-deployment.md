@@ -102,6 +102,17 @@ sh scripts/build-upload-admin-production.sh root@服务器IP /opt/chat
 只有管理端代码发生变化时才使用此脚本；包含服务端、数据库结构或生成客户端的
 修改仍必须使用完整的 `build-upload-production.sh`。
 
+频繁调整管理平台样式时，推荐使用更小的静态产物包：
+
+```bash
+sh scripts/build-upload-admin-assets-production.sh root@服务器IP /opt/chat
+```
+
+该方式只上传本地编译后的 `dist`、Nginx 配置和运行时 Dockerfile，不上传
+TypeScript/React 源码，也不传输完整 Nginx 镜像。上传后按照脚本提示，在服务器
+运行 `install-admin-assets-production.sh`；服务器会校验压缩包、使用已有
+`nginx:1.29-alpine` 组装不可变镜像、更新环境文件并执行健康检查部署。
+
 第三个参数是发布版本；省略时使用当前完整 Git 提交 SHA。脚本默认拒绝打包尚未
 提交的代码，防止镜像版本与源码记录不一致。Apple Silicon Mac 会通过 Buildx
 明确构建 `linux/amd64`，与 AMD64 服务器匹配。生成的本地压缩包保存在
