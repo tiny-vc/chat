@@ -1,4 +1,9 @@
-import { LockOutlined, LogoutOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  EditOutlined,
+  LockOutlined,
+  LogoutOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import type { UserResponse } from "@chat/admin-api-client";
 import {
   App,
@@ -19,12 +24,15 @@ type PasswordValues = {
   newPassword: string;
   confirmPassword: string;
 };
+type ProfileValues = { nickname: string };
 
 export function AccountMenu({ onLogout }: { onLogout: () => void }) {
   const [profile, setProfile] = useState<UserResponse>();
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<PasswordValues>();
+  const [profileForm] = Form.useForm<ProfileValues>();
   const { message } = App.useApp();
 
   useEffect(() => {
@@ -53,6 +61,22 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  async function updateProfile(values: ProfileValues) {
+    setSaving(true);
+    try {
+      const response = await usersApi().usersUpdateMe({
+        updateProfileDto: { nickname: values.nickname.trim() },
+      });
+      setProfile(response.data);
+      message.success("管理员资料已更新");
+      setProfileOpen(false);
+    } catch {
+      message.error("资料更新失败，请稍后重试");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const name = profile?.nickname || profile?.username || "管理员";
   return (
     <>
@@ -75,6 +99,7 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
               ),
             },
             { type: "divider" },
+            { key: "profile", icon: <EditOutlined />, label: "编辑资料" },
             { key: "password", icon: <LockOutlined />, label: "修改密码" },
             {
               key: "logout",
@@ -84,6 +109,10 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
             },
           ],
           onClick: ({ key }) => {
+            if (key === "profile") {
+              profileForm.setFieldsValue({ nickname: profile?.nickname ?? "" });
+              setProfileOpen(true);
+            }
             if (key === "password") setPasswordOpen(true);
             if (key === "logout") onLogout();
           },
@@ -104,6 +133,37 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
           </Space>
         </Button>
       </Dropdown>
+      <Modal
+        title="编辑管理员资料"
+        open={profileOpen}
+        confirmLoading={saving}
+        okText="保存资料"
+        cancelText="取消"
+        destroyOnHidden
+        onCancel={() => !saving && setProfileOpen(false)}
+        onOk={() => profileForm.submit()}
+      >
+        <Form<ProfileValues>
+          form={profileForm}
+          layout="vertical"
+          requiredMark={false}
+          onFinish={(values) => void updateProfile(values)}
+        >
+          <Form.Item label="用户名">
+            <Input value={profile?.username ?? ""} disabled />
+          </Form.Item>
+          <Form.Item
+            name="nickname"
+            label="显示名称"
+            rules={[
+              { required: true, whitespace: true, message: "请输入显示名称" },
+              { max: 80, message: "显示名称不能超过 80 个字符" },
+            ]}
+          >
+            <Input maxLength={80} showCount autoComplete="nickname" />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal
         title="修改管理员密码"
         open={passwordOpen}
