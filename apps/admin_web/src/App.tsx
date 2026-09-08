@@ -201,6 +201,8 @@ function AppContent({
   const [authenticated, setAuthenticated] = useState(Boolean(authStore.read()));
   const [checking, setChecking] = useState(authenticated);
   const [loginNotice, setLoginNotice] = useState<string>();
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const { modal } = AntApp.useApp();
   const [route, setRoute] = useState<RouteKey>(() =>
     routeFromPath(window.location.pathname),
   );
@@ -303,7 +305,7 @@ function AppContent({
     ) : route === "jobs" ? (
       <JobsPage />
     ) : route === "settings" ? (
-      <SettingsPage />
+      <SettingsPage onDirtyChange={setSettingsDirty} />
     ) : (
       <OverviewPage />
     );
@@ -344,15 +346,33 @@ function AppContent({
       menuItemRender={(item, dom) => {
         const nextRoute = routeFromPath(item.path ?? "");
         const href = hrefForRoute(nextRoute);
+        const navigate = () => {
+          setRoute(nextRoute);
+          if (window.location.pathname !== href) {
+            window.history.pushState(null, "", href);
+          }
+        };
         return (
           <a
             href={href}
             onClick={(event) => {
               event.preventDefault();
-              setRoute(nextRoute);
-              if (window.location.pathname !== href) {
-                window.history.pushState(null, "", href);
+              if (
+                route === "settings" &&
+                settingsDirty &&
+                nextRoute !== "settings"
+              ) {
+                modal.confirm({
+                  title: "放弃未保存的配置？",
+                  content: "离开此页面后，尚未保存的修改将丢失。",
+                  okText: "放弃并离开",
+                  okButtonProps: { danger: true },
+                  cancelText: "继续编辑",
+                  onOk: navigate,
+                });
+                return;
               }
+              navigate();
             }}
           >
             {dom}

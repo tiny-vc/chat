@@ -94,7 +94,11 @@ export function settingsChanged(
   return settingItems.some(({ key }) => saved[key] !== draft[key]);
 }
 
-export function SettingsPage() {
+export function SettingsPage({
+  onDirtyChange,
+}: {
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const [saved, setSaved] = useState<UpdateRuntimeSettingsDto>();
   const [draft, setDraft] = useState<UpdateRuntimeSettingsDto>();
   const [updatedAt, setUpdatedAt] = useState<string>();
@@ -125,6 +129,23 @@ export function SettingsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const dirty = Boolean(saved && draft && settingsChanged(saved, draft));
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const preventDiscard = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventDiscard);
+    return () => window.removeEventListener("beforeunload", preventDiscard);
+  }, [dirty]);
 
   async function save() {
     if (!draft) return;
@@ -159,7 +180,6 @@ export function SettingsPage() {
     );
   }
 
-  const dirty = settingsChanged(saved, draft);
   const enabledCount = settingItems.filter(({ key }) => draft[key]).length;
   return (
     <Space
