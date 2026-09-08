@@ -339,6 +339,72 @@ body {
 .overview-footnote {
   padding-inline: 4px;
 }
+.settings-grid,
+.settings-grid > .ant-pro-card-body {
+  background: transparent !important;
+}
+.setting-card {
+  min-height: 176px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+.setting-card.is-enabled {
+  border-color: rgb(103 80 164 / 22%) !important;
+}
+.setting-card.is-disabled {
+  opacity: 0.76;
+}
+.setting-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.setting-card-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  color: #6750a4;
+  background: rgb(103 80 164 / 11%);
+  font-size: 18px;
+}
+:root[data-theme="dark"] .setting-card-icon {
+  color: #cfbdff;
+}
+.setting-card .ant-typography.ant-typography-secondary {
+  margin: 7px 0 0;
+  line-height: 1.65;
+}
+.policy-sync-card .ant-pro-card-body {
+  padding-block: 20px;
+}
+.settings-save-bar {
+  position: sticky;
+  z-index: 8;
+  bottom: 16px;
+  border-color: var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  backdrop-filter: blur(18px);
+}
+.settings-save-bar.has-changes {
+  border-color: rgb(103 80 164 / 28%) !important;
+  box-shadow: 0 14px 42px rgb(70 50 112 / 14%);
+}
+.settings-save-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.settings-updated-at {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+}
 .policy-actions {
   width: 100%;
   margin: 16px 0 24px;
@@ -421,6 +487,21 @@ body {
   }
   .row-actions {
     min-width: 210px;
+  }
+  .setting-card {
+    min-height: 156px;
+  }
+  .settings-save-bar {
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .settings-save-content {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .settings-save-actions,
+  .settings-save-actions .ant-space-item,
+  .settings-save-actions .ant-btn {
+    width: 100%;
   }
   .overview-hero-content {
     align-items: flex-start;
