@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { hrefForRoute, routeFromHash } from "./routing";
+import { hrefForRoute, routeFromPath } from "./routing";
 
 describe("management routes", () => {
-  it("reads supported hash routes", () => {
-    expect(routeFromHash("#/reports")).toBe("reports");
-    expect(routeFromHash("#users")).toBe("users");
-    expect(routeFromHash("#/settings")).toBe("settings");
+  it("reads supported history routes", () => {
+    expect(routeFromPath("/reports")).toBe("reports");
+    expect(routeFromPath("/users/")).toBe("users");
+    expect(routeFromPath("/settings")).toBe("settings");
   });
 
   it("falls back safely for unknown routes", () => {
-    expect(routeFromHash("#/not-a-page")).toBe("overview");
-    expect(routeFromHash("")).toBe("overview");
+    expect(routeFromPath("/not-a-page")).toBe("overview");
+    expect(routeFromPath("/")).toBe("overview");
   });
 
   it("creates shareable route links", () => {
-    expect(hrefForRoute("calls")).toBe("#/calls");
-    expect(hrefForRoute("settings")).toBe("#/settings");
+    expect(hrefForRoute("calls")).toBe("/calls");
+    expect(hrefForRoute("settings")).toBe("/settings");
   });
 });

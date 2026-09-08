@@ -12,13 +12,13 @@ export const routeKeys = [
 
 export type RouteKey = (typeof routeKeys)[number];
 
-export function routeFromHash(hash: string): RouteKey {
-  const candidate = hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0];
+export function routeFromPath(pathname: string): RouteKey {
+  const candidate = pathname.replace(/^\/+|\/+$/g, "").split("/", 1)[0];
   return routeKeys.includes(candidate as RouteKey)
     ? (candidate as RouteKey)
     : "overview";
 }
 
 export function hrefForRoute(route: RouteKey) {
-  return `#/${route}`;
+  return `/${route}`;
 }

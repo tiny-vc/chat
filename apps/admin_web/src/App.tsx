@@ -28,7 +28,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { adminApi, logoutAdmin } from "./api";
 import { authStore } from "./auth";
 import { LoginPage } from "./pages/LoginPage";
-import { hrefForRoute, routeFromHash, type RouteKey } from "./routing";
+import { hrefForRoute, routeFromPath, type RouteKey } from "./routing";
 import { startIdleSessionMonitor } from "./idleSession";
 
 const OverviewPage = lazy(() =>
@@ -198,23 +198,21 @@ function AppContent({
   const [checking, setChecking] = useState(authenticated);
   const [loginNotice, setLoginNotice] = useState<string>();
   const [route, setRoute] = useState<RouteKey>(() =>
-    routeFromHash(window.location.hash),
+    routeFromPath(window.location.pathname),
   );
 
   useEffect(() => {
     const updateRoute = () => {
-      const nextRoute = routeFromHash(window.location.hash);
+      const nextRoute = routeFromPath(window.location.pathname);
       setRoute(nextRoute);
-      const canonicalHash = hrefForRoute(nextRoute);
-      if (window.location.hash !== canonicalHash) {
-        window.history.replaceState(null, "", canonicalHash);
+      const canonicalPath = hrefForRoute(nextRoute);
+      if (window.location.pathname !== canonicalPath || window.location.hash) {
+        window.history.replaceState(null, "", canonicalPath);
       }
     };
-    window.addEventListener("hashchange", updateRoute);
     window.addEventListener("popstate", updateRoute);
     updateRoute();
     return () => {
-      window.removeEventListener("hashchange", updateRoute);
       window.removeEventListener("popstate", updateRoute);
     };
   }, []);
@@ -340,7 +338,7 @@ function AppContent({
       }}
       location={{ pathname: `/${route}` }}
       menuItemRender={(item, dom) => {
-        const nextRoute = routeFromHash(`#${item.path ?? ""}`);
+        const nextRoute = routeFromPath(item.path ?? "");
         const href = hrefForRoute(nextRoute);
         return (
           <a
@@ -348,7 +346,9 @@ function AppContent({
             onClick={(event) => {
               event.preventDefault();
               setRoute(nextRoute);
-              if (window.location.hash !== href) window.location.hash = href;
+              if (window.location.pathname !== href) {
+                window.history.pushState(null, "", href);
+              }
             }}
           >
             {dom}
