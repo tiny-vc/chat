@@ -30,6 +30,7 @@ import { authStore } from "./auth";
 import { LoginPage } from "./pages/LoginPage";
 import { hrefForRoute, routeFromPath, type RouteKey } from "./routing";
 import { startIdleSessionMonitor } from "./idleSession";
+import { BrandMark } from "./components/BrandMark";
 
 const OverviewPage = lazy(() =>
   import("./pages/OverviewPage").then((module) => ({
@@ -306,7 +307,7 @@ function AppContent({
   return (
     <ProLayout
       title="Chat 管理平台"
-      logo={false}
+      logo={<BrandMark />}
       layout="mix"
       contentWidth="Fluid"
       fixedHeader
