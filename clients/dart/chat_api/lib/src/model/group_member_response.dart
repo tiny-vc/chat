@@ -17,6 +17,7 @@ part 'group_member_response.g.dart';
 /// * [userId] 
 /// * [role] 
 /// * [status] 
+/// * [nickname] 
 /// * [mutedUntil] 
 /// * [joinedAt] 
 /// * [user] 
@@ -35,6 +36,9 @@ abstract class GroupMemberResponse implements Built<GroupMemberResponse, GroupMe
   @BuiltValueField(wireName: r'status')
   GroupMemberResponseStatusEnum get status;
   // enum statusEnum {  ACTIVE,  LEFT,  REMOVED,  };
+
+  @BuiltValueField(wireName: r'nickname')
+  String? get nickname;
 
   @BuiltValueField(wireName: r'mutedUntil')
   DateTime? get mutedUntil;
@@ -88,6 +92,13 @@ class _$GroupMemberResponseSerializer implements PrimitiveSerializer<GroupMember
       object.status,
       specifiedType: const FullType(GroupMemberResponseStatusEnum),
     );
+    if (object.nickname != null) {
+      yield r'nickname';
+      yield serializers.serialize(
+        object.nickname,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
     if (object.mutedUntil != null) {
       yield r'mutedUntil';
       yield serializers.serialize(
@@ -157,6 +168,14 @@ class _$GroupMemberResponseSerializer implements PrimitiveSerializer<GroupMember
             specifiedType: const FullType(GroupMemberResponseStatusEnum),
           ) as GroupMemberResponseStatusEnum;
           result.status = valueDes;
+          break;
+        case r'nickname':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.nickname = valueDes;
           break;
         case r'mutedUntil':
           final valueDes = serializers.deserialize(

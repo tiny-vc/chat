@@ -57,6 +57,9 @@ describe("call invitation expiry", () => {
         livekit as never,
         im as never,
         friends as never,
+        {
+          getOrThrow: (key: string) => key === "JOBS_ENABLED" ? "true" : "all",
+        } as never,
       ),
     };
   }

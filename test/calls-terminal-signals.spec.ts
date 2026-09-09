@@ -34,6 +34,9 @@ describe("terminal call signal compensation", () => {
         {} as never,
         im as never,
         {} as never,
+        {
+          getOrThrow: (key: string) => key === "JOBS_ENABLED" ? "true" : "all",
+        } as never,
       );
 
       await service[method]("call", actor);

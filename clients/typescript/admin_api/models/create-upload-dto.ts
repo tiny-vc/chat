@@ -18,6 +18,7 @@ export interface CreateUploadDto {
     'fileName': string;
     'mimeType': string;
     'size': number;
+    'sha256': string;
     'purpose': CreateUploadDtoPurposeEnum;
     'scope': CreateUploadDtoScopeEnum;
     'scopeId'?: string;

@@ -32,6 +32,14 @@ void main() {
     final content = ChatSystemContent()
       ..decodeJson({'event': 'group.avatar_changed'});
     expect(content.displayText(), '群头像已更新');
+    expect(
+      (ChatSystemContent()..decodeJson({
+            'event': 'group.announcement_changed',
+            'data': {'announcement': '新公告'},
+          }))
+          .displayText(),
+      '群公告已更新',
+    );
     im.handleGroupNotice(
       WKMsg()
         ..channelID = 'g'
@@ -96,13 +104,20 @@ void main() {
     await controller.refreshRemoteGroup('g');
     await tester.pumpAndSettle();
     expect(
-      tester.widget<AppAvatar>(find.byType(AppAvatar)).fileId,
+      tester
+          .widget<AppAvatar>(find.byKey(const ValueKey('group-avatar')))
+          .fileId,
       'remote-file',
     );
     repo.group = repo.group.rebuild((b) => b.avatarFileId = null);
     await controller.refreshRemoteGroup('g');
     await tester.pumpAndSettle();
-    expect(tester.widget<AppAvatar>(find.byType(AppAvatar)).fileId, isNull);
+    expect(
+      tester
+          .widget<AppAvatar>(find.byKey(const ValueKey('group-avatar')))
+          .fileId,
+      isNull,
+    );
     await tester.pumpWidget(const SizedBox.shrink());
     await controller.refreshRemoteGroup('g');
     controller.dispose();

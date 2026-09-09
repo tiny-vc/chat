@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import AVFoundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate,
@@ -35,6 +36,86 @@ import UIKit
         return
       }
       self?.openFile(path: path, result: result)
+    }
+    FlutterMethodChannel(
+      name: "chat/video_thumbnail",
+      binaryMessenger: registrar.messenger()
+    ).setMethodCallHandler { call, result in
+      guard call.method == "create" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let arguments = call.arguments as? [String: Any],
+        let path = arguments["path"] as? String,
+        !path.isEmpty
+      else {
+        result(FlutterError(code: "invalid_path", message: "视频路径为空", details: nil))
+        return
+      }
+      DispatchQueue.global(qos: .userInitiated).async {
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 640, height: 640)
+        do {
+          let image = try generator.copyCGImage(at: .zero, actualTime: nil)
+          let data = UIImage(cgImage: image).jpegData(compressionQuality: 0.72)
+          DispatchQueue.main.async { result(data) }
+        } catch {
+          DispatchQueue.main.async {
+            result(FlutterError(code: "thumbnail_failed", message: "无法生成视频封面", details: error.localizedDescription))
+          }
+        }
+      }
+    }
+    FlutterMethodChannel(
+      name: "chat/video_transcoder",
+      binaryMessenger: registrar.messenger()
+    ).setMethodCallHandler { [weak self] call, result in
+      guard call.method == "transcode" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let arguments = call.arguments as? [String: Any],
+        let path = arguments["path"] as? String,
+        FileManager.default.fileExists(atPath: path)
+      else {
+        result(FlutterError(code: "invalid_path", message: "视频文件不存在", details: nil))
+        return
+      }
+      self?.transcodeVideo(path: path, result: result)
+    }
+  }
+
+  private func transcodeVideo(path: String, result: @escaping FlutterResult) {
+    let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+    guard let session = AVAssetExportSession(
+      asset: asset,
+      presetName: AVAssetExportPresetMediumQuality
+    ) else {
+      result(FlutterError(code: "transcode_failed", message: "当前视频无法转换", details: nil))
+      return
+    }
+    let output = FileManager.default.temporaryDirectory
+      .appendingPathComponent("chat_video_\(UUID().uuidString).mp4")
+    session.outputURL = output
+    session.outputFileType = .mp4
+    session.shouldOptimizeForNetworkUse = true
+    session.exportAsynchronously {
+      DispatchQueue.main.async {
+        if session.status == .completed {
+          result(output.path)
+        } else {
+          try? FileManager.default.removeItem(at: output)
+          result(FlutterError(
+            code: "transcode_failed",
+            message: "无法转换视频",
+            details: session.error?.localizedDescription
+          ))
+        }
+      }
     }
   }
 

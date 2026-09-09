@@ -28,6 +28,8 @@ class GroupsFake implements HomeRepository {
   String me = 'owner';
   int calls = 0;
   int? minutes;
+  String? announcement;
+  String? myNickname;
   bool failReload = false;
   Completer<void>? pending;
   GroupResponse group = GroupResponse(
@@ -115,6 +117,29 @@ class GroupsFake implements HomeRepository {
   }
 
   @override
+  Future<void> updateGroupAnnouncement(String id, String value) async {
+    announcement = value.trim();
+    group = group.rebuild(
+      (b) => b.announcement = announcement!.isEmpty ? null : announcement,
+    );
+  }
+
+  @override
+  Future<void> updateMyGroupNickname(String id, String value) async {
+    myNickname = value.trim();
+    group = group.rebuild(
+      (b) => b.members.map(
+        (item) => item.userId == me
+            ? item.rebuild(
+                (member) =>
+                    member.nickname = myNickname!.isEmpty ? null : myNickname,
+              )
+            : item,
+      ),
+    );
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -143,9 +168,7 @@ Future<void> action(WidgetTester tester, String title) async {
   await tester.pumpAndSettle();
 }
 
-Finder get memberMenu => find.byWidgetPredicate(
-  (widget) => widget is PopupMenuButton<String> && widget.tooltip == '管理member',
-);
+Finder get memberMenu => find.byTooltip('管理member');
 
 Future<void> confirm(WidgetTester tester, String title) async {
   await tester.tap(find.widgetWithText(FilledButton, title));
@@ -159,7 +182,7 @@ void main() {
       final repo = GroupsFake()..me = 'member';
       await open(tester, repo);
       expect(find.byType(SwitchListTile), findsNothing);
-      expect(find.byType(PopupMenuButton<String>), findsNothing);
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       repo.me = 'admin';
       await open(tester, repo);
@@ -189,10 +212,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(repo.calls, 1);
-      expect(
-        tester.widget<PopupMenuButton<String>>(memberMenu).enabled,
-        isFalse,
-      );
+      expect(find.byType(LinearProgressIndicator), findsWidgets);
       repo.pending!.complete();
       await tester.pumpAndSettle();
       await action(tester, '取消管理员');
@@ -242,17 +262,16 @@ void main() {
       await tester.tap(find.byTooltip('刷新'));
       await tester.pumpAndSettle();
       expect(find.text('群资料更新失败，暂时无法操作。请刷新后重试。'), findsOneWidget);
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
-        isNull,
+      await tester.scrollUntilVisible(find.text('全员禁言'), 200);
+      final muteAll = find.ancestor(
+        of: find.text('全员禁言'),
+        matching: find.byType(SwitchListTile),
       );
+      expect(tester.widget<SwitchListTile>(muteAll).onChanged, isNull);
       repo.failReload = false;
       await tester.tap(find.byTooltip('刷新'));
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
-        isNotNull,
-      );
+      expect(tester.widget<SwitchListTile>(muteAll).onChanged, isNotNull);
     },
   );
   testWidgets('large member list is compact by default and can be expanded', (
@@ -283,5 +302,27 @@ void main() {
     await tester.scrollUntilVisible(find.text('member5'), 200);
     expect(find.text('member5'), findsOneWidget);
     expect(find.text('收起成员列表'), findsOneWidget);
+  });
+
+  testWidgets('公告和我的群昵称使用真实更新接口', (tester) async {
+    final repo = GroupsFake();
+    await open(tester, repo);
+
+    await tester.scrollUntilVisible(find.text('我在本群的昵称'), 180);
+    await tester.tap(find.text('我在本群的昵称'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '开发者');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    expect(repo.myNickname, '开发者');
+
+    await tester.scrollUntilVisible(find.text('群公告'), 180);
+    await tester.tap(find.text('群公告'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '欢迎加入');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    expect(repo.announcement, '欢迎加入');
+    expect(find.text('欢迎加入'), findsWidgets);
   });
 }

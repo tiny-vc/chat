@@ -4,7 +4,16 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.webkit.MimeTypeMap
+import android.media.MediaMetadataRetriever
+import java.io.ByteArrayOutputStream
 import androidx.core.content.FileProvider
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.ExportException
+import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.Transformer
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -73,6 +82,71 @@ class MainActivity : FlutterActivity() {
                 } catch (error: Exception) {
                     result.error("open_failed", "没有可打开此文件的应用", error.message)
                 }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chat/video_thumbnail")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "create") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val path = call.argument<String>("path")
+                if (path.isNullOrBlank()) {
+                    result.error("invalid_path", "视频路径为空", null)
+                    return@setMethodCallHandler
+                }
+                Thread {
+                    val retriever = MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(path)
+                        val frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                            ?: throw IllegalStateException("No video frame")
+                        val output = ByteArrayOutputStream()
+                        frame.compress(android.graphics.Bitmap.CompressFormat.JPEG, 72, output)
+                        frame.recycle()
+                        runOnUiThread { result.success(output.toByteArray()) }
+                    } catch (error: Exception) {
+                        runOnUiThread {
+                            result.error("thumbnail_failed", "无法生成视频封面", error.message)
+                        }
+                    } finally {
+                        retriever.release()
+                    }
+                }.start()
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chat/video_transcoder")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "transcode") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val path = call.argument<String>("path")
+                if (path.isNullOrBlank() || !File(path).isFile) {
+                    result.error("invalid_path", "视频文件不存在", null)
+                    return@setMethodCallHandler
+                }
+                val output = File(cacheDir, "chat_video_${System.nanoTime()}.mp4")
+                val transformer = Transformer.Builder(this)
+                    .setVideoMimeType(MimeTypes.VIDEO_H264)
+                    .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                    .addListener(object : Transformer.Listener {
+                        override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                            result.success(output.absolutePath)
+                        }
+
+                        override fun onError(
+                            composition: Composition,
+                            exportResult: ExportResult,
+                            exportException: ExportException,
+                        ) {
+                            output.delete()
+                            result.error("transcode_failed", "无法转换视频", exportException.message)
+                        }
+                    })
+                    .build()
+                transformer.start(
+                    EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(File(path)))).build(),
+                    output.absolutePath,
+                )
             }
     }
 }

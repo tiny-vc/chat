@@ -45,6 +45,22 @@ class CallRoomSession extends ChangeNotifier {
   static const defaultRoomOptions = RoomOptions(
     adaptiveStream: true,
     dynacast: true,
+    defaultAudioCaptureOptions: AudioCaptureOptions(
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      highPassFilter: true,
+      voiceIsolation: true,
+    ),
+    defaultAudioPublishOptions: AudioPublishOptions(
+      encoding: AudioEncoding(
+        maxBitrate: 32000,
+        bitratePriority: Priority.high,
+        networkPriority: Priority.high,
+      ),
+      dtx: true,
+      red: true,
+    ),
     defaultCameraCaptureOptions: CameraCaptureOptions(
       params: VideoParametersPresets.h720_169,
       maxFrameRate: 24,

@@ -31,6 +31,30 @@ void main() {
     expect(cancels, 1);
   });
 
+  testWidgets('failed transfer presents the task-specific recovery action', (
+    tester,
+  ) async {
+    var retries = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TransferProgressPanel(
+            label: '语音消息',
+            progress: 0,
+            error: '语音发送失败',
+            retryLabel: '重新录制',
+            onRetry: () => retries++,
+            onCancel: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('语音发送失败'), findsOneWidget);
+    await tester.tap(find.text('重新录制'));
+    expect(retries, 1);
+  });
+
   testWidgets('attachment confirmation requires an explicit choice', (
     tester,
   ) async {

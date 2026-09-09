@@ -3,6 +3,51 @@ import { GroupsService } from '../src/groups/groups.service';
 import { apiResponseSchemas } from '../src/openapi-schemas';
 
 describe('group management rules', () => {
+  it('normalizes and announces group announcement updates', async () => {
+    const update = jest.fn().mockResolvedValue({
+      id: 'group',
+      name: 'Team',
+      announcement: 'Important notice',
+    });
+    const sendGroupMessage = jest.fn().mockResolvedValue({});
+    const service = new GroupsService({
+      groupMember: { findFirst: jest.fn().mockResolvedValue({ role: 'ADMIN' }) },
+      group: { update },
+    } as never, { updateChannelPolicy: jest.fn(), sendGroupMessage } as never, {} as never);
+
+    await service.update('group', 'admin', { announcement: '  Important notice  ' });
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      data: { announcement: 'Important notice' },
+    }));
+    expect(sendGroupMessage).toHaveBeenCalledWith(expect.objectContaining({
+      payload: expect.objectContaining({
+        event: 'group.announcement_changed',
+        data: { announcement: 'Important notice' },
+      }),
+    }));
+  });
+
+  it('lets an active member set and clear only their own group nickname', async () => {
+    const update = jest.fn().mockResolvedValue({ nickname: 'Spider' });
+    const service = new GroupsService({
+      groupMember: {
+        findFirst: jest.fn().mockResolvedValue({ role: 'MEMBER' }),
+        update,
+      },
+    } as never, {} as never, {} as never);
+
+    await service.updateMyNickname('group', 'member', '  Spider  ');
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { groupId_userId: { groupId: 'group', userId: 'member' } },
+      data: { nickname: 'Spider' },
+    }));
+    await service.updateMyNickname('group', 'member', '   ');
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: { nickname: null },
+    }));
+  });
+
   it('notifies group subscribers only after avatar binding succeeds', async () => {
     const update = jest.fn().mockResolvedValue({ id: 'group', avatarFileId: 'file' });
     const sendGroupMessage = jest.fn().mockResolvedValue({});

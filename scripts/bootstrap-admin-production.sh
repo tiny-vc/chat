@@ -18,7 +18,10 @@ trap restore_terminal EXIT HUP INT TERM
 [ -t 0 ] || fail 'Run this script from an interactive server terminal.'
 command -v docker >/dev/null 2>&1 || fail 'Docker is required.'
 [ -f "$env_file" ] || fail '.env.production is missing.'
-[ -f "$compose_file" ] || fail 'docker-compose.production.yml is missing.'
+if grep -q '^DEPLOYMENT_MODE=external$' "$env_file"; then
+  compose_file="$project_dir/docker-compose.external-services.yml"
+fi
+[ -f "$compose_file" ] || fail 'The selected production Compose file is missing.'
 docker compose version >/dev/null 2>&1 || fail 'Docker Compose plugin is unavailable.'
 
 printf 'Administrator username [admin]: '

@@ -14,6 +14,7 @@ const statuses = {
   UPLOADED: { text: "已上传", status: "Processing" },
   READY: { text: "可用", status: "Success" },
   REJECTED: { text: "已拒绝", status: "Error" },
+  DELETE_PENDING: { text: "等待删除", status: "Warning" },
   DELETED: { text: "已删除", status: "Default" },
 } as const;
 

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 abstract final class ChatStyles {
-  static InputDecoration composer(ColorScheme colors) {
+  static InputDecoration composer(
+    ColorScheme colors, {
+    String hintText = '输入消息',
+  }) {
     const shape = BorderRadius.all(Radius.circular(14));
     return InputDecoration(
-      hintText: '输入消息',
+      hintText: hintText,
       hintStyle: TextStyle(color: colors.onSurfaceVariant),
       filled: true,
       fillColor: colors.surfaceContainerLow,

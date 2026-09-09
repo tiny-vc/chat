@@ -10,12 +10,14 @@ class _$UpdateGroupDto extends UpdateGroupDto {
   @override
   final String? name;
   @override
+  final String? announcement;
+  @override
   final bool? muteAll;
 
   factory _$UpdateGroupDto([void Function(UpdateGroupDtoBuilder)? updates]) =>
       (UpdateGroupDtoBuilder()..update(updates))._build();
 
-  _$UpdateGroupDto._({this.name, this.muteAll}) : super._();
+  _$UpdateGroupDto._({this.name, this.announcement, this.muteAll}) : super._();
   @override
   UpdateGroupDto rebuild(void Function(UpdateGroupDtoBuilder) updates) =>
       (toBuilder()..update(updates)).build();
@@ -28,6 +30,7 @@ class _$UpdateGroupDto extends UpdateGroupDto {
     if (identical(other, this)) return true;
     return other is UpdateGroupDto &&
         name == other.name &&
+        announcement == other.announcement &&
         muteAll == other.muteAll;
   }
 
@@ -35,6 +38,7 @@ class _$UpdateGroupDto extends UpdateGroupDto {
   int get hashCode {
     var _$hash = 0;
     _$hash = $jc(_$hash, name.hashCode);
+    _$hash = $jc(_$hash, announcement.hashCode);
     _$hash = $jc(_$hash, muteAll.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -44,6 +48,7 @@ class _$UpdateGroupDto extends UpdateGroupDto {
   String toString() {
     return (newBuiltValueToStringHelper(r'UpdateGroupDto')
           ..add('name', name)
+          ..add('announcement', announcement)
           ..add('muteAll', muteAll))
         .toString();
   }
@@ -57,6 +62,10 @@ class UpdateGroupDtoBuilder
   String? get name => _$this._name;
   set name(String? name) => _$this._name = name;
 
+  String? _announcement;
+  String? get announcement => _$this._announcement;
+  set announcement(String? announcement) => _$this._announcement = announcement;
+
   bool? _muteAll;
   bool? get muteAll => _$this._muteAll;
   set muteAll(bool? muteAll) => _$this._muteAll = muteAll;
@@ -69,6 +78,7 @@ class UpdateGroupDtoBuilder
     final $v = _$v;
     if ($v != null) {
       _name = $v.name;
+      _announcement = $v.announcement;
       _muteAll = $v.muteAll;
       _$v = null;
     }
@@ -92,6 +102,7 @@ class UpdateGroupDtoBuilder
     final _$result = _$v ??
         _$UpdateGroupDto._(
           name: name,
+          announcement: announcement,
           muteAll: muteAll,
         );
     replace(_$result);

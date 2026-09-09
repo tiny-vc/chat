@@ -21,7 +21,7 @@ class ImConnectionBanner extends StatelessWidget {
     final message = switch (state) {
       ImConnectionState.connecting => '正在连接消息服务…',
       ImConnectionState.syncing => '正在同步新消息…',
-      ImConnectionState.noNetwork => '网络不可用，请检查网络设置',
+      ImConnectionState.noNetwork => '消息服务离线，请检查网络或稍后重试',
       ImConnectionState.kicked => '当前设备的登录已失效，请重新登录',
       ImConnectionState.disconnected => '消息服务已断开',
       ImConnectionState.connected => '消息服务已连接',

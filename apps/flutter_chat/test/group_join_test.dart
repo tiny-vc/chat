@@ -4,9 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat/features/home/data/home_repository.dart';
 import 'package:flutter_chat/features/home/presentation/home_controller.dart';
 import 'package:flutter_chat/features/home/presentation/group_join_page.dart';
+import 'package:flutter_chat/core/files/file_transfer_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Repo implements HomeRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Files implements FileTransferService {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -93,7 +99,11 @@ Future<void> _mount(
   addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      home: GroupJoinPage(controller: controller, groupId: groupId),
+      home: GroupJoinPage(
+        controller: controller,
+        fileTransferService: _Files(),
+        groupId: groupId,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -143,20 +153,20 @@ void main() {
       await tester.tap(find.text('接受邀请'));
       await tester.pumpAndSettle();
       c.pending = Completer<void>();
-      await tester.tap(find.widgetWithText(FilledButton, '接受邀请'));
+      await tester.tap(find.widgetWithText(FilledButton, '接受邀请').last);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(c.calls, 1);
       expect(
         tester
-            .widget<TextButton>(find.widgetWithText(TextButton, '接受邀请'))
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '接受邀请'))
             .onPressed,
         isNull,
       );
       c.pending!.complete();
       await tester.pumpAndSettle();
       expect(find.text('接受邀请'), findsNothing);
-      expect(find.text('入群邀请 · 已通过'), findsOneWidget);
+      expect(find.text('已通过'), findsOneWidget);
     },
   );
   testWidgets(
@@ -208,7 +218,7 @@ void main() {
     c.fail = false;
     await tester.tap(find.text('重试'));
     await tester.pumpAndSettle();
-    expect(find.text('入群申请 · 已过期'), findsOneWidget);
+    expect(find.text('已过期'), findsOneWidget);
     expect(find.text('撤回'), findsNothing);
   });
   for (final brightness in Brightness.values) {
@@ -231,7 +241,7 @@ void main() {
             ).copyWith(textScaler: const TextScaler.linear(2)),
             child: child!,
           ),
-          home: GroupJoinPage(controller: c),
+          home: GroupJoinPage(controller: c, fileTransferService: _Files()),
         ),
       );
       await tester.pumpAndSettle();

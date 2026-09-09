@@ -26,6 +26,17 @@ Upgrade policy: compare upstream fixes to these two modified source files,
 run loopback, close/failure and two-device tests before returning to a hosted
 dependency. Keep this patch narrowly scoped; do not silently upgrade the SDK.
 
+## Connection-state recovery (2026-09-08)
+
+- Socket `onError` and `onDone` now converge through one guarded callback,
+  invalidate the closed writer and schedule the existing reconnect path.
+- `connectivity_plus` remains a useful hint but no longer overrides a live IM
+  socket with `noNetwork` when Android briefly reports no interface. A closed
+  socket can still enter the offline state and reconnect when an interface
+  returns.
+- This prevents a working phone/API connection from being presented as global
+  network loss and avoids silently retaining a completed socket.
+
 ## Server-scoped storage (2026-09-03)
 
 - Options has an optional databaseNamespace; App supplies a SHA-256 of the

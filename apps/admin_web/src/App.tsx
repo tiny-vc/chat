@@ -33,6 +33,7 @@ import { BrandMark } from "./components/BrandMark";
 import { PageErrorBoundary } from "./components/PageErrorBoundary";
 import { NetworkStatus } from "./components/NetworkStatus";
 import { AccountMenu } from "./components/AccountMenu";
+import { adminAppName, primaryColor } from "./branding";
 
 const OverviewPage = lazy(() =>
   import("./pages/OverviewPage").then((module) => ({
@@ -168,7 +169,7 @@ export function App() {
     document.documentElement.style.colorScheme = dark ? "dark" : "light";
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", dark ? "#121116" : "#6750a4");
+      ?.setAttribute("content", dark ? "#121116" : primaryColor);
   }, [dark, themeMode]);
 
   return (
@@ -176,7 +177,7 @@ export function App() {
       theme={{
         algorithm: dark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
-          colorPrimary: "#6750a4",
+          colorPrimary: primaryColor,
           borderRadius: 10,
           fontFamily:
             'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -225,8 +226,8 @@ function AppContent({
 
   useEffect(() => {
     document.title = authenticated
-      ? `${titles[route]} · Chat 管理平台`
-      : "Chat 管理平台";
+      ? `${titles[route]} · ${adminAppName}`
+      : adminAppName;
   }, [authenticated, route]);
 
   useEffect(() => {
@@ -311,7 +312,7 @@ function AppContent({
     );
   return (
     <ProLayout
-      title="Chat 管理平台"
+      title={adminAppName}
       logo={<BrandMark />}
       layout="mix"
       contentWidth="Fluid"
@@ -380,19 +381,16 @@ function AppContent({
         );
       }}
       actionsRender={() => [
-        <ThemeSwitcher
-          key="theme"
-          mode={themeMode}
-          onChange={onThemeModeChange}
-        />,
-        <AccountMenu
-          key="logout"
-          onLogout={() => {
-            void logoutAdmin()
-              .catch(() => undefined)
-              .then(() => setAuthenticated(false));
-          }}
-        />,
+        <div className="header-actions" key="header-actions">
+          <ThemeSwitcher mode={themeMode} onChange={onThemeModeChange} />
+          <AccountMenu
+            onLogout={() => {
+              void logoutAdmin()
+                .catch(() => undefined)
+                .then(() => setAuthenticated(false));
+            }}
+          />
+        </div>,
       ]}
     >
       <PageContainer

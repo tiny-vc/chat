@@ -2002,18 +2002,19 @@ export enum AdminListCallsStatusEnum {
     Rejected = 'REJECTED',
     Failed = 'FAILED',
     Accepted = 'ACCEPTED',
-    Inviting = 'INVITING',
-    Ringing = 'RINGING',
-    Connected = 'CONNECTED',
     Cancelled = 'CANCELLED',
     Missed = 'MISSED',
-    Ended = 'ENDED'
+    Ended = 'ENDED',
+    Inviting = 'INVITING',
+    Ringing = 'RINGING',
+    Connected = 'CONNECTED'
 }
 export enum AdminListFilesStatusEnum {
     Pending = 'PENDING',
     Uploaded = 'UPLOADED',
     Ready = 'READY',
     Rejected = 'REJECTED',
+    DeletePending = 'DELETE_PENDING',
     Deleted = 'DELETED'
 }
 export enum AdminListFilesScopeEnum {

@@ -4,6 +4,7 @@ dist/
 .env.*
 !.env.example
 !.env.production.example
+!.env.external-services.example
 coverage/
 backups/
 production-bundles/

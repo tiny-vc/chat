@@ -147,6 +147,7 @@ Class | Method | HTTP request | Description
 [*GroupsApi*](doc/GroupsApi.md) | [**groupsSetMemberRole**](doc/GroupsApi.md#groupssetmemberrole) | **PATCH** /api/v1/groups/{groupId}/members/{memberId}/role | 
 [*GroupsApi*](doc/GroupsApi.md) | [**groupsTransferOwner**](doc/GroupsApi.md#groupstransferowner) | **POST** /api/v1/groups/{groupId}/transfer-owner | 
 [*GroupsApi*](doc/GroupsApi.md) | [**groupsUpdate**](doc/GroupsApi.md#groupsupdate) | **PATCH** /api/v1/groups/{groupId} | 
+[*GroupsApi*](doc/GroupsApi.md) | [**groupsUpdateMyNickname**](doc/GroupsApi.md#groupsupdatemynickname) | **PATCH** /api/v1/groups/{groupId}/members/me/nickname | 
 [*HealthApi*](doc/HealthApi.md) | [**healthGetHealth**](doc/HealthApi.md#healthgethealth) | **GET** /api/v1/health | 
 [*HealthApi*](doc/HealthApi.md) | [**healthGetReadiness**](doc/HealthApi.md#healthgetreadiness) | **GET** /api/v1/ready | 
 [*ImSyncApi*](doc/ImSyncApi.md) | [**imSyncMarkRead**](doc/ImSyncApi.md#imsyncmarkread) | **POST** /api/v1/im/conversations/read | 
@@ -166,6 +167,7 @@ Class | Method | HTTP request | Description
 [*UsersApi*](doc/UsersApi.md) | [**usersSetAvatar**](doc/UsersApi.md#userssetavatar) | **PUT** /api/v1/users/me/avatar | 
 [*UsersApi*](doc/UsersApi.md) | [**usersUpdateMe**](doc/UsersApi.md#usersupdateme) | **PATCH** /api/v1/users/me | 
 [*WukongWebhookApi*](doc/WukongWebhookApi.md) | [**wukongWebhookReceive**](doc/WukongWebhookApi.md#wukongwebhookreceive) | **POST** /api/v1/webhooks/wukongim | 
+[*WukongWebhookApi*](doc/WukongWebhookApi.md) | [**wukongWebhookReceiveWithPathToken**](doc/WukongWebhookApi.md#wukongwebhookreceivewithpathtoken) | **POST** /api/v1/webhooks/wukongim/{token} | 
 
 
 ## Documentation For Models
@@ -255,6 +257,7 @@ Class | Method | HTTP request | Description
  - [TransferOwnerDto](doc/TransferOwnerDto.md)
  - [UpdateConversationSettingDto](doc/UpdateConversationSettingDto.md)
  - [UpdateGroupDto](doc/UpdateGroupDto.md)
+ - [UpdateGroupNicknameDto](doc/UpdateGroupNicknameDto.md)
  - [UpdateProfileDto](doc/UpdateProfileDto.md)
  - [UpdateRuntimeSettingsDto](doc/UpdateRuntimeSettingsDto.md)
  - [UserResponse](doc/UserResponse.md)

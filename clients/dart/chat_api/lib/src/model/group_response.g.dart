@@ -80,6 +80,8 @@ class _$GroupResponse extends GroupResponse {
   @override
   final String name;
   @override
+  final String? announcement;
+  @override
   final String ownerId;
   @override
   final String? avatarFileId;
@@ -102,6 +104,7 @@ class _$GroupResponse extends GroupResponse {
   _$GroupResponse._(
       {required this.id,
       required this.name,
+      this.announcement,
       required this.ownerId,
       this.avatarFileId,
       required this.memberLimit,
@@ -124,6 +127,7 @@ class _$GroupResponse extends GroupResponse {
     return other is GroupResponse &&
         id == other.id &&
         name == other.name &&
+        announcement == other.announcement &&
         ownerId == other.ownerId &&
         avatarFileId == other.avatarFileId &&
         memberLimit == other.memberLimit &&
@@ -139,6 +143,7 @@ class _$GroupResponse extends GroupResponse {
     var _$hash = 0;
     _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, name.hashCode);
+    _$hash = $jc(_$hash, announcement.hashCode);
     _$hash = $jc(_$hash, ownerId.hashCode);
     _$hash = $jc(_$hash, avatarFileId.hashCode);
     _$hash = $jc(_$hash, memberLimit.hashCode);
@@ -156,6 +161,7 @@ class _$GroupResponse extends GroupResponse {
     return (newBuiltValueToStringHelper(r'GroupResponse')
           ..add('id', id)
           ..add('name', name)
+          ..add('announcement', announcement)
           ..add('ownerId', ownerId)
           ..add('avatarFileId', avatarFileId)
           ..add('memberLimit', memberLimit)
@@ -179,6 +185,10 @@ class GroupResponseBuilder
   String? _name;
   String? get name => _$this._name;
   set name(String? name) => _$this._name = name;
+
+  String? _announcement;
+  String? get announcement => _$this._announcement;
+  set announcement(String? announcement) => _$this._announcement = announcement;
 
   String? _ownerId;
   String? get ownerId => _$this._ownerId;
@@ -223,6 +233,7 @@ class GroupResponseBuilder
     if ($v != null) {
       _id = $v.id;
       _name = $v.name;
+      _announcement = $v.announcement;
       _ownerId = $v.ownerId;
       _avatarFileId = $v.avatarFileId;
       _memberLimit = $v.memberLimit;
@@ -258,6 +269,7 @@ class GroupResponseBuilder
                 id, r'GroupResponse', 'id'),
             name: BuiltValueNullFieldError.checkNotNull(
                 name, r'GroupResponse', 'name'),
+            announcement: announcement,
             ownerId: BuiltValueNullFieldError.checkNotNull(
                 ownerId, r'GroupResponse', 'ownerId'),
             avatarFileId: avatarFileId,

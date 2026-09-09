@@ -5,7 +5,7 @@
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="12089"/>
     </dependencies>
     <scenes>
-        <!-- Chat launch view, separate from the original Flutter template name. -->
+        <!-- Branded launch view. -->
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" sceneMemberID="viewController">
@@ -34,7 +34,7 @@
     <resources>
         <image name="LaunchImage" width="64" height="64"/>
         <namedColor name="LaunchBackground">
-            <color red="0.968627451" green="0.972549020" blue="0.988235294" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.980392157" green="0.972549020" blue="0.976470588" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
     </resources>
 </document>

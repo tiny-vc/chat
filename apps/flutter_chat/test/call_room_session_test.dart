@@ -45,6 +45,18 @@ void main() {
     expect(options.adaptiveStream, isTrue);
     expect(options.dynacast, isTrue);
     expect(options.defaultVideoPublishOptions.simulcast, isTrue);
+    expect(options.defaultAudioCaptureOptions.echoCancellation, isTrue);
+    expect(options.defaultAudioCaptureOptions.noiseSuppression, isTrue);
+    expect(options.defaultAudioCaptureOptions.autoGainControl, isTrue);
+    expect(options.defaultAudioCaptureOptions.highPassFilter, isTrue);
+    expect(options.defaultAudioCaptureOptions.voiceIsolation, isTrue);
+    expect(options.defaultAudioPublishOptions.encoding?.maxBitrate, 32000);
+    expect(
+      options.defaultAudioPublishOptions.encoding?.bitratePriority,
+      Priority.high,
+    );
+    expect(options.defaultAudioPublishOptions.dtx, isTrue);
+    expect(options.defaultAudioPublishOptions.red, isTrue);
   });
 
   test('initial connection failure remains retryable rather than terminal', () {

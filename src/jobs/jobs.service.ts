@@ -9,6 +9,7 @@ import { JobRunStatus, Prisma } from "@prisma/client";
 import { FilesService } from "../files/files.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { WuKongImService } from "../integrations/wukongim/wukongim.service";
+import { backgroundJobsEnabled } from "../config/instance-role";
 
 const CLEANUP_JOB = "maintenance.cleanup";
 
@@ -25,7 +26,7 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
   ) {}
 
   onApplicationBootstrap() {
-    if (this.config.getOrThrow<string>("JOBS_ENABLED") !== "true") return;
+    if (!backgroundJobsEnabled(this.config)) return;
     const interval =
       this.config.getOrThrow<number>("CLEANUP_INTERVAL_MINUTES") * 60_000;
     this.timer = setInterval(() => void this.runCleanup("SCHEDULED"), interval);
@@ -95,6 +96,11 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
       now -
         this.config.getOrThrow<number>("PENDING_UPLOAD_TTL_HOURS") * 3_600_000,
     );
+    const unreferencedCutoff = new Date(
+      now -
+        this.config.getOrThrow<number>("UNREFERENCED_FILE_TTL_HOURS") *
+          3_600_000,
+    );
     const sessionCutoff = new Date(
       now -
         this.config.getOrThrow<number>("SESSION_RETENTION_DAYS") * 86_400_000,
@@ -106,12 +112,38 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
     );
     const staleFiles = await this.prisma.storedFile.findMany({
       where: {
-        status: { in: ["PENDING", "REJECTED"] },
-        createdAt: { lt: uploadCutoff },
+        OR: [
+          { status: "DELETE_PENDING" },
+          {
+            status: { in: ["PENDING", "REJECTED"] },
+            createdAt: { lt: uploadCutoff },
+          },
+          {
+            status: "READY",
+            referencedAt: null,
+            purpose: {
+              in: ["CHAT_IMAGE", "CHAT_VIDEO", "CHAT_VOICE", "CHAT_FILE"],
+            },
+            createdAt: { lt: unreferencedCutoff },
+            avatarFor: null,
+            groupAvatarFor: null,
+            thumbnailOf: { none: {} },
+          },
+        ],
       },
       take: 500,
-      select: { id: true, objectKey: true },
+      select: {
+        id: true,
+        objectKey: true,
+        thumbnail: { select: { id: true, objectKey: true } },
+      },
     });
+    const staleObjects = new Map<string, string>();
+    for (const file of staleFiles) {
+      staleObjects.set(file.id, file.objectKey);
+      if (file.thumbnail)
+        staleObjects.set(file.thumbnail.id, file.thumbnail.objectKey);
+    }
     const expiredMutes = await this.prisma.groupMember.findMany({
       where: { status: "ACTIVE", mutedUntil: { lte: new Date(now) } },
       take: 500,
@@ -122,14 +154,12 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
         mute.userId,
       ]);
     }
-    await this.files.deleteStoredObjects(
-      staleFiles.map((file) => file.objectKey),
-    );
+    await this.files.deleteStoredObjects([...staleObjects.values()]);
     const [files, sessions, throttles, mutes, joinRequests] =
       await this.prisma.$transaction([
         this.prisma.storedFile.updateMany({
-          where: { id: { in: staleFiles.map((file) => file.id) } },
-          data: { status: "DELETED" },
+          where: { id: { in: [...staleObjects.keys()] } },
+          data: { status: "DELETED", thumbnailFileId: null },
         }),
         this.prisma.deviceSession.deleteMany({
           where: {
@@ -158,7 +188,7 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
       ]);
     return {
       filesDeleted: files.count,
-      objectsDeleted: staleFiles.length,
+      objectsDeleted: staleObjects.size,
       sessionsDeleted: sessions.count,
       loginThrottlesDeleted: throttles.count,
       groupMutesExpired: mutes.count,

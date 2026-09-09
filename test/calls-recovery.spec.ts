@@ -46,6 +46,9 @@ describe("call media recovery and hangup", () => {
         livekit as never,
         im as never,
         {} as never,
+        {
+          getOrThrow: (key: string) => key === "JOBS_ENABLED" ? "true" : "all",
+        } as never,
       ),
     };
   }
@@ -116,16 +119,24 @@ describe("call media recovery and hangup", () => {
     const { service, prisma, im } = setup();
     prisma.callSession.findUnique
       .mockResolvedValueOnce(call)
-      .mockResolvedValueOnce({
+      .mockResolvedValue({
         ...call,
         status: "ENDED",
         endReason: "MEDIA_DISCONNECTED",
+        endedAt: new Date(),
+        answeredAt: new Date(Date.now() - 10_000),
       });
 
     await expect(service.endFromMedia("room")).resolves.toBe(true);
     await expect(service.endFromMedia("room")).resolves.toBe(true);
     expect(prisma.callSession.updateMany).toHaveBeenCalledTimes(1);
-    expect(im.sendPersonalMessage).toHaveBeenCalledTimes(4);
+    expect(im.sendPersonalMessage).toHaveBeenCalledTimes(6);
+    expect(
+      im.sendPersonalMessage.mock.calls.filter(([input]) => input.persist),
+    ).toHaveLength(2);
+    expect(
+      im.sendPersonalMessage.mock.calls.filter(([input]) => !input.persist),
+    ).toHaveLength(4);
     expect(im.sendPersonalMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         fromUserId: "a",

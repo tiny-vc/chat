@@ -64,10 +64,10 @@ body {
   border: 1px solid rgb(255 255 255 / 24%);
   border-radius: 30%;
   color: #fff;
-  background: linear-gradient(145deg, #8067bc 0%, #6750a4 58%, #4f378b 100%);
+  background: linear-gradient(145deg, #ff5364 0%, #e6293f 58%, #a90e25 100%);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 22%),
-    0 8px 20px rgb(103 80 164 / 22%);
+    0 8px 20px rgb(230 41 63 / 22%);
 }
 .brand-mark .anticon {
   transform: translateY(-1px);
@@ -97,16 +97,41 @@ body {
   border-radius: 12px;
 }
 .account-trigger {
-  height: 38px;
-  padding-inline: 7px 11px;
-  border-radius: 12px;
+  max-width: 190px;
+  height: 36px;
+  padding-inline: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+.account-trigger:hover,
+.account-trigger:focus-visible {
+  border-color: var(--admin-border) !important;
+  background: var(--admin-soft) !important;
 }
 .account-trigger-name {
   display: inline-block;
-  max-width: 130px;
+  max-width: 112px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.account-trigger-arrow {
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 3px;
+}
+.header-actions > .ant-dropdown-trigger:not(.account-trigger) {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
 }
 .account-identity {
   display: flex;
@@ -142,14 +167,14 @@ body {
 }
 .ant-pro-form-login-page {
   background:
-    radial-gradient(circle at 14% 12%, rgb(103 80 164 / 20%), transparent 34%),
-    radial-gradient(circle at 87% 84%, rgb(48 153 130 / 14%), transparent 36%),
+    radial-gradient(circle at 14% 12%, rgb(230 41 63 / 18%), transparent 34%),
+    radial-gradient(circle at 87% 84%, rgb(38 96 177 / 13%), transparent 36%),
     var(--admin-bg) !important;
 }
 :root[data-theme="dark"] .ant-pro-form-login-page {
   background:
-    radial-gradient(circle at 14% 12%, rgb(150 120 226 / 18%), transparent 34%),
-    radial-gradient(circle at 87% 84%, rgb(48 153 130 / 10%), transparent 36%),
+    radial-gradient(circle at 14% 12%, rgb(230 41 63 / 17%), transparent 34%),
+    radial-gradient(circle at 87% 84%, rgb(58 116 200 / 10%), transparent 36%),
     var(--admin-bg) !important;
 }
 .ant-pro-form-login-page-left {
@@ -197,7 +222,7 @@ body {
   min-height: 46px;
 }
 .ant-pro-form-login-page .ant-btn-primary {
-  box-shadow: 0 8px 22px rgb(103 80 164 / 24%);
+  box-shadow: 0 8px 22px rgb(230 41 63 / 24%);
 }
 .ant-pro-layout {
   min-height: 100vh;
@@ -275,7 +300,7 @@ body {
 .overview-hero {
   overflow: hidden;
   background:
-    linear-gradient(120deg, rgb(103 80 164 / 10%), transparent 52%),
+    linear-gradient(120deg, rgb(230 41 63 / 9%), transparent 52%),
     var(--admin-surface-solid) !important;
 }
 .overview-hero-content {
@@ -290,14 +315,14 @@ body {
   margin-block: 4px 0;
 }
 .overview-eyebrow {
-  color: #6750a4 !important;
+  color: #c5142b !important;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 :root[data-theme="dark"] .overview-eyebrow {
-  color: #cbb6ff !important;
+  color: #ff9ba7 !important;
 }
 .overview-status-tag {
   margin: 0;
@@ -330,8 +355,8 @@ body {
   font-size: 21px;
 }
 .stat-icon-primary {
-  color: #6750a4;
-  background: rgb(103 80 164 / 12%);
+  color: #c5142b;
+  background: rgb(230 41 63 / 12%);
 }
 .stat-icon-secondary {
   color: #745b00;
@@ -354,7 +379,7 @@ body {
   background: rgb(218 55 48 / 12%);
 }
 :root[data-theme="dark"] .stat-icon-primary {
-  color: #cfbdff;
+  color: #ff9ba7;
 }
 :root[data-theme="dark"] .stat-icon-secondary {
   color: #f6d46b;
@@ -423,7 +448,7 @@ body {
     opacity 160ms ease;
 }
 .setting-card.is-enabled {
-  border-color: rgb(103 80 164 / 22%) !important;
+  border-color: rgb(230 41 63 / 22%) !important;
 }
 .setting-card.is-disabled {
   opacity: 0.76;
@@ -440,12 +465,12 @@ body {
   height: 40px;
   place-items: center;
   border-radius: 12px;
-  color: #6750a4;
-  background: rgb(103 80 164 / 11%);
+  color: #c5142b;
+  background: rgb(230 41 63 / 11%);
   font-size: 18px;
 }
 :root[data-theme="dark"] .setting-card-icon {
-  color: #cfbdff;
+  color: #ff9ba7;
 }
 .setting-card .ant-typography.ant-typography-secondary {
   margin: 7px 0 0;
@@ -463,8 +488,8 @@ body {
   backdrop-filter: blur(18px);
 }
 .settings-save-bar.has-changes {
-  border-color: rgb(103 80 164 / 28%) !important;
-  box-shadow: 0 14px 42px rgb(70 50 112 / 14%);
+  border-color: rgb(230 41 63 / 28%) !important;
+  box-shadow: 0 14px 42px rgb(130 25 42 / 14%);
 }
 .settings-save-content {
   display: flex;
@@ -502,7 +527,12 @@ body {
     display: none;
   }
   .account-trigger {
-    padding-inline: 5px;
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+  }
+  .account-trigger-arrow {
+    display: none;
   }
   .account-device-list .ant-list-item {
     align-items: flex-start;

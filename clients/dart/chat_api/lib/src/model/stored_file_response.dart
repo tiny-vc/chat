@@ -16,6 +16,7 @@ part 'stored_file_response.g.dart';
 /// * [originalName] 
 /// * [mimeType] 
 /// * [sizeBytes] 
+/// * [sha256] 
 /// * [purpose] 
 /// * [scope] 
 /// * [scopeId] 
@@ -37,6 +38,9 @@ abstract class StoredFileResponse implements Built<StoredFileResponse, StoredFil
   @BuiltValueField(wireName: r'sizeBytes')
   String get sizeBytes;
 
+  @BuiltValueField(wireName: r'sha256')
+  String? get sha256;
+
   @BuiltValueField(wireName: r'purpose')
   String get purpose;
 
@@ -52,7 +56,7 @@ abstract class StoredFileResponse implements Built<StoredFileResponse, StoredFil
 
   @BuiltValueField(wireName: r'status')
   StoredFileResponseStatusEnum get status;
-  // enum statusEnum {  PENDING,  UPLOADED,  READY,  REJECTED,  DELETED,  };
+  // enum statusEnum {  PENDING,  UPLOADED,  READY,  REJECTED,  DELETE_PENDING,  DELETED,  };
 
   @BuiltValueField(wireName: r'uploadedAt')
   DateTime? get uploadedAt;
@@ -103,6 +107,13 @@ class _$StoredFileResponseSerializer implements PrimitiveSerializer<StoredFileRe
       object.sizeBytes,
       specifiedType: const FullType(String),
     );
+    if (object.sha256 != null) {
+      yield r'sha256';
+      yield serializers.serialize(
+        object.sha256,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
     yield r'purpose';
     yield serializers.serialize(
       object.purpose,
@@ -196,6 +207,14 @@ class _$StoredFileResponseSerializer implements PrimitiveSerializer<StoredFileRe
             specifiedType: const FullType(String),
           ) as String;
           result.sizeBytes = valueDes;
+          break;
+        case r'sha256':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.sha256 = valueDes;
           break;
         case r'purpose':
           final valueDes = serializers.deserialize(
@@ -308,6 +327,8 @@ class StoredFileResponseStatusEnum extends EnumClass {
   static const StoredFileResponseStatusEnum READY = _$storedFileResponseStatusEnum_READY;
   @BuiltValueEnumConst(wireName: r'REJECTED')
   static const StoredFileResponseStatusEnum REJECTED = _$storedFileResponseStatusEnum_REJECTED;
+  @BuiltValueEnumConst(wireName: r'DELETE_PENDING')
+  static const StoredFileResponseStatusEnum DELETE_PENDING = _$storedFileResponseStatusEnum_DELETE_PENDING;
   @BuiltValueEnumConst(wireName: r'DELETED')
   static const StoredFileResponseStatusEnum DELETED = _$storedFileResponseStatusEnum_DELETED;
   @BuiltValueEnumConst(wireName: r'unknown_default_open_api', fallback: true)

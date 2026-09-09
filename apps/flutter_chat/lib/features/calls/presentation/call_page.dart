@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 import '../../../core/calls/call_service.dart';
+import '../../../core/calls/call_tone_player.dart';
 import '../../../core/calls/call_acceptance.dart';
 import '../../../core/calls/call_coordinator.dart';
 import '../../../core/calls/call_controls.dart';
@@ -27,6 +28,8 @@ class CallPage extends StatefulWidget {
     required this.imService,
     this.callLease,
     this.alreadyAccepted = false,
+    this.onMinimize,
+    this.onClosed,
   });
 
   final String callId;
@@ -37,6 +40,8 @@ class CallPage extends StatefulWidget {
   final ImService imService;
   final CallLease? callLease;
   final bool alreadyAccepted;
+  final VoidCallback? onMinimize;
+  final VoidCallback? onClosed;
 
   @override
   State<CallPage> createState() => CallPageState();
@@ -102,7 +107,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
   bool _ending = false;
   Object? _error;
   Timer? _timeout;
-  Timer? _ringback;
+  CallTonePlayer? _ringback;
   Timer? _durationTimer;
   Timer? _qualityTimer;
   Timer? _businessStateTimer;
@@ -110,7 +115,8 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
   bool _reconcilingBusinessState = false;
   int _businessStatePollCount = 0;
   static const _businessStatePollLimit = 30;
-  Duration _duration = Duration.zero;
+  final ValueNotifier<Duration> _duration = ValueNotifier(Duration.zero);
+  bool _localVideoPrimary = false;
 
   @override
   void initState() {
@@ -123,6 +129,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
       video: widget.video,
     )..addListener(_refresh);
     WidgetsBinding.instance.addObserver(this);
+    _coordinator.attachHangupHandler(_hangup);
     _signals = widget.imService.callSignals.listen(_onSignal);
     final earlyTerminal = _callLease == null
         ? null
@@ -130,16 +137,18 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
     if (earlyTerminal != null) {
       _ending = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).maybePop();
+        if (mounted) _closePresentation();
       });
       return;
     }
     unawaited(_mediaController.initialize());
     if (!widget.incoming) {
       _timeout = Timer(const Duration(seconds: 45), _markMissed);
-      _ringback = Timer.periodic(
-        const Duration(seconds: 2),
-        (_) => SystemSound.play(SystemSoundType.alert),
+      _ringback = CallTonePlayer();
+      unawaited(
+        _ringback!.start(CallTone.ringback).catchError((Object _) {
+          SystemSound.play(SystemSoundType.alert);
+        }),
       );
     }
     _start();
@@ -164,7 +173,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
       () => widget.callService.queueTerminal(widget.callId, 'miss'),
       widget.callService.flushTerminalReports,
       () {
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) _closePresentation();
       },
     );
   }
@@ -225,7 +234,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
             _accepted &&
             _connected &&
             _room.connectionState == ConnectionState.connected) {
-          setState(() => _duration += const Duration(seconds: 1));
+          _duration.value += const Duration(seconds: 1);
         }
       });
       _qualityTimer = Timer.periodic(
@@ -252,14 +261,14 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
     if (signal.callId != widget.callId || !mounted || _ending) return;
     if (signal.action == 'accept') {
       _timeout?.cancel();
-      _ringback?.cancel();
+      unawaited(_ringback?.stop() ?? Future<void>.value());
       setState(() => _accepted = true);
     }
     if (['reject', 'busy', 'cancel', 'miss', 'end'].contains(signal.action)) {
       _coordinator.recordTerminalSignal(widget.callId, signal.action);
       setState(() => _ending = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).maybePop();
+        if (mounted) _closePresentation();
       });
     }
   }
@@ -275,7 +284,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
       () => widget.callService.queueTerminal(widget.callId, 'end'),
       widget.callService.flushTerminalReports,
       () {
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) _closePresentation();
       },
     );
   }
@@ -323,12 +332,44 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
             peer.connectionQuality == ConnectionQuality.lost,
       );
 
+  ConnectionQuality get _connectionQuality {
+    final qualities = <ConnectionQuality>[
+      if (_room.localParticipant case final participant?)
+        participant.connectionQuality,
+      ..._room.remoteParticipants.values.map(
+        (participant) => participant.connectionQuality,
+      ),
+    ];
+    if (qualities.contains(ConnectionQuality.lost)) {
+      return ConnectionQuality.lost;
+    }
+    if (qualities.contains(ConnectionQuality.poor)) {
+      return ConnectionQuality.poor;
+    }
+    if (qualities.contains(ConnectionQuality.good)) {
+      return ConnectionQuality.good;
+    }
+    if (qualities.contains(ConnectionQuality.excellent)) {
+      return ConnectionQuality.excellent;
+    }
+    return ConnectionQuality.unknown;
+  }
+
   Future<void> _toggleSpeaker() async {
     await _deviceAction(_controls.toggleSpeaker);
   }
 
   Future<void> _switchCamera() async {
     await _deviceAction(_mediaController.switchCamera);
+  }
+
+  void _dismissAudioNotice() {
+    if (_mediaController.routeChanged) {
+      _mediaController.dismissRouteNotice();
+    }
+    if (_mediaController.audioRecoveryError != null) {
+      _mediaController.dismissAudioRecoveryError();
+    }
   }
 
   Future<void> _deviceAction(Future<void> Function() operation) async {
@@ -372,12 +413,14 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
     _mediaController.dispose();
     _signals?.cancel();
     _timeout?.cancel();
-    _ringback?.cancel();
+    unawaited(_ringback?.dispose() ?? Future<void>.value());
     _durationTimer?.cancel();
+    _duration.dispose();
     _qualityTimer?.cancel();
     _businessStateTimer?.cancel();
     _mediaSession.removeListener(_handleMediaSessionChange);
     _mediaSession.dispose();
+    _coordinator.detachHangupHandler(_hangup);
     final lease = _callLease;
     if (lease != null) _coordinator.release(lease);
     super.dispose();
@@ -398,7 +441,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
     )) {
       _accepted = true;
       _timeout?.cancel();
-      _ringback?.cancel();
+      unawaited(_ringback?.stop() ?? Future<void>.value());
     }
     final phase = switch (_mediaSession.phase) {
       CallRoomPhase.connecting => CoordinatedCallPhase.connecting,
@@ -436,7 +479,7 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
       _businessStateTimer = null;
       setState(() => _ending = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).maybePop();
+        if (mounted) _closePresentation();
       });
       return true;
     } catch (_) {
@@ -475,6 +518,12 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final remoteVideo = _remoteVideo;
     final localVideo = _localVideo;
+    final primaryVideo = _localVideoPrimary
+        ? localVideo ?? remoteVideo
+        : remoteVideo ?? localVideo;
+    final previewVideo = remoteVideo != null && localVideo != null
+        ? (_localVideoPrimary ? remoteVideo : localVideo)
+        : null;
     final reconnecting =
         _recovery.recovering ||
         _room.connectionState == ConnectionState.reconnecting ||
@@ -482,11 +531,19 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
     final poorNetwork = _hasPoorNetwork;
     final peerMissing =
         _connected && _accepted && _room.remoteParticipants.isEmpty;
+    final audioNoticeDismissible =
+        _mediaController.routeChanged ||
+        _mediaController.audioRecoveryError != null;
     return PopScope(
       canPop: _ending,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
-          _hangup();
+          final minimize = widget.onMinimize;
+          if (minimize != null) {
+            minimize();
+          } else {
+            _hangup();
+          }
         }
       },
       child: Scaffold(
@@ -495,69 +552,66 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
           child: Stack(
             children: [
               Positioned.fill(
-                child: widget.video && remoteVideo != null
-                    ? VideoTrackRenderer(remoteVideo)
-                    : _CallPlaceholder(
-                        title: widget.title,
-                        status: _recovery.failure != null
-                            ? '通话已中断'
-                            : reconnecting && _connected
-                            ? '正在恢复连接…'
-                            : peerMissing
-                            ? '等待对方恢复连接…'
-                            : _error != null
-                            ? '连接失败，请查看下方提示'
-                            : !_connected
-                            ? '正在连接…'
-                            : !_accepted && !widget.incoming
-                            ? '等待对方接听…'
-                            : '通话中',
+                child: widget.video && primaryVideo != null
+                    ? VideoTrackRenderer(primaryVideo)
+                    : ValueListenableBuilder<Duration>(
+                        valueListenable: _duration,
+                        builder: (_, duration, _) => _CallPlaceholder(
+                          title: widget.title,
+                          status: _callStatus(
+                            duration,
+                            reconnecting: reconnecting,
+                            peerMissing: peerMissing,
+                          ),
+                        ),
                       ),
               ),
-              Positioned(
-                top: 18,
-                left: 20,
-                right: 20,
-                child: Column(
-                  children: [
-                    Text(
-                      widget.video ? '视频通话' : '语音通话',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
+              const Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x99000000),
+                          Colors.transparent,
+                          Color(0xC7000000),
+                        ],
+                        stops: [0, .42, 1],
                       ),
                     ),
-                    if (_connected) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatDuration(_duration),
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-              if (widget.video && localVideo != null && _camera)
-                Positioned(
-                  top: 72,
-                  right: 16,
-                  child: Container(
-                    width: 112,
-                    height: 158,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white30),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black38,
-                          blurRadius: 12,
-                          offset: Offset(0, 5),
-                        ),
-                      ],
+              Positioned(
+                top: 12,
+                left: 16,
+                right: 16,
+                child: ValueListenableBuilder<Duration>(
+                  valueListenable: _duration,
+                  builder: (_, duration, _) => _CallTopBar(
+                    title: widget.title,
+                    video: widget.video,
+                    status: _callStatus(
+                      duration,
+                      reconnecting: reconnecting,
+                      peerMissing: peerMissing,
                     ),
-                    child: VideoTrackRenderer(localVideo),
+                    quality: _connectionQuality,
+                    reconnecting: reconnecting,
+                    onMinimize: widget.onMinimize,
+                  ),
+                ),
+              ),
+              if (widget.video && previewVideo != null && _camera)
+                Positioned.fill(
+                  child: _DraggableVideoPreview(
+                    track: previewVideo,
+                    label: _localVideoPrimary ? '对方画面' : '我的画面',
+                    onSwap: () => setState(
+                      () => _localVideoPrimary = !_localVideoPrimary,
+                    ),
                   ),
                 ),
               if ((reconnecting && _connected) ||
@@ -590,30 +644,30 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
                   left: 20,
                   right: 20,
                   bottom: 218,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (_mediaController.routeChanged) {
-                        _mediaController.dismissRouteNotice();
-                      }
-                      if (_mediaController.audioRecoveryError != null) {
-                        _mediaController.dismissAudioRecoveryError();
-                      }
-                    },
-                    child: _CallNotice(
-                      icon: _mediaController.audioRecoveryError != null
-                          ? Icons.error_outline
-                          : _mediaController.audioInterrupted
-                          ? Icons.phone_paused_outlined
-                          : _mediaController.backgrounded
-                          ? Icons.picture_in_picture_alt_outlined
-                          : Icons.headphones_outlined,
-                      text: _mediaController.audioRecoveryError != null
-                          ? '系统音频恢复失败，请手动切换麦克风后重试'
-                          : _mediaController.audioInterrupted
-                          ? '系统音频被占用，通话将在中断结束后恢复'
-                          : _mediaController.backgrounded
-                          ? '通话正在后台保持'
-                          : '音频设备已变化，请确认当前声音输出（点按关闭）',
+                  child: Semantics(
+                    button: audioNoticeDismissible,
+                    label: audioNoticeDismissible ? '通话音频提示，点按关闭' : null,
+                    onTap: audioNoticeDismissible ? _dismissAudioNotice : null,
+                    child: GestureDetector(
+                      onTap: audioNoticeDismissible
+                          ? _dismissAudioNotice
+                          : null,
+                      child: _CallNotice(
+                        icon: _mediaController.audioRecoveryError != null
+                            ? Icons.error_outline
+                            : _mediaController.audioInterrupted
+                            ? Icons.phone_paused_outlined
+                            : _mediaController.backgrounded
+                            ? Icons.picture_in_picture_alt_outlined
+                            : Icons.headphones_outlined,
+                        text: _mediaController.audioRecoveryError != null
+                            ? '系统音频恢复失败，请手动切换麦克风后重试'
+                            : _mediaController.audioInterrupted
+                            ? '系统音频被占用，通话将在中断结束后恢复'
+                            : _mediaController.backgrounded
+                            ? '通话正在后台保持'
+                            : '音频设备已变化，请确认当前声音输出（点按关闭）',
+                      ),
                     ),
                   ),
                 ),
@@ -635,44 +689,71 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 14,
-                    runSpacing: 12,
-                    children: [
-                      _CallButton(
-                        icon: _microphone ? Icons.mic : Icons.mic_off,
-                        label: _microphone ? '静音' : '取消静音',
-                        onPressed: _canControl ? _toggleMicrophone : null,
-                      ),
-                      _CallButton(
-                        icon: _speaker
-                            ? Icons.volume_up
-                            : Icons.hearing_outlined,
-                        label: _speaker ? '扬声器' : '听筒',
-                        active: _speaker,
-                        onPressed: _canControl ? _toggleSpeaker : null,
-                      ),
-                      if (widget.video)
-                        _CallButton(
-                          icon: _camera ? Icons.videocam : Icons.videocam_off,
-                          label: _camera ? '关闭摄像头' : '打开摄像头',
-                          onPressed: _canControl ? _toggleCamera : null,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xB31B1B24),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Wrap(
+                          alignment: WrapAlignment.spaceEvenly,
+                          runAlignment: WrapAlignment.center,
+                          spacing: 8,
+                          runSpacing: 10,
+                          children: [
+                            _CallButton(
+                              icon: _microphone ? Icons.mic : Icons.mic_off,
+                              label: _microphone ? '静音' : '取消静音',
+                              onPressed: _canControl ? _toggleMicrophone : null,
+                            ),
+                            _CallButton(
+                              icon: _speaker
+                                  ? Icons.volume_up
+                                  : Icons.hearing_outlined,
+                              label: _speaker ? '扬声器' : '听筒',
+                              active: _speaker,
+                              onPressed: _canControl ? _toggleSpeaker : null,
+                            ),
+                            if (widget.video)
+                              _CallButton(
+                                icon: _camera
+                                    ? Icons.videocam
+                                    : Icons.videocam_off,
+                                label: _camera ? '关闭摄像头' : '打开摄像头',
+                                onPressed: _canControl ? _toggleCamera : null,
+                              ),
+                            if (widget.video)
+                              _CallButton(
+                                icon: Icons.cameraswitch,
+                                label: '前后镜头',
+                                onPressed: _canControl ? _switchCamera : null,
+                              ),
+                          ],
                         ),
-                      if (widget.video)
-                        _CallButton(
-                          icon: Icons.cameraswitch,
-                          label: '切换',
-                          onPressed: _canControl ? _switchCamera : null,
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Divider(height: 1, color: Colors.white12),
                         ),
-                      _CallButton(
-                        icon: Icons.call_end,
-                        label: '挂断',
-                        color: Colors.red,
-                        onPressed: _ending ? null : _hangup,
-                      ),
-                    ],
+                        Semantics(
+                          label: '结束当前通话',
+                          child: _CallButton(
+                            icon: Icons.call_end,
+                            label: '挂断',
+                            color: const Color(0xFFE53935),
+                            onPressed: _ending ? null : _hangup,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -683,11 +764,38 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
     );
   }
 
+  void _closePresentation() {
+    final close = widget.onClosed;
+    if (close != null) {
+      close();
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   String _formatDuration(Duration value) {
     final minutes = value.inMinutes.toString().padLeft(2, '0');
     final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
+
+  String _callStatus(
+    Duration duration, {
+    required bool reconnecting,
+    required bool peerMissing,
+  }) => _recovery.failure != null
+      ? '通话已中断'
+      : reconnecting && _connected
+      ? '正在恢复连接…'
+      : peerMissing
+      ? '等待对方恢复连接…'
+      : _error != null
+      ? '连接失败'
+      : !_connected
+      ? '正在连接…'
+      : !_accepted && !widget.incoming
+      ? '等待对方接听…'
+      : _formatDuration(duration);
 
   String _friendlyError(Object error) {
     final text = error.toString().toLowerCase();
@@ -698,6 +806,140 @@ class CallPageState extends State<CallPage> with WidgetsBindingObserver {
       return '无法连接通话服务，请检查网络后重试。';
     }
     return '通话连接失败，请稍后重试。';
+  }
+}
+
+class _CallTopBar extends StatelessWidget {
+  const _CallTopBar({
+    required this.title,
+    required this.video,
+    required this.status,
+    required this.quality,
+    required this.reconnecting,
+    this.onMinimize,
+  });
+
+  final String title;
+  final bool video;
+  final String status;
+  final ConnectionQuality quality;
+  final bool reconnecting;
+  final VoidCallback? onMinimize;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      CircleAvatar(
+        radius: 22,
+        backgroundColor: Colors.white.withValues(alpha: .16),
+        child: Text(
+          title.isEmpty ? '?' : title.characters.first.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${video ? '视频通话' : '语音通话'} · $status',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+      if (onMinimize != null)
+        IconButton(
+          tooltip: '最小化通话',
+          onPressed: onMinimize,
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+        ),
+      const SizedBox(width: 8),
+      _CallQualityChip(quality: quality, reconnecting: reconnecting),
+    ],
+  );
+}
+
+class _CallQualityChip extends StatelessWidget {
+  const _CallQualityChip({required this.quality, required this.reconnecting});
+
+  final ConnectionQuality quality;
+  final bool reconnecting;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label, color) = reconnecting
+        ? (Icons.sync_rounded, '恢复中', const Color(0xFFFFC857))
+        : switch (quality) {
+            ConnectionQuality.lost => (
+              Icons.signal_wifi_connected_no_internet_4_outlined,
+              '已断开',
+              const Color(0xFFFF6B6B),
+            ),
+            ConnectionQuality.poor => (
+              Icons.network_wifi_1_bar,
+              '网络较差',
+              const Color(0xFFFFC857),
+            ),
+            ConnectionQuality.good => (
+              Icons.network_wifi_2_bar,
+              '网络良好',
+              const Color(0xFF8DE1B7),
+            ),
+            ConnectionQuality.excellent => (
+              Icons.network_wifi_3_bar,
+              '网络优秀',
+              const Color(0xFF8DE1B7),
+            ),
+            ConnectionQuality.unknown => (
+              Icons.network_check,
+              '检测中',
+              Colors.white70,
+            ),
+          };
+    return Semantics(
+      label: '通话网络状态：$label',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black38,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: color.withValues(alpha: .45)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -752,6 +994,125 @@ class _CallError extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+class _DraggableVideoPreview extends StatefulWidget {
+  const _DraggableVideoPreview({
+    required this.track,
+    required this.label,
+    required this.onSwap,
+  });
+
+  final VideoTrack track;
+  final String label;
+  final VoidCallback onSwap;
+
+  @override
+  State<_DraggableVideoPreview> createState() => _DraggableVideoPreviewState();
+}
+
+class _DraggableVideoPreviewState extends State<_DraggableVideoPreview> {
+  Offset? _position;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const width = 112.0;
+      const height = 158.0;
+      final maxX = (constraints.maxWidth - width - 16).clamp(
+        16.0,
+        double.infinity,
+      );
+      final maxY = (constraints.maxHeight - height - 210).clamp(
+        88.0,
+        double.infinity,
+      );
+      final position = _position ?? Offset(maxX, 88);
+      return Stack(
+        children: [
+          Positioned(
+            left: position.dx.clamp(16.0, maxX),
+            top: position.dy.clamp(88.0, maxY),
+            child: GestureDetector(
+              onTap: widget.onSwap,
+              onPanUpdate: (details) => setState(() {
+                _position = Offset(
+                  (position.dx + details.delta.dx).clamp(16.0, maxX),
+                  (position.dy + details.delta.dy).clamp(88.0, maxY),
+                );
+              }),
+              child: Semantics(
+                button: true,
+                label: '${widget.label}，点按交换大小画面，可拖动',
+                child: Container(
+                  width: width,
+                  height: height,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white38),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black45,
+                        blurRadius: 12,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      VideoTrackRenderer(widget.track),
+                      Positioned(
+                        left: 7,
+                        right: 7,
+                        bottom: 6,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.swap_calls_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 3),
+                                Flexible(
+                                  child: Text(
+                                    widget.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 
@@ -813,22 +1174,49 @@ class _CallButton extends StatelessWidget {
   final bool active;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      IconButton.filled(
-        tooltip: label,
-        onPressed: onPressed,
-        style: IconButton.styleFrom(
-          backgroundColor: color ?? (active ? Colors.white : Colors.white24),
-          foregroundColor: active ? Colors.black : Colors.white,
-          disabledBackgroundColor: Colors.white12,
-          minimumSize: const Size.square(52),
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final background = color ?? (active ? Colors.white : Colors.white24);
+    final foreground = active ? Colors.black : Colors.white;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      selected: active,
+      label: label,
+      excludeSemantics: true,
+      child: Opacity(
+        opacity: enabled ? 1 : .45,
+        child: InkWell(
+          key: ValueKey('call-control-$label'),
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: enabled ? background : Colors.white12,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: foreground, size: 26),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
         ),
-        icon: Icon(icon),
       ),
-      const SizedBox(height: 7),
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-    ],
-  );
+    );
+  }
 }

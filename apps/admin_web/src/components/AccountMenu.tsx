@@ -1,4 +1,5 @@
 import {
+  DownOutlined,
   EditOutlined,
   LaptopOutlined,
   LockOutlined,
@@ -161,15 +162,17 @@ export function AccountMenu({ onLogout }: { onLogout: () => void }) {
         <Button
           type="text"
           className="account-trigger"
+          title={`账号：${name}`}
           aria-label="管理员账号菜单"
         >
-          <Space size={8}>
+          <Space size={7}>
             <Avatar
-              size={28}
+              size={26}
               src={profile?.avatarUrl}
               icon={<UserOutlined />}
             />
             <span className="account-trigger-name">{name}</span>
+            <DownOutlined className="account-trigger-arrow" />
           </Space>
         </Button>
       </Dropdown>

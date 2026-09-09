@@ -15,6 +15,7 @@ import { GroupJoinMessageDto } from './dto/group-join-message.dto';
 import { InviteGroupMemberDto } from './dto/invite-group-member.dto';
 import { RequireRuntimeCapability } from '../config/runtime-capability.decorator';
 import { RuntimeCapabilityGuard } from '../config/runtime-capability.guard';
+import { UpdateGroupNicknameDto } from './dto/update-group-nickname.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('groups')
@@ -130,6 +131,17 @@ export class GroupsController {
     @Body() input: AddGroupMembersDto,
   ) {
     return this.groupsService.addMembers(groupId, user.sub, input);
+  }
+
+  @Patch(':groupId/members/me/nickname')
+  @RequireRuntimeCapability('groups')
+  @UseGuards(RuntimeCapabilityGuard)
+  updateMyNickname(
+    @CurrentUser() user: JwtPayload,
+    @Param('groupId') groupId: string,
+    @Body() input: UpdateGroupNicknameDto,
+  ) {
+    return this.groupsService.updateMyNickname(groupId, user.sub, input.nickname);
   }
 
   @Patch(':groupId/members/:memberId/role')

@@ -41,6 +41,7 @@ export enum AdminFileResponseStatusEnum {
     Uploaded = 'UPLOADED',
     Ready = 'READY',
     Rejected = 'REJECTED',
+    DeletePending = 'DELETE_PENDING',
     Deleted = 'DELETED'
 }
 

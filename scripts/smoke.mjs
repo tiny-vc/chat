@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 const baseUrl = process.env.SMOKE_API_URL ?? "http://localhost:3000/api/v1";
 
 async function request(path, options = {}) {
@@ -64,6 +66,7 @@ const upload = await request(
     fileName: "smoke.txt",
     mimeType: "text/plain",
     size: bytes.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
     purpose: "CHAT_FILE",
     scope: "DIRECT",
     scopeId: bob.user.id,

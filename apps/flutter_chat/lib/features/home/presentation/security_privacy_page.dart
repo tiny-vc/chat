@@ -136,32 +136,42 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('安全与隐私')),
     body: ListView(
+      padding: const EdgeInsets.all(16),
       children: [
-        const ListTile(
-          leading: Icon(Icons.privacy_tip_outlined),
-          title: Text('隐私说明'),
-          subtitle: Text('聊天内容用于消息同步；文件存储于私有对象存储，不向第三方出售个人信息。'),
+        const _SectionTitle('数据与权限'),
+        const Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _InfoTile(
+                icon: Icons.privacy_tip_outlined,
+                title: '隐私说明',
+                subtitle: '账号、消息和文件由当前连接的业务服务器处理，具体规则请查看隐私政策。',
+              ),
+              Divider(height: 1, indent: 56),
+              _InfoTile(
+                icon: Icons.mic_none,
+                title: '麦克风',
+                subtitle: '仅在语音消息或通话时请求使用。',
+              ),
+              Divider(height: 1, indent: 56),
+              _InfoTile(
+                icon: Icons.camera_alt_outlined,
+                title: '相机',
+                subtitle: '仅在视频通话时请求使用。',
+              ),
+              Divider(height: 1, indent: 56),
+              _InfoTile(
+                icon: Icons.photo_library_outlined,
+                title: '照片与文件',
+                subtitle: '仅在你主动选择内容时访问。',
+              ),
+            ],
+          ),
         ),
-        const ListTile(
-          leading: Icon(Icons.mic_none),
-          title: Text('麦克风权限'),
-          subtitle: Text('仅在录制语音消息或语音/视频通话时使用。'),
-        ),
-        const ListTile(
-          leading: Icon(Icons.camera_alt_outlined),
-          title: Text('相机权限'),
-          subtitle: Text('仅在视频通话时使用。'),
-        ),
-        const ListTile(
-          leading: Icon(Icons.folder_outlined),
-          title: Text('文件与照片'),
-          subtitle: Text('仅在你主动选择图片、视频或文件时访问。'),
-        ),
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('登录设备', style: Theme.of(context).textTheme.titleMedium),
-        ),
+        const SizedBox(height: 24),
+        const _SectionTitle('登录设备'),
         if (_loading)
           const AppLoading(message: '正在加载登录设备…')
         else if (_loadError != null)
@@ -178,39 +188,115 @@ class _SecurityPrivacyPageState extends State<SecurityPrivacyPage> {
             icon: Icons.devices_outlined,
           )
         else
-          for (final device in _devices)
-            ListTile(
-              leading: Icon(
-                device.type == 'WEB' ? Icons.language : Icons.smartphone,
-              ),
-              title: Text('${device.name}${device.current ? '（当前）' : ''}'),
-              subtitle: Text(device.ipAddress ?? '未知 IP'),
-              trailing: device.current
-                  ? null
-                  : TextButton(
-                      onPressed: _deactivating || _revoking.contains(device.id)
-                          ? null
-                          : () => _revoke(device),
-                      child: Text(
-                        _revoking.contains(device.id) ? '处理中…' : '下线',
-                      ),
-                    ),
+          Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var index = 0; index < _devices.length; index++) ...[
+                  _DeviceTile(
+                    device: _devices[index],
+                    busy:
+                        _deactivating || _revoking.contains(_devices[index].id),
+                    onRevoke: () => _revoke(_devices[index]),
+                  ),
+                  if (index + 1 < _devices.length)
+                    const Divider(height: 1, indent: 56),
+                ],
+              ],
             ),
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+          ),
+        const SizedBox(height: 24),
+        const _SectionTitle('账号管理'),
+        Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            key: const ValueKey('deactivate-account'),
+            enabled: !_deactivating && _revoking.isEmpty,
+            onTap: _deactivating || _revoking.isNotEmpty ? null : _deactivate,
+            leading: Icon(
+              Icons.delete_forever_outlined,
+              color: Theme.of(context).colorScheme.error,
             ),
-            onPressed: _deactivating || _revoking.isNotEmpty
-                ? null
-                : _deactivate,
-            icon: const Icon(Icons.delete_forever),
-            label: Text(_deactivating ? '处理中…' : '注销账号'),
+            title: Text(
+              _deactivating ? '处理中…' : '注销账号',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            subtitle: const Text('永久停用账号并使所有设备退出'),
+            trailing: Icon(
+              _deactivating ? Icons.hourglass_top_rounded : Icons.chevron_right,
+            ),
           ),
         ),
       ],
     ),
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}
+
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(icon),
+    title: Text(title),
+    subtitle: Text(subtitle),
+  );
+}
+
+class _DeviceTile extends StatelessWidget {
+  const _DeviceTile({
+    required this.device,
+    required this.busy,
+    required this.onRevoke,
+  });
+  final DeviceSummary device;
+  final bool busy;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(device.type == 'WEB' ? Icons.language : Icons.smartphone),
+    title: Text(device.name),
+    subtitle: Text(
+      device.current
+          ? '当前设备 · ${device.ipAddress ?? "未知 IP"}'
+          : device.ipAddress ?? '未知 IP',
+    ),
+    trailing: device.current
+        ? Icon(
+            Icons.check_circle,
+            color: Theme.of(context).colorScheme.primary,
+            semanticLabel: '当前设备',
+          )
+        : TextButton(
+            onPressed: busy ? null : onRevoke,
+            child: Text(busy ? '处理中…' : '下线'),
+          ),
   );
 }

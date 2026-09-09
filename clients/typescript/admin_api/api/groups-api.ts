@@ -51,6 +51,8 @@ import type { SuccessResponse } from '../models';
 import type { TransferOwnerDto } from '../models';
 // @ts-ignore
 import type { UpdateGroupDto } from '../models';
+// @ts-ignore
+import type { UpdateGroupNicknameDto } from '../models';
 /**
  * GroupsApi - axios parameter creator
  */
@@ -932,6 +934,48 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @param {string} groupId 
+         * @param {UpdateGroupNicknameDto} updateGroupNicknameDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        groupsUpdateMyNickname: async (groupId: string, updateGroupNicknameDto: UpdateGroupNicknameDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'groupId' is not null or undefined
+            assertParamExists('groupsUpdateMyNickname', 'groupId', groupId)
+            // verify required parameter 'updateGroupNicknameDto' is not null or undefined
+            assertParamExists('groupsUpdateMyNickname', 'updateGroupNicknameDto', updateGroupNicknameDto)
+            const localVarPath = `/api/v1/groups/{groupId}/members/me/nickname`
+                .replace('{groupId}', encodeURIComponent(String(groupId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateGroupNicknameDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -1217,6 +1261,19 @@ export const GroupsApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['GroupsApi.groupsUpdate']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * 
+         * @param {string} groupId 
+         * @param {UpdateGroupNicknameDto} updateGroupNicknameDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async groupsUpdateMyNickname(groupId: string, updateGroupNicknameDto: UpdateGroupNicknameDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GroupMemberResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.groupsUpdateMyNickname(groupId, updateGroupNicknameDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['GroupsApi.groupsUpdateMyNickname']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -1422,6 +1479,15 @@ export const GroupsApiFactory = function (configuration?: Configuration, basePat
         groupsUpdate(requestParameters: GroupsApiGroupsUpdateRequest, options?: RawAxiosRequestConfig): AxiosPromise<GroupResponse> {
             return localVarFp.groupsUpdate(requestParameters.groupId, requestParameters.updateGroupDto, options).then((request) => request(axios, basePath));
         },
+        /**
+         * 
+         * @param {GroupsApiGroupsUpdateMyNicknameRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        groupsUpdateMyNickname(requestParameters: GroupsApiGroupsUpdateMyNicknameRequest, options?: RawAxiosRequestConfig): AxiosPromise<GroupMemberResponse> {
+            return localVarFp.groupsUpdateMyNickname(requestParameters.groupId, requestParameters.updateGroupNicknameDto, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -1591,6 +1657,15 @@ export interface GroupsApiGroupsUpdateRequest {
     readonly groupId: string
 
     readonly updateGroupDto: UpdateGroupDto
+}
+
+/**
+ * Request parameters for groupsUpdateMyNickname operation in GroupsApi.
+ */
+export interface GroupsApiGroupsUpdateMyNicknameRequest {
+    readonly groupId: string
+
+    readonly updateGroupNicknameDto: UpdateGroupNicknameDto
 }
 
 /**
@@ -1813,6 +1888,16 @@ export class GroupsApi extends BaseAPI {
      */
     public groupsUpdate(requestParameters: GroupsApiGroupsUpdateRequest, options?: RawAxiosRequestConfig) {
         return GroupsApiFp(this.configuration).groupsUpdate(requestParameters.groupId, requestParameters.updateGroupDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {GroupsApiGroupsUpdateMyNicknameRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public groupsUpdateMyNickname(requestParameters: GroupsApiGroupsUpdateMyNicknameRequest, options?: RawAxiosRequestConfig) {
+        return GroupsApiFp(this.configuration).groupsUpdateMyNickname(requestParameters.groupId, requestParameters.updateGroupNicknameDto, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

@@ -74,6 +74,7 @@ enum FileStatus {
   UPLOADED
   READY
   REJECTED
+  DELETE_PENDING
   DELETED
 }
 
@@ -317,6 +318,7 @@ model Friendship {
 model Group {
   id           String             @id @default(uuid()) @db.Uuid
   name         String             @db.VarChar(120)
+  announcement String?            @db.VarChar(1000)
   avatarUrl    String?            @map("avatar_url") @db.VarChar(500)
   avatarFileId String?            @unique @map("avatar_file_id") @db.Uuid
   ownerId      String             @map("owner_id") @db.Uuid
@@ -389,6 +391,7 @@ model StoredFile {
   status          FileStatus   @default(PENDING)
   createdAt       DateTime     @default(now()) @map("created_at")
   uploadedAt      DateTime?    @map("uploaded_at")
+  referencedAt    DateTime?    @map("referenced_at")
   thumbnailFileId String?      @map("thumbnail_file_id") @db.Uuid
   owner           User         @relation("ownedFiles", fields: [ownerUserId], references: [id])
   avatarFor       User?        @relation("userAvatar")
@@ -399,6 +402,7 @@ model StoredFile {
   @@index([ownerUserId, createdAt])
   @@index([scope, scopeId])
   @@index([thumbnailFileId])
+  @@index([status, referencedAt, createdAt])
   @@map("files")
 }
 

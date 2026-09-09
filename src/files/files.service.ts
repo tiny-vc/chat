@@ -96,12 +96,14 @@ export class FilesService {
           originalName: input.fileName,
           mimeType: input.mimeType,
           sizeBytes: BigInt(input.size),
+          sha256: input.sha256,
           purpose: input.purpose,
           scope: input.scope,
           scopeId: input.scopeId,
         },
       });
     });
+    const checksumBase64 = Buffer.from(input.sha256, "hex").toString("base64");
     const uploadUrl = await getSignedUrl(
       this.signingClient,
       new PutObjectCommand({
@@ -109,6 +111,8 @@ export class FilesService {
         Key: objectKey,
         ContentType: input.mimeType,
         ContentLength: input.size,
+        ChecksumSHA256: checksumBase64,
+        Metadata: { sha256: input.sha256 },
       }),
       { expiresIn: 10 * 60 },
     );
@@ -116,7 +120,11 @@ export class FilesService {
       fileId: file.id,
       uploadUrl,
       method: "PUT",
-      headers: { "content-type": input.mimeType },
+      headers: {
+        "content-type": input.mimeType,
+        "x-amz-checksum-sha256": checksumBase64,
+        "x-amz-meta-sha256": input.sha256,
+      },
       expiresIn: 600,
     };
   }
@@ -127,7 +135,11 @@ export class FilesService {
     let object: HeadObjectCommandOutput;
     try {
       object = await this.client.send(
-        new HeadObjectCommand({ Bucket: this.bucket, Key: file.objectKey }),
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: file.objectKey,
+          ChecksumMode: "ENABLED",
+        }),
       );
     } catch {
       throw new BadGatewayException("Uploaded object was not found");
@@ -146,6 +158,19 @@ export class FilesService {
       });
       throw new ForbiddenException("Uploaded file type does not match");
     }
+    const expectedChecksum = Buffer.from(file.sha256 ?? "", "hex").toString(
+      "base64",
+    );
+    if (
+      object.ChecksumSHA256 !== expectedChecksum ||
+      object.Metadata?.sha256 !== file.sha256
+    ) {
+      await this.prisma.storedFile.update({
+        where: { id: file.id },
+        data: { status: "REJECTED" },
+      });
+      throw new ForbiddenException("Uploaded file checksum does not match");
+    }
     if (
       [FilePurpose.AVATAR, FilePurpose.CHAT_IMAGE].includes(
         file.purpose as FilePurpose,
@@ -159,6 +184,22 @@ export class FilesService {
         });
         throw new ForbiddenException(
           "Uploaded image content does not match its type",
+        );
+      }
+    }
+    if (
+      [FilePurpose.CHAT_VOICE, FilePurpose.CHAT_VIDEO].includes(
+        file.purpose as FilePurpose,
+      )
+    ) {
+      const detected = await this.detectMediaContainer(file.objectKey);
+      if (!detected || !this.mediaTypeMatches(file.mimeType, detected)) {
+        await this.prisma.storedFile.update({
+          where: { id: file.id },
+          data: { status: "REJECTED" },
+        });
+        throw new ForbiddenException(
+          "Uploaded media content does not match its type",
         );
       }
     }
@@ -230,6 +271,8 @@ export class FilesService {
           `${this.bucket}/${source.objectKey}`,
         ).replace(/%2F/g, "/"),
         ContentType: source.mimeType,
+        ChecksumAlgorithm: "SHA256",
+        Metadata: source.sha256 ? { sha256: source.sha256 } : undefined,
         MetadataDirective: "REPLACE",
       }),
     );
@@ -345,10 +388,14 @@ export class FilesService {
     if (file.status === "READY" && file.scope !== "PRIVATE") {
       throw new ConflictException("Shared chat files cannot be deleted");
     }
+    await this.prisma.storedFile.update({
+      where: { id: file.id },
+      data: { status: "DELETE_PENDING", thumbnailFileId: null },
+    });
     await this.deleteStoredObjects([file.objectKey]);
     await this.prisma.storedFile.update({
       where: { id: file.id },
-      data: { status: "DELETED", thumbnailFileId: null },
+      data: { status: "DELETED" },
     });
     return { success: true };
   }
@@ -356,12 +403,20 @@ export class FilesService {
   async deleteStoredObjects(objectKeys: string[]) {
     if (objectKeys.length === 0) return;
     await this.ensureBucket();
-    await this.client.send(
+    const result = await this.client.send(
       new DeleteObjectsCommand({
         Bucket: this.bucket,
         Delete: { Objects: objectKeys.map((Key) => ({ Key })), Quiet: true },
       }),
     );
+    if (result.Errors?.length) {
+      const failedKeys = result.Errors.map((error) => error.Key)
+        .filter(Boolean)
+        .join(', ');
+      throw new BadGatewayException(
+        `Object storage failed to delete ${result.Errors.length} object(s)${failedKeys ? `: ${failedKeys}` : ''}`,
+      );
+    }
   }
 
   async healthCheck() {
@@ -370,34 +425,33 @@ export class FilesService {
   }
 
   private validateUpload(input: CreateUploadDto) {
+    const mimeType = input.mimeType.toLowerCase().split(";", 1)[0].trim();
     if (input.size > limits[input.purpose]) {
       throw new ForbiddenException(
         "File exceeds the size limit for this purpose",
       );
     }
     if (
-      input.purpose === FilePurpose.AVATAR &&
-      !input.mimeType.startsWith("image/")
+      [FilePurpose.AVATAR, FilePurpose.CHAT_IMAGE].includes(input.purpose) &&
+      !["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"].includes(
+        mimeType,
+      )
     ) {
-      throw new ForbiddenException("Avatar requires an image MIME type");
-    }
-    if (
-      input.purpose === FilePurpose.CHAT_IMAGE &&
-      !input.mimeType.startsWith("image/")
-    ) {
-      throw new ForbiddenException("Image message requires an image MIME type");
+      throw new ForbiddenException(
+        "Images require a JPEG, PNG, GIF or WebP format",
+      );
     }
     if (
       input.purpose === FilePurpose.CHAT_VOICE &&
-      !input.mimeType.startsWith("audio/")
+      mimeType !== "audio/mp4"
     ) {
-      throw new ForbiddenException("Voice message requires an audio MIME type");
+      throw new ForbiddenException("Voice messages require AAC in an M4A/MP4 container");
     }
     if (
       input.purpose === FilePurpose.CHAT_VIDEO &&
-      !input.mimeType.startsWith("video/")
+      mimeType !== "video/mp4"
     ) {
-      throw new ForbiddenException("Video message requires a video MIME type");
+      throw new ForbiddenException("Video messages require an MP4 container");
     }
   }
 
@@ -442,6 +496,58 @@ export class FilesService {
     if (detected === "image/heic")
       return normalized === "image/heic" || normalized === "image/heif";
     return normalized === detected;
+  }
+
+  private async detectMediaContainer(objectKey: string) {
+    const object = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        Range: "bytes=0-511",
+      }),
+    );
+    const bytes = await object.Body?.transformToByteArray();
+    if (!bytes || bytes.length < 4) return undefined;
+    const ascii = Buffer.from(bytes).toString("ascii");
+    if (ascii.slice(4, 8) === "ftyp") return "iso-bmff";
+    if (ascii.startsWith("RIFF") && ascii.slice(8, 12) === "AVI ") return "avi";
+    if (ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WAVE") return "wav";
+    if (ascii.startsWith("OggS")) return "ogg";
+    if (
+      bytes[0] === 0x1a &&
+      bytes[1] === 0x45 &&
+      bytes[2] === 0xdf &&
+      bytes[3] === 0xa3
+    )
+      return "ebml";
+    if (
+      ascii.startsWith("ID3") ||
+      (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)
+    )
+      return "mpeg-audio";
+    return undefined;
+  }
+
+  private mediaTypeMatches(declared: string, detected: string) {
+    const normalized = declared.toLowerCase().split(";", 1)[0].trim();
+    if (detected === "iso-bmff") {
+      return [
+        "video/mp4",
+        "video/quicktime",
+        "video/x-m4v",
+        "audio/mp4",
+        "audio/x-m4a",
+      ].includes(normalized);
+    }
+    if (detected === "ebml")
+      return normalized === "video/webm" || normalized === "video/x-matroska";
+    if (detected === "avi") return normalized === "video/x-msvideo";
+    if (detected === "wav")
+      return normalized === "audio/wav" || normalized === "audio/x-wav";
+    if (detected === "ogg")
+      return normalized === "audio/ogg" || normalized === "video/ogg";
+    if (detected === "mpeg-audio") return normalized === "audio/mpeg";
+    return false;
   }
 
   private async requireAvatarAccess(userId: string, fileId: string) {

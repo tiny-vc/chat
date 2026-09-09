@@ -7,6 +7,7 @@ import '../../../core/im/im_service.dart';
 import '../../../core/permissions/permission_ui.dart';
 import '../../../core/widgets/app_feedback.dart';
 import 'call_page.dart';
+import 'call_overlay.dart';
 
 /// The single product flow for outgoing calls, shared by every call entry.
 Future<void> launchOutgoingCall({
@@ -52,17 +53,20 @@ Future<void> launchOutgoingCall({
       await callService.reportTerminal(call.id, 'end').catchError((_) {});
       return;
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CallPage(
-          callId: call.id,
-          title: title,
-          video: effectiveVideo,
-          incoming: false,
-          callService: callService,
-          imService: imService,
-          callLease: lease,
-        ),
+    await presentCallOverlay(
+      context: context,
+      title: title,
+      video: effectiveVideo,
+      builder: (minimize, close) => CallPage(
+        callId: call.id,
+        title: title,
+        video: effectiveVideo,
+        incoming: false,
+        callService: callService,
+        imService: imService,
+        callLease: lease,
+        onMinimize: minimize,
+        onClosed: close,
       ),
     );
     final endedAction = coordinator.terminalAction(lease);

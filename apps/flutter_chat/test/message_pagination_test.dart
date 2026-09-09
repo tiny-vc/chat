@@ -31,4 +31,32 @@ void main() {
     expect(result.addedCount, 0);
     expect(result.messages, hasLength(2));
   });
+
+  test('realtime append keeps order without disturbing existing messages', () {
+    final messages = [message('m1', 1000), message('m2', 2000)];
+
+    upsertMessageInOrder(messages, message('m3', 3000));
+
+    expect(messages.map((item) => item.clientMsgNO), ['m1', 'm2', 'm3']);
+  });
+
+  test('out-of-order message is inserted at its ordered position', () {
+    final messages = [message('m1', 1000), message('m3', 3000)];
+
+    upsertMessageInOrder(messages, message('m2', 2000));
+
+    expect(messages.map((item) => item.clientMsgNO), ['m1', 'm2', 'm3']);
+  });
+
+  test('updated message can move when its order sequence changes', () {
+    final messages = [
+      message('m1', 1000),
+      message('pending', 1500),
+      message('m2', 2000),
+    ];
+
+    upsertMessageInOrder(messages, message('pending', 2500));
+
+    expect(messages.map((item) => item.clientMsgNO), ['m1', 'm2', 'pending']);
+  });
 }

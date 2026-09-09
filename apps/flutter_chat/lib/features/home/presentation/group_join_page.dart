@@ -1,6 +1,8 @@
 import 'package:chat_api_client/chat_api_client.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/files/file_transfer_service.dart';
+import '../../../core/widgets/app_avatar.dart';
 import '../../../core/widgets/app_feedback.dart';
 import 'home_controller.dart';
 
@@ -54,11 +56,13 @@ class GroupJoinPage extends StatefulWidget {
   const GroupJoinPage({
     super.key,
     required this.controller,
+    required this.fileTransferService,
     this.groupId,
     this.actionable = false,
   });
   final bool actionable;
   final HomeController controller;
+  final FileTransferService fileTransferService;
 
   /// Only supplied from the group manager entry; the server enforces roles.
   final String? groupId;
@@ -321,38 +325,40 @@ class _GroupJoinPageState extends State<GroupJoinPage> {
     body: Column(
       children: [
         if (widget.groupId == null)
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final value in [false, true])
-                ChoiceChip(
-                  label: Text(value ? '待我处理' : '我的记录'),
-                  selected: _actionable == value,
-                  onSelected: _busy || _loading || _moreLoading
-                      ? null
-                      : (_) {
-                          if (_actionable == value) return;
-                          setState(() => _actionable = value);
-                          _load();
-                        },
-                ),
-            ],
-          ),
-        if (widget.groupId == null)
-          ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) =>
-                GroupJoinReminder(controller: widget.controller),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final value in [false, true])
+                  ChoiceChip(
+                    label: Text(value ? '待我处理' : '我的记录'),
+                    selected: _actionable == value,
+                    onSelected: _busy || _loading || _moreLoading
+                        ? null
+                        : (_) {
+                            if (_actionable == value) return;
+                            setState(() => _actionable = value);
+                            _load();
+                          },
+                  ),
+              ],
+            ),
           ),
         if (widget.groupId == null)
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _busy || _loading || _moreLoading ? null : _apply,
-                icon: const Icon(Icons.group_add_outlined),
-                label: const Text('申请加入群聊'),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                enabled: !_busy && !_loading && !_moreLoading,
+                onTap: _busy || _loading || _moreLoading ? null : _apply,
+                leading: const Icon(Icons.group_add_outlined),
+                title: const Text('申请加入群聊'),
+                subtitle: const Text('通过群 ID 提交申请'),
+                trailing: const Icon(Icons.chevron_right),
               ),
             ),
           ),
@@ -412,34 +418,126 @@ class _GroupJoinPageState extends State<GroupJoinPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              item.group?.name ?? '群 ID：${item.groupId}',
-                              style: Theme.of(context).textTheme.titleMedium,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AppAvatar(
+                                  name:
+                                      item.type ==
+                                          GroupJoinRequestResponseTypeEnum.APPLY
+                                      ? item.user?.nickname ?? '用户'
+                                      : item.group?.name ?? '群聊',
+                                  fileId:
+                                      item.type ==
+                                          GroupJoinRequestResponseTypeEnum.APPLY
+                                      ? item.user?.avatarFileId
+                                      : item.group?.avatarFileId,
+                                  group:
+                                      item.type ==
+                                      GroupJoinRequestResponseTypeEnum.INVITE,
+                                  resolveUrl:
+                                      widget.fileTransferService.downloadUrl,
+                                  resolveFile:
+                                      widget.fileTransferService.downloadAvatar,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.group?.name ?? '未知群聊',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        item.type ==
+                                                GroupJoinRequestResponseTypeEnum
+                                                    .APPLY
+                                            ? '${item.user?.nickname ?? '用户'} 申请入群'
+                                            : '群管理员邀请你入群',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Chip(
+                                  visualDensity: VisualDensity.compact,
+                                  label: Text(_status(item)),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${item.type == GroupJoinRequestResponseTypeEnum.APPLY ? '入群申请' : '入群邀请'} · ${_status(item)}',
-                            ),
-                            Text('对象：${item.user?.nickname ?? item.userId}'),
+                            const SizedBox(height: 12),
                             if (item.message?.isNotEmpty ?? false)
-                              Text(item.message!),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerLow,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(item.message!),
+                              ),
                             if (item.decisionNote?.isNotEmpty ?? false)
-                              Text('处理说明：${item.decisionNote}'),
-                            Text(
-                              '有效期至 ${item.expiresAt.toLocal().toString().substring(0, 16)}',
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text('处理说明：${item.decisionNote}'),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                pendingGroupJoin(item)
+                                    ? '请在 ${item.expiresAt.toLocal().toString().substring(0, 16)} 前处理'
+                                    : '创建于 ${item.createdAt.toLocal().toString().substring(0, 16)}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
                             ),
                             if (actions.isNotEmpty)
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  for (final action in actions)
-                                    TextButton(
-                                      onPressed: _busy || _moreLoading
-                                          ? null
-                                          : () => _decide(item, action),
-                                      child: Text(_actionLabel(item, action)),
-                                    ),
-                                ],
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    for (
+                                      var index = 0;
+                                      index < actions.length;
+                                      index++
+                                    ) ...[
+                                      if (index > 0) const SizedBox(width: 8),
+                                      if (actions[index] == 'approve')
+                                        FilledButton(
+                                          onPressed: _busy || _moreLoading
+                                              ? null
+                                              : () => _decide(
+                                                  item,
+                                                  actions[index],
+                                                ),
+                                          child: Text(
+                                            _actionLabel(item, actions[index]),
+                                          ),
+                                        )
+                                      else
+                                        OutlinedButton(
+                                          onPressed: _busy || _moreLoading
+                                              ? null
+                                              : () => _decide(
+                                                  item,
+                                                  actions[index],
+                                                ),
+                                          child: Text(
+                                            _actionLabel(item, actions[index]),
+                                          ),
+                                        ),
+                                    ],
+                                  ],
+                                ),
                               ),
                           ],
                         ),

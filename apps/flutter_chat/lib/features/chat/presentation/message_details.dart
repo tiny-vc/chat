@@ -6,18 +6,24 @@ class TransferProgressPanel extends StatelessWidget {
     required this.label,
     required this.progress,
     required this.onCancel,
+    this.error,
+    this.onRetry,
+    this.retryLabel = '重试',
   });
 
   final String label;
   final double progress;
   final VoidCallback? onCancel;
+  final String? error;
+  final VoidCallback? onRetry;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
     final normalized = progress.clamp(0.0, 1.0);
-    final status = progress > 0
-        ? '已上传 ${(normalized * 100).round()}%'
-        : '正在准备上传';
+    final status =
+        error ??
+        (progress > 0 ? '已上传 ${(normalized * 100).round()}%' : '正在准备上传');
     return Semantics(
       liveRegion: true,
       label: '$label，$status',
@@ -29,8 +35,12 @@ class TransferProgressPanel extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.cloud_upload_outlined,
-                color: Theme.of(context).colorScheme.primary,
+                error == null
+                    ? Icons.cloud_upload_outlined
+                    : Icons.error_outline,
+                color: error == null
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -44,14 +54,17 @@ class TransferProgressPanel extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     const SizedBox(height: 5),
-                    LinearProgressIndicator(
-                      value: progress > 0 ? normalized : null,
-                    ),
+                    if (error == null)
+                      LinearProgressIndicator(
+                        value: progress > 0 ? normalized : null,
+                      ),
                     const SizedBox(height: 3),
                     Text(status, style: Theme.of(context).textTheme.labelSmall),
                   ],
                 ),
               ),
+              if (error != null && onRetry != null)
+                TextButton(onPressed: onRetry, child: Text(retryLabel)),
               IconButton(
                 key: const ValueKey('cancel-upload'),
                 tooltip: '取消上传',

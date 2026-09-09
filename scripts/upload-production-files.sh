@@ -54,8 +54,12 @@ mkdir -p "$staging_dir/scripts" "$staging_dir/deploy/nginx" \
   "$staging_dir/deploy/livekit" "$staging_dir/deploy/certs"
 
 cp "$project_dir/docker-compose.production.yml" "$staging_dir/"
+cp "$project_dir/docker-compose.external-services.yml" "$staging_dir/"
 cp "$project_dir/.env.production.example" "$staging_dir/"
+cp "$project_dir/.env.external-services.example" "$staging_dir/"
 cp "$project_dir/deploy/nginx/nginx.production.example.conf" \
+  "$staging_dir/deploy/nginx/"
+cp "$project_dir/deploy/nginx/nginx.external-services.example.conf" \
   "$staging_dir/deploy/nginx/"
 cp "$project_dir/deploy/livekit/livekit.production.example.yaml" \
   "$staging_dir/deploy/livekit/"
@@ -65,6 +69,7 @@ for file in \
   setup-production-interactive.sh \
   renew-production-certificate.sh \
   bootstrap-admin-production.sh \
+  verify-wukong-media-webhook-production.sh \
   install-admin-assets-production.sh \
   verify-livekit-production.mjs \
   backup-postgres.sh \
@@ -83,10 +88,14 @@ ssh -p "$ssh_port" "$destination" \
   "mkdir -p '$remote_dir/scripts' '$remote_dir/deploy/nginx' '$remote_dir/deploy/livekit' '$remote_dir/deploy/certs'"
 scp -P "$ssh_port" \
   "$staging_dir/docker-compose.production.yml" \
+  "$staging_dir/docker-compose.external-services.yml" \
   "$staging_dir/.env.production.example" \
+  "$staging_dir/.env.external-services.example" \
   "$destination:$remote_dir/"
 scp -P "$ssh_port" "$staging_dir/scripts/"* "$destination:$remote_dir/scripts/"
 scp -P "$ssh_port" "$staging_dir/deploy/nginx/nginx.production.example.conf" \
+  "$destination:$remote_dir/deploy/nginx/"
+scp -P "$ssh_port" "$staging_dir/deploy/nginx/nginx.external-services.example.conf" \
   "$destination:$remote_dir/deploy/nginx/"
 scp -P "$ssh_port" "$staging_dir/deploy/livekit/livekit.production.example.yaml" \
   "$destination:$remote_dir/deploy/livekit/"

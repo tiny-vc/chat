@@ -83,6 +83,7 @@ export * from './sync-im-receipts-dto';
 export * from './transfer-owner-dto';
 export * from './update-conversation-setting-dto';
 export * from './update-group-dto';
+export * from './update-group-nickname-dto';
 export * from './update-profile-dto';
 export * from './update-runtime-settings-dto';
 export * from './user-response';

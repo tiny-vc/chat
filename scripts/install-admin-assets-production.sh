@@ -33,6 +33,17 @@ docker image inspect nginx:1.29-alpine >/dev/null 2>&1 || {
 }
 docker build --pull=false --tag "$admin_image" "$build_dir"
 
+healthcheck=$(docker image inspect \
+  --format '{{if .Config.Healthcheck}}{{json .Config.Healthcheck.Test}}{{end}}' \
+  "$admin_image")
+case "$healthcheck" in
+  *127.0.0.1/healthz*) ;;
+  *)
+    printf '%s\n' 'Built management image is missing the required /healthz healthcheck.' >&2
+    exit 1
+    ;;
+esac
+
 env_file="$project_dir/.env.production"
 [ -f "$env_file" ] || { printf '%s\n' 'Missing .env.production.' >&2; exit 1; }
 grep -q '^CHAT_ADMIN_IMAGE=' "$env_file" || {

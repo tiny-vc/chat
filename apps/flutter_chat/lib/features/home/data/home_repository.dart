@@ -5,16 +5,19 @@ class UserSummary {
     required this.id,
     required this.username,
     required this.nickname,
+    required this.avatarFileId,
   });
 
   final String id;
   final String username;
   final String nickname;
+  final String? avatarFileId;
 
   factory UserSummary.fromApi(UserResponse value) => UserSummary(
     id: value.id,
     username: value.username,
     nickname: value.nickname,
+    avatarFileId: value.avatarFileId,
   );
 }
 
@@ -156,7 +159,10 @@ class HomeRepository {
     if (response.data == null) throw const FormatException('服务器未确认好友申请处理结果。');
   }
 
-  Future<void> createGroup(String name, Iterable<String> memberIds) async {
+  Future<GroupResponse> createGroup(
+    String name,
+    Iterable<String> memberIds,
+  ) async {
     final response = await _api.getGroupsApi().groupsCreate(
       createGroupDto: CreateGroupDto(
         (builder) => builder
@@ -164,7 +170,7 @@ class HomeRepository {
           ..memberIds.addAll(memberIds),
       ),
     );
-    if (response.data == null) throw const FormatException('服务器未确认建群结果。');
+    return response.data ?? (throw const FormatException('服务器未确认建群结果。'));
   }
 
   Future<GroupResponse> getGroup(String groupId) async {
@@ -256,6 +262,29 @@ class HomeRepository {
     if (response.data == null) throw const FormatException('服务器未确认群名修改。');
   }
 
+  Future<void> updateGroupAnnouncement(
+    String groupId,
+    String announcement,
+  ) async {
+    final response = await _api.getGroupsApi().groupsUpdate(
+      groupId: groupId,
+      updateGroupDto: UpdateGroupDto(
+        (builder) => builder.announcement = announcement.trim(),
+      ),
+    );
+    if (response.data == null) throw const FormatException('服务器未确认群公告修改。');
+  }
+
+  Future<void> updateMyGroupNickname(String groupId, String nickname) async {
+    final response = await _api.getGroupsApi().groupsUpdateMyNickname(
+      groupId: groupId,
+      updateGroupNicknameDto: UpdateGroupNicknameDto(
+        (builder) => builder.nickname = nickname.trim(),
+      ),
+    );
+    if (response.data == null) throw const FormatException('服务器未确认群昵称修改。');
+  }
+
   Future<void> setGroupAdmin(String groupId, String userId, bool admin) async {
     await _api.getGroupsApi().groupsSetMemberRole(
       groupId: groupId,
@@ -336,16 +365,20 @@ class HomeRepository {
     if (response.data == null) throw const FormatException('服务器未确认昵称修改。');
   }
 
-  Future<void> setAvatar(String fileId) async {
+  Future<UserResponse> setAvatar(String fileId) async {
     final response = await _api.getUsersApi().usersSetAvatar(
       setAvatarDto: SetAvatarDto((builder) => builder.fileId = fileId),
     );
-    if (response.data == null) throw const FormatException('服务器未确认头像修改。');
+    final user = response.data;
+    if (user == null) throw const FormatException('服务器未确认头像修改。');
+    return user;
   }
 
-  Future<void> removeAvatar() async {
+  Future<UserResponse> removeAvatar() async {
     final response = await _api.getUsersApi().usersRemoveAvatar();
-    if (response.data == null) throw const FormatException('服务器未确认移除头像。');
+    final user = response.data;
+    if (user == null) throw const FormatException('服务器未确认移除头像。');
+    return user;
   }
 
   Future<void> changePassword(

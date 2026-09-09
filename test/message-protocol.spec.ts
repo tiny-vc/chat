@@ -49,6 +49,8 @@ describe("message protocol", () => {
       type: MessageType.AUDIO,
       fileId: randomUUID(),
       durationMs: 2000,
+      size: 4096,
+      mimeType: "audio/mp4",
     },
     {
       ...base(),
@@ -89,6 +91,21 @@ describe("message protocol", () => {
     expect(() =>
       service.validate({ ...base(), type: MessageType.TEXT, text: "" }),
     ).toThrow(BadRequestException);
+  });
+
+  it("accepts a video without a poster for codecs lacking frame extraction", () => {
+    expect(() =>
+      messageSchema.parse({
+        ...base(),
+        type: MessageType.VIDEO,
+        fileId: randomUUID(),
+        durationMs: 3000,
+        width: 1280,
+        height: 720,
+        name: "clip.mov",
+        size: 1024,
+      }),
+    ).not.toThrow();
   });
 
   it("drops unknown fields for forward-compatible additions", () => {

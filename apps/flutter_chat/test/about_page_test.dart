@@ -7,6 +7,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'widget_test.dart' show MemoryTokenStore;
 
 void main() {
+  testWidgets('about reads the installed version instead of a hard-coded one', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: AboutPage(versionLoader: () async => '2.4.1 (37)')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('蜘蛛侠 2.4.1 (37)'), findsOneWidget);
+  });
+
   testWidgets('about is accessible before login and returns to the form', (
     tester,
   ) async {
@@ -54,6 +65,8 @@ void main() {
         ),
       );
       await tester.scrollUntilVisible(find.text('复制反馈模板'), 300);
+      await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('复制反馈模板'));
       await tester.pumpAndSettle();
       expect(copied, AboutPage.feedbackTemplate);
@@ -65,7 +78,22 @@ void main() {
       expect(find.byType(LicensePage), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('发布前须知'), 150);
+      await tester.scrollUntilVisible(find.text('协议与政策'), 150);
+      await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('隐私政策'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PrivacyPolicyPage), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.textContaining('这不代表消息具备端到端加密'),
+        250,
+      );
+      expect(find.textContaining('这不代表消息具备端到端加密'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('用户协议'));
+      await tester.pumpAndSettle();
+      expect(find.byType(UserAgreementPage), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

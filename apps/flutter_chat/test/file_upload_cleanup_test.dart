@@ -87,6 +87,14 @@ class _ForwardAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  test('recognizes native iOS and common Android media formats', () {
+    expect(inferFileMimeType('HEIC', image: true), 'image/heic');
+    expect(inferFileMimeType('heif', image: true), 'image/heif');
+    expect(inferFileMimeType('mov', image: false), 'video/quicktime');
+    expect(inferFileMimeType('m4v', image: false), 'video/x-m4v');
+    expect(inferFileMimeType('webm', image: false), 'video/webm');
+  });
+
   test('failed object upload immediately deletes its pending record', () async {
     final apiDio = Dio(BaseOptions(baseUrl: 'https://chat.example/api/v1'));
     final apiAdapter = _ApiAdapter();

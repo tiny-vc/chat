@@ -133,6 +133,7 @@ Class | Method | HTTP request | Description
 *GroupsApi* | [**groupsSetMemberRole**](docs/GroupsApi.md#groupssetmemberrole) | **PATCH** /api/v1/groups/{groupId}/members/{memberId}/role | 
 *GroupsApi* | [**groupsTransferOwner**](docs/GroupsApi.md#groupstransferowner) | **POST** /api/v1/groups/{groupId}/transfer-owner | 
 *GroupsApi* | [**groupsUpdate**](docs/GroupsApi.md#groupsupdate) | **PATCH** /api/v1/groups/{groupId} | 
+*GroupsApi* | [**groupsUpdateMyNickname**](docs/GroupsApi.md#groupsupdatemynickname) | **PATCH** /api/v1/groups/{groupId}/members/me/nickname | 
 *HealthApi* | [**healthGetHealth**](docs/HealthApi.md#healthgethealth) | **GET** /api/v1/health | 
 *HealthApi* | [**healthGetReadiness**](docs/HealthApi.md#healthgetreadiness) | **GET** /api/v1/ready | 
 *ImSyncApi* | [**imSyncMarkRead**](docs/ImSyncApi.md#imsyncmarkread) | **POST** /api/v1/im/conversations/read | 
@@ -152,6 +153,7 @@ Class | Method | HTTP request | Description
 *UsersApi* | [**usersSetAvatar**](docs/UsersApi.md#userssetavatar) | **PUT** /api/v1/users/me/avatar | 
 *UsersApi* | [**usersUpdateMe**](docs/UsersApi.md#usersupdateme) | **PATCH** /api/v1/users/me | 
 *WukongWebhookApi* | [**wukongWebhookReceive**](docs/WukongWebhookApi.md#wukongwebhookreceive) | **POST** /api/v1/webhooks/wukongim | 
+*WukongWebhookApi* | [**wukongWebhookReceiveWithPathToken**](docs/WukongWebhookApi.md#wukongwebhookreceivewithpathtoken) | **POST** /api/v1/webhooks/wukongim/{token} | 
 
 
 ### Documentation For Models
@@ -241,6 +243,7 @@ Class | Method | HTTP request | Description
  - [TransferOwnerDto](docs/TransferOwnerDto.md)
  - [UpdateConversationSettingDto](docs/UpdateConversationSettingDto.md)
  - [UpdateGroupDto](docs/UpdateGroupDto.md)
+ - [UpdateGroupNicknameDto](docs/UpdateGroupNicknameDto.md)
  - [UpdateProfileDto](docs/UpdateProfileDto.md)
  - [UpdateRuntimeSettingsDto](docs/UpdateRuntimeSettingsDto.md)
  - [UserResponse](docs/UserResponse.md)

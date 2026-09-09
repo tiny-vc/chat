@@ -99,6 +99,7 @@ import 'package:chat_api_client/src/model/sync_im_receipts_dto.dart';
 import 'package:chat_api_client/src/model/transfer_owner_dto.dart';
 import 'package:chat_api_client/src/model/update_conversation_setting_dto.dart';
 import 'package:chat_api_client/src/model/update_group_dto.dart';
+import 'package:chat_api_client/src/model/update_group_nickname_dto.dart';
 import 'package:chat_api_client/src/model/update_profile_dto.dart';
 import 'package:chat_api_client/src/model/update_runtime_settings_dto.dart';
 import 'package:chat_api_client/src/model/user_response.dart';
@@ -191,6 +192,7 @@ part 'serializers.g.dart';
   TransferOwnerDto,
   UpdateConversationSettingDto,
   UpdateGroupDto,
+  UpdateGroupNicknameDto,
   UpdateProfileDto,
   UpdateRuntimeSettingsDto,
   UserResponse,

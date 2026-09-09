@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 
 // Isolated, retained fixtures: never replaces an existing user's avatar.
@@ -53,6 +54,7 @@ try {
     const bytes = png(color);
     const result = await request('/files/uploads', token, 'POST', {
       fileName: `avatar-${run}.png`, mimeType: 'image/png', size: bytes.length,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
       purpose: 'AVATAR', scope: 'PRIVATE',
     }, 201);
     const response = await fetch(result.uploadUrl, { method: 'PUT', headers: result.headers, body: bytes });

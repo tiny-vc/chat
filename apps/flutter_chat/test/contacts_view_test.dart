@@ -95,7 +95,8 @@ void main() {
     await mount(tester, groupWithoutMembers: true);
     expect(find.text('0 位成员'), findsNothing);
     expect(find.text('群聊'), findsOneWidget);
-    expect(find.text('1 位好友 · 1 个群聊'), findsOneWidget);
+    expect(find.text('群聊 · 1'), findsOneWidget);
+    expect(find.text('好友 · 1'), findsOneWidget);
   });
 
   testWidgets(

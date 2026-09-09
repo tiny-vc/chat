@@ -68,13 +68,25 @@ class _WKSocket {
 
   Future<void> send(Uint8List data) => _writer.send(data);
 
+  bool get isOpen => _socket != null;
+
   void listen(void Function(Uint8List data) onData, void Function() error) {
     if (!_isListening && _socket != null) {
+      var ended = false;
+      void handleEnd(Object? cause) {
+        if (ended) return;
+        ended = true;
+        _isListening = false;
+        _writer.close();
+        _socket = null;
+        if (cause != null) Logs.debug('socket断开了${cause.toString()}');
+        error();
+      }
+
       _socket!.listen(onData, onError: (err) {
-        Logs.debug('socket断开了${err.toString()}');
+        handleEnd(err);
       }, onDone: () {
-        // close(); // 关闭和重置 Socket 连接
-        // error();
+        handleEnd(null);
       });
       _isListening = true;
     }
@@ -418,14 +430,15 @@ class WKConnectionManager {
           所以 value.contains(ConnectivityResult.none) 在真机上的判断是可靠的，不会出现混合值误触发的情况。
           如果你是在模拟器上遇到反复触发"网络断开了"的问题，这通常是模拟器本身网络状态不稳定导致的，建议在真机上验证一下。
         */
-        if (value.contains(ConnectivityResult.none)) {
+        if (value.contains(ConnectivityResult.none) &&
+            _socket?.isOpen != true) {
           isReconnection = true;
           isNetworkUnavailable = true;
           Logs.debug('网络断开了');
           _checkSedingMsg();
           setConnectionStatus(WKConnectStatus.noNetwork);
           lastConnectivityResult = ConnectivityResult.none;
-        } else {
+        } else if (!value.contains(ConnectivityResult.none)) {
           isNetworkUnavailable = false;
           if (lastConnectivityResult != null &&
               !value.contains(lastConnectivityResult)) {

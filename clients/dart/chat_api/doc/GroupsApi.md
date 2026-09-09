@@ -31,6 +31,7 @@ Method | HTTP request | Description
 [**groupsSetMemberRole**](GroupsApi.md#groupssetmemberrole) | **PATCH** /api/v1/groups/{groupId}/members/{memberId}/role | 
 [**groupsTransferOwner**](GroupsApi.md#groupstransferowner) | **POST** /api/v1/groups/{groupId}/transfer-owner | 
 [**groupsUpdate**](GroupsApi.md#groupsupdate) | **PATCH** /api/v1/groups/{groupId} | 
+[**groupsUpdateMyNickname**](GroupsApi.md#groupsupdatemynickname) | **PATCH** /api/v1/groups/{groupId}/members/me/nickname | 
 
 
 # **groupsAddMembers**
@@ -943,6 +944,49 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**GroupResponse**](GroupResponse.md)
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **groupsUpdateMyNickname**
+> GroupMemberResponse groupsUpdateMyNickname(groupId, updateGroupNicknameDto)
+
+
+
+### Example
+```dart
+import 'package:chat_api_client/api.dart';
+
+final api = ChatApiClient().getGroupsApi();
+final String groupId = groupId_example; // String | 
+final UpdateGroupNicknameDto updateGroupNicknameDto = ; // UpdateGroupNicknameDto | 
+
+try {
+    final response = api.groupsUpdateMyNickname(groupId, updateGroupNicknameDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling GroupsApi->groupsUpdateMyNickname: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **groupId** | **String**|  | 
+ **updateGroupNicknameDto** | [**UpdateGroupNicknameDto**](UpdateGroupNicknameDto.md)|  | 
+
+### Return type
+
+[**GroupMemberResponse**](GroupMemberResponse.md)
 
 ### Authorization
 

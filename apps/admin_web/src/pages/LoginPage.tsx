@@ -7,6 +7,7 @@ import { LoginDtoDeviceTypeEnum } from "@chat/admin-api-client";
 import { useEffect, useState } from "react";
 import { describeAdminLoginFailure } from "../loginError";
 import { BrandMark } from "../components/BrandMark";
+import { adminAppName } from "../branding";
 
 export function LoginPage({
   onSuccess,
@@ -45,9 +46,9 @@ function LoginContent({
   return (
     <LoginFormPage
       logo={<BrandMark size={48} />}
-      title="Chat 管理平台"
+      title={adminAppName}
       subTitle="使用管理员账号登录"
-      backgroundImageUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Cdefs%3E%3ClinearGradient id='g' x2='1' y2='1'%3E%3Cstop stop-color='%23f4efff'/%3E%3Cstop offset='1' stop-color='%23e8def8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23g)'/%3E%3C/svg%3E"
+      backgroundImageUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Cdefs%3E%3ClinearGradient id='g' x2='1' y2='1'%3E%3Cstop stop-color='%23fff1f2'/%3E%3Cstop offset='1' stop-color='%23fce7e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23g)'/%3E%3C/svg%3E"
       submitter={{
         searchConfig: {
           submitText:

@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **String** |  | 
 **name** | **String** |  | 
+**announcement** | **String** |  | [optional] 
 **ownerId** | **String** |  | 
 **avatarFileId** | **String** |  | [optional] 
 **memberLimit** | **int** |  | 

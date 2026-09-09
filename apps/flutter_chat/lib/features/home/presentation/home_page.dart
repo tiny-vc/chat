@@ -13,6 +13,7 @@ import '../../../core/calls/call_coordinator.dart';
 import '../../../core/calls/call_recovery.dart';
 import '../../../core/im/chat_message_content.dart';
 import '../../calls/presentation/call_page.dart';
+import '../../calls/presentation/call_overlay.dart';
 import '../../calls/presentation/incoming_call_dialog.dart';
 import '../../calls/presentation/outgoing_call_launcher.dart';
 import '../data/home_repository.dart';
@@ -24,7 +25,7 @@ import '../../../core/widgets/im_connection_banner.dart';
 import '../../../core/permissions/permission_ui.dart';
 import 'contact_management_page.dart';
 import 'group_settings_page.dart';
-import 'group_join_page.dart';
+import 'notification_center_page.dart';
 import 'profile_page.dart';
 import 'friend_profile_page.dart';
 import '../../chat/presentation/chat_page.dart';
@@ -40,6 +41,10 @@ class HomePage extends StatefulWidget {
     required this.authRepository,
     required this.onLoggedOut,
     this.capabilities = ServerCapabilities.all,
+    this.serverAddress,
+    this.serverName,
+    this.themeMode = ThemeMode.system,
+    this.onThemeModeChanged,
   });
 
   final HomeController controller;
@@ -49,6 +54,10 @@ class HomePage extends StatefulWidget {
   final AuthRepository authRepository;
   final VoidCallback onLoggedOut;
   final ServerCapabilities capabilities;
+  final String? serverAddress;
+  final String? serverName;
+  final ThemeMode themeMode;
+  final Future<void> Function(ThemeMode)? onThemeModeChanged;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -56,6 +65,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _tab = 0;
+  final Set<int> _visitedTabs = {0};
   StreamSubscription<ChatCallSignalContent>? _callSignals;
   StreamSubscription<String>? _groupChanges;
 
@@ -65,7 +75,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_refresh);
     widget.imService.addListener(_refresh);
-    widget.controller.load();
+    widget.controller.loadIfStale();
     unawaited(widget.callService.flushTerminalReports());
     _callSignals = widget.imService.callSignals.listen(_handleCallSignal);
     _groupChanges = widget.imService.groupChanges.listen(
@@ -88,7 +98,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      widget.controller.load();
+      widget.controller.loadIfStale();
+      if (ImService.shouldReconnect(widget.imService.connectionState)) {
+        unawaited(widget.imService.reconnect());
+      }
       widget.imService.reconcileRemoteState();
       unawaited(widget.callService.flushTerminalReports());
     }
@@ -167,18 +180,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           );
           return;
         }
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CallPage(
-              callId: signal.callId,
-              title: caller,
-              video: effectiveVideo,
-              incoming: true,
-              callService: widget.callService,
-              imService: widget.imService,
-              callLease: lease,
-              alreadyAccepted: true,
-            ),
+        await presentCallOverlay(
+          context: context,
+          title: caller,
+          video: effectiveVideo,
+          builder: (minimize, close) => CallPage(
+            callId: signal.callId,
+            title: caller,
+            video: effectiveVideo,
+            incoming: true,
+            callService: widget.callService,
+            imService: widget.imService,
+            callLease: lease,
+            alreadyAccepted: true,
+            onMinimize: minimize,
+            onClosed: close,
           ),
         );
         final endedAction = coordinator.terminalAction(lease);
@@ -201,111 +217,206 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return '好友';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final titles = ['会话', '通讯录', '我的'];
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(titles[_tab]),
-        actions: _tab == 1
-            ? [
-                IconButton(
-                  tooltip: '添加好友',
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ContactManagementPage(
-                          controller: widget.controller,
-                        ),
-                      ),
-                    );
-                    await widget.controller.load();
-                  },
-                  icon: const Icon(Icons.person_add_outlined),
-                ),
-                if (widget.capabilities.groups)
-                  IconButton(
-                    tooltip: '创建群聊',
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            CreateGroupPage(controller: widget.controller),
-                      ),
-                    ),
-                    icon: const Icon(Icons.group_add_outlined),
-                  ),
-                if (widget.capabilities.groups)
-                  IconButton(
-                    tooltip: '刷新',
-                    onPressed: widget.controller.loading
-                        ? null
-                        : widget.controller.load,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                IconButton(
-                  tooltip: '入群申请与邀请',
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => GroupJoinPage(
-                          controller: widget.controller,
-                          actionable: true,
-                        ),
-                      ),
-                    );
-                    if (mounted) await widget.controller.refreshPendingJoins();
-                  },
-                  icon: Badge(
-                    isLabelVisible:
-                        widget.controller.pendingJoinError != null ||
-                        (widget.controller.pendingJoinCount ?? 0) > 0,
-                    label: Text(
-                      widget.controller.pendingJoinError != null
-                          ? '!'
-                          : (widget.controller.pendingJoinCount ?? 0) > 99
-                          ? '99+'
-                          : '${widget.controller.pendingJoinCount}',
-                    ),
-                    child: const Icon(Icons.mark_email_unread_outlined),
-                  ),
-                ),
-              ]
-            : null,
+  int get _notificationCount =>
+      (widget.controller.pendingFriendCount ?? 0) +
+      (widget.capabilities.groups
+          ? widget.controller.pendingJoinCount ?? 0
+          : 0);
+
+  bool get _notificationError =>
+      widget.controller.pendingFriendError != null ||
+      (widget.capabilities.groups &&
+          widget.controller.pendingJoinError != null);
+
+  Future<void> _openNotificationCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationCenterPage(
+          controller: widget.controller,
+          groupsEnabled: widget.capabilities.groups,
+          fileTransferService: widget.fileTransferService,
+        ),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        child: KeyedSubtree(key: ValueKey(_tab), child: _buildBody()),
+    );
+    if (!mounted) return;
+    await Future.wait([
+      widget.controller.refreshPendingFriends(),
+      if (widget.capabilities.groups) widget.controller.refreshPendingJoins(),
+    ]);
+  }
+
+  Widget _notificationButton() => IconButton(
+    tooltip: _notificationCount > 0 ? '通知中心，$_notificationCount 项待处理' : '通知中心',
+    onPressed: _openNotificationCenter,
+    icon: Badge(
+      isLabelVisible: _notificationError || _notificationCount > 0,
+      label: Text(
+        _notificationError
+            ? '!'
+            : _notificationCount > 99
+            ? '99+'
+            : '$_notificationCount',
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (index) {
-          setState(() => _tab = index);
-          if (index == 1) widget.controller.refreshPendingJoins();
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: '会话',
+      child: const Icon(Icons.notifications_outlined),
+    ),
+  );
+
+  Future<void> _openContactManagement() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ContactManagementPage(
+          controller: widget.controller,
+          fileTransferService: widget.fileTransferService,
+        ),
+      ),
+    );
+    await widget.controller.load();
+  }
+
+  Future<void> _createGroup() async {
+    final group = await Navigator.of(context).push<GroupResponse>(
+      MaterialPageRoute<GroupResponse>(
+        builder: (_) => CreateGroupPage(
+          controller: widget.controller,
+          fileTransferService: widget.fileTransferService,
+          allowAvatarUpload: widget.capabilities.files,
+        ),
+      ),
+    );
+    if (!mounted || group == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatPage(
+          channelId: group.id,
+          channelType: 2,
+          title: group.name,
+          imService: widget.imService,
+          fileTransferService: widget.fileTransferService,
+          forwardTargets: _forwardTargets(widget.controller.snapshot),
+          callService: widget.callService,
+          capabilities: widget.capabilities,
+          memberNames: _memberNamesFor(widget.controller.snapshot, group.id),
+          memberAvatarFileIds: _memberAvatarsFor(
+            widget.controller.snapshot,
+            group.id,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.contacts_outlined),
-            selectedIcon: Icon(Icons.contacts),
-            label: '通讯录',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildBody() {
+  List<Widget> _appBarActions() => [
+    if (_tab == 1) ...[
+      if (widget.capabilities.groups)
+        PopupMenuButton<String>(
+          tooltip: '新建',
+          icon: const Icon(Icons.add_circle_outline),
+          onSelected: (value) async {
+            if (value == 'friend') {
+              await _openContactManagement();
+            } else {
+              await _createGroup();
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+              value: 'friend',
+              child: ListTile(
+                leading: Icon(Icons.person_add_outlined),
+                title: Text('添加好友'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'group',
+              child: ListTile(
+                leading: Icon(Icons.group_add_outlined),
+                title: Text('创建群聊'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      if (!widget.capabilities.groups)
+        IconButton(
+          tooltip: '添加好友',
+          onPressed: _openContactManagement,
+          icon: const Icon(Icons.person_add_outlined),
+        ),
+      if (widget.capabilities.groups)
+        IconButton(
+          tooltip: '刷新',
+          onPressed: widget.controller.loading ? null : widget.controller.load,
+          icon: const Icon(Icons.refresh),
+        ),
+    ],
+    _notificationButton(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final titles = ['会话', '通讯录', '我的'];
+    return Scaffold(
+      appBar: AppBar(title: Text(titles[_tab]), actions: _appBarActions()),
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          for (var index = 0; index < titles.length; index++)
+            TickerMode(
+              enabled: _tab == index,
+              child: _visitedTabs.contains(index)
+                  ? KeyedSubtree(
+                      key: ValueKey('home-tab-$index'),
+                      child: _buildBody(index),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+        ],
+      ),
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.55),
+              width: 0.6,
+            ),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _tab,
+          onDestinationSelected: (index) {
+            if (index == _tab) return;
+            setState(() {
+              _tab = index;
+              _visitedTabs.add(index);
+            });
+            if (index == 1) widget.controller.loadIfStale();
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline_rounded),
+              selectedIcon: Icon(Icons.chat_bubble_rounded),
+              label: '会话',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline_rounded),
+              selectedIcon: Icon(Icons.people_rounded),
+              label: '通讯录',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: '我的',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(int tab) {
     if (widget.controller.loading && widget.controller.snapshot == null) {
       return const AppLoading();
     }
@@ -313,7 +424,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return _LoadError(onRetry: widget.controller.load);
     }
 
-    return switch (_tab) {
+    return switch (tab) {
       0 => ConversationsView(
         imService: widget.imService,
         fileTransferService: widget.fileTransferService,
@@ -341,6 +452,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           widget.onLoggedOut();
         },
         allowAvatarUpload: widget.capabilities.files,
+        serverAddress: widget.serverAddress,
+        serverName: widget.serverName,
+        themeMode: widget.themeMode,
+        onThemeModeChanged: widget.onThemeModeChanged,
       ),
     };
   }
@@ -518,16 +633,29 @@ class ConversationsView extends StatelessWidget {
                   direction: working
                       ? DismissDirection.none
                       : DismissDirection.endToStart,
-                  confirmDismiss: (_) => _confirmDelete(context, title),
-                  onDismissed: (_) =>
-                      _deleteConversation(context, conversation),
+                  onDismissed: (_) => _toggleArchive(
+                    context,
+                    conversation,
+                    archived: !setting.archived,
+                  ),
                   background: Container(
-                    color: Theme.of(context).colorScheme.errorContainer,
+                    color: Theme.of(context).colorScheme.secondaryContainer,
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 24),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          setting.archived
+                              ? Icons.unarchive_outlined
+                              : Icons.archive_outlined,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSecondaryContainer,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(setting.archived ? '恢复' : '归档'),
+                      ],
                     ),
                   ),
                   child: Material(
@@ -559,6 +687,7 @@ class ConversationsView extends StatelessWidget {
                                       .avatarFileId,
                             group: conversation.channelType == 2,
                             resolveUrl: fileTransferService.downloadUrl,
+                            resolveFile: fileTransferService.downloadAvatar,
                           ),
                           if (setting.pinned)
                             Positioned(
@@ -572,7 +701,12 @@ class ConversationsView extends StatelessWidget {
                             ),
                         ],
                       ),
-                      title: Text(title),
+                      title: Text(
+                        title,
+                        style: conversation.unreadCount > 0
+                            ? const TextStyle(fontWeight: FontWeight.w700)
+                            : null,
+                      ),
                       subtitle: _ConversationSubtitle(
                         conversation: conversation,
                       ),
@@ -629,6 +763,10 @@ class ConversationsView extends StatelessWidget {
                               snapshot,
                               conversation.channelID,
                             ),
+                            memberAvatarFileIds: _memberAvatarsFor(
+                              snapshot,
+                              conversation.channelID,
+                            ),
                           ),
                         ),
                       ),
@@ -669,46 +807,33 @@ class ConversationsView extends StatelessWidget {
     return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<bool> _confirmDelete(BuildContext context, String title) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('删除会话'),
-            content: Text('确定从会话列表删除“$title”吗？\n已同步的聊天记录不会被删除。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
-  Future<void> _deleteConversation(
+  Future<void> _toggleArchive(
     BuildContext context,
-    WKUIConversationMsg conversation,
-  ) async {
+    WKUIConversationMsg conversation, {
+    required bool archived,
+  }) async {
     try {
-      await imService.deleteConversation(
-        conversation.channelID,
-        conversation.channelType,
+      await imService.updateConversationSetting(
+        channelId: conversation.channelID,
+        channelType: conversation.channelType,
+        archived: archived,
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(
+        AppFeedback.show(
           context,
-        ).showSnackBar(const SnackBar(content: Text('会话已从列表移除')));
+          archived ? '会话已归档' : '会话已恢复',
+          kind: FeedbackKind.success,
+          actionLabel: '撤销',
+          onAction: () => imService.updateConversationSetting(
+            channelId: conversation.channelID,
+            channelType: conversation.channelType,
+            archived: !archived,
+          ),
+        );
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
+        AppFeedback.error(context, error, fallback: '会话归档失败，请重试');
       }
     }
   }
@@ -798,22 +923,12 @@ class ConversationsView extends StatelessWidget {
           muted: !setting.muted,
         );
       } else {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('删除会话'),
-            content: Text('确定从会话列表删除“$title”吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除'),
-              ),
-            ],
-          ),
+        final confirmed = await AppFeedback.confirm(
+          context,
+          title: '删除会话',
+          message: '确定从会话列表删除“$title”吗？聊天记录仍保留在服务器。',
+          confirmLabel: '删除',
+          destructive: true,
         );
         if (confirmed == true) {
           await imService.deleteConversation(
@@ -839,14 +954,18 @@ class ConversationsView extends StatelessWidget {
         if (friend.user.id == channelId) return friend.user.nickname;
       }
     }
-    return channelId;
+    final internalId = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    ).hasMatch(channelId);
+    if (!internalId) return channelId;
+    return channelType == 2 ? '已失效的群聊' : '未知联系人';
   }
 
   String _statusText(ImConnectionState state) => switch (state) {
     ImConnectionState.connecting => '正在连接消息服务器…',
     ImConnectionState.syncing => '正在同步新消息…',
     ImConnectionState.connected => '已连接，选择好友即可开始聊天',
-    ImConnectionState.noNetwork => '当前网络不可用',
+    ImConnectionState.noNetwork => '消息服务当前离线',
     ImConnectionState.kicked => '账号已在其他设备登录',
     ImConnectionState.disconnected => '消息服务器未连接',
   };
@@ -914,6 +1033,18 @@ class _ContactsState extends State<ContactsView> {
     super.dispose();
   }
 
+  Future<void> _openFriendManagement() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ContactManagementPage(
+          controller: widget.controller,
+          fileTransferService: widget.fileTransferService,
+        ),
+      ),
+    );
+    await widget.controller.load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -975,23 +1106,35 @@ class _ContactsState extends State<ContactsView> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.only(bottom: 24),
             children: [
+              if (query.isEmpty)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  leading: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SizedBox.square(
+                      dimension: 48,
+                      child: Icon(
+                        Icons.person_add_alt_1_outlined,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  title: const Text('新的好友'),
+                  subtitle: const Text('添加好友、查看和处理申请'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openFriendManagement,
+                ),
+              if (query.isEmpty) const Divider(height: 1, indent: 80),
               if (friends.isEmpty && groups.isEmpty)
                 AppStatus(
                   icon: query.isEmpty ? Icons.people_outline : Icons.search_off,
                   title: query.isEmpty ? '通讯录还是空的' : '没有找到联系人',
                   message: query.isEmpty
-                      ? '点击右上角添加好友或创建群聊'
+                      ? '点击上方入口搜索好友，或使用右上角创建群聊'
                       : '请在上方修改名称或用户名继续搜索',
-                ),
-              if (query.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                  child: Text(
-                    '${allFriends.length} 位好友 · ${allGroups.length} 个群聊',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                 ),
               if (groups.isNotEmpty) ...[
                 _SectionTitle('群聊 · ${groups.length}'),
@@ -1002,6 +1145,7 @@ class _ContactsState extends State<ContactsView> {
                       fileId: group.avatarFileId,
                       group: true,
                       resolveUrl: fileTransferService.downloadUrl,
+                      resolveFile: fileTransferService.downloadAvatar,
                     ),
                     title: Text(group.name),
                     subtitle: Text(
@@ -1019,6 +1163,7 @@ class _ContactsState extends State<ContactsView> {
                               groupId: group.id,
                               controller: controller,
                               fileTransferService: fileTransferService,
+                              imService: imService,
                               allowAvatarUpload: capabilities.files,
                             ),
                           ),
@@ -1042,7 +1187,15 @@ class _ContactsState extends State<ContactsView> {
                                 in group.members ??
                                     const <GroupMemberResponse>[])
                               member.userId:
-                                  member.user?.nickname ?? member.userId,
+                                  member.nickname ??
+                                  member.user?.nickname ??
+                                  member.userId,
+                          },
+                          memberAvatarFileIds: {
+                            for (final member
+                                in group.members ??
+                                    const <GroupMemberResponse>[])
+                              member.userId: member.user?.avatarFileId,
                           },
                         ),
                       ),
@@ -1057,6 +1210,7 @@ class _ContactsState extends State<ContactsView> {
                       name: friend.user.nickname,
                       fileId: friend.user.avatarFileId,
                       resolveUrl: fileTransferService.downloadUrl,
+                      resolveFile: fileTransferService.downloadAvatar,
                     ),
                     title: Text(friend.user.nickname),
                     subtitle: Text('@${friend.user.username}'),
@@ -1121,7 +1275,20 @@ Map<String, String> _memberNamesFor(HomeSnapshot? snapshot, String groupId) {
     if (group.id != groupId) continue;
     return {
       for (final member in group.members ?? const <GroupMemberResponse>[])
-        member.userId: member.user?.nickname ?? member.userId,
+        member.userId:
+            member.nickname ?? member.user?.nickname ?? member.userId,
+    };
+  }
+  return const {};
+}
+
+Map<String, String?> _memberAvatarsFor(HomeSnapshot? snapshot, String groupId) {
+  if (snapshot == null) return const {};
+  for (final group in snapshot.groups) {
+    if (group.id != groupId) continue;
+    return {
+      for (final member in group.members ?? const <GroupMemberResponse>[])
+        member.userId: member.user?.avatarFileId,
     };
   }
   return const {};

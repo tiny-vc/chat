@@ -37,6 +37,7 @@ const environmentSchema = z
       .enum(["development", "test", "production"])
       .default("development"),
     PORT: z.coerce.number().int().positive().default(3000),
+    INSTANCE_ROLE: z.enum(["api", "worker", "all"]).default("all"),
     SERVER_NAME: z.string().trim().min(1).max(80).default("Chat"),
     DATABASE_URL: z.string().min(1),
     JWT_ACCESS_SECRET: z.string().min(32),
@@ -58,6 +59,12 @@ const environmentSchema = z
       .max(1440)
       .default(60),
     PENDING_UPLOAD_TTL_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(168)
+      .default(24),
+    UNREFERENCED_FILE_TTL_HOURS: z.coerce
       .number()
       .int()
       .min(1)

@@ -97,6 +97,15 @@ Future<bool?> prepareCallPermissions(
       rationale: '进入后台后，通过常驻通知保持通话并让你快速返回。',
       service: service,
     );
+    if (context.mounted) {
+      await ensureAppPermission(
+        context,
+        AppPermission.bluetoothConnect,
+        title: '允许连接蓝牙设备',
+        rationale: '用于在通话中使用蓝牙耳机。拒绝后仍可使用听筒或扬声器。',
+        service: service,
+      );
+    }
   }
   return effectiveVideo;
 }

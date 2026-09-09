@@ -47,6 +47,8 @@ const AdminFileResponseStatusEnum _$adminFileResponseStatusEnum_READY =
     const AdminFileResponseStatusEnum._('READY');
 const AdminFileResponseStatusEnum _$adminFileResponseStatusEnum_REJECTED =
     const AdminFileResponseStatusEnum._('REJECTED');
+const AdminFileResponseStatusEnum _$adminFileResponseStatusEnum_DELETE_PENDING =
+    const AdminFileResponseStatusEnum._('DELETE_PENDING');
 const AdminFileResponseStatusEnum _$adminFileResponseStatusEnum_DELETED =
     const AdminFileResponseStatusEnum._('DELETED');
 const AdminFileResponseStatusEnum
@@ -63,6 +65,8 @@ AdminFileResponseStatusEnum _$adminFileResponseStatusEnumValueOf(String name) {
       return _$adminFileResponseStatusEnum_READY;
     case 'REJECTED':
       return _$adminFileResponseStatusEnum_REJECTED;
+    case 'DELETE_PENDING':
+      return _$adminFileResponseStatusEnum_DELETE_PENDING;
     case 'DELETED':
       return _$adminFileResponseStatusEnum_DELETED;
     case 'unknownDefaultOpenApi':
@@ -79,6 +83,7 @@ final BuiltSet<AdminFileResponseStatusEnum>
   _$adminFileResponseStatusEnum_UPLOADED,
   _$adminFileResponseStatusEnum_READY,
   _$adminFileResponseStatusEnum_REJECTED,
+  _$adminFileResponseStatusEnum_DELETE_PENDING,
   _$adminFileResponseStatusEnum_DELETED,
   _$adminFileResponseStatusEnum_unknownDefaultOpenApi,
 ]);
@@ -129,6 +134,7 @@ class _$AdminFileResponseStatusEnumSerializer
     'UPLOADED': 'UPLOADED',
     'READY': 'READY',
     'REJECTED': 'REJECTED',
+    'DELETE_PENDING': 'DELETE_PENDING',
     'DELETED': 'DELETED',
     'unknownDefaultOpenApi': 'unknown_default_open_api',
   };
@@ -137,6 +143,7 @@ class _$AdminFileResponseStatusEnumSerializer
     'UPLOADED': 'UPLOADED',
     'READY': 'READY',
     'REJECTED': 'REJECTED',
+    'DELETE_PENDING': 'DELETE_PENDING',
     'DELETED': 'DELETED',
     'unknown_default_open_api': 'unknownDefaultOpenApi',
   };

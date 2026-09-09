@@ -22,6 +22,10 @@ trap restore_gateway EXIT HUP INT TERM
 
 cd "$project_dir"
 [ -f "$env_file" ] || fail '.env.production is missing.'
+if grep -q '^DEPLOYMENT_MODE=external$' "$env_file"; then
+  compose_file="$project_dir/docker-compose.external-services.yml"
+fi
+[ -f "$compose_file" ] || fail 'The selected production Compose file is missing.'
 [ -f deploy/certs/fullchain.pem ] || fail 'Installed certificate is missing.'
 [ -d deploy/letsencrypt/renewal ] || fail 'No Certbot renewal configuration was found.'
 case "$renew_before_seconds" in *[!0-9]*|'') fail 'RENEW_BEFORE_SECONDS must be numeric.' ;; esac

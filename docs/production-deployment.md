@@ -1,18 +1,28 @@
-# 单机生产部署
+# 生产部署
 
-本文档适用于第一阶段的小规模部署：一台 Linux 服务器运行 API、管理平台、
-PostgreSQL、WuKongIM、LiveKit、MinIO 和 Nginx。它不是多节点高可用方案。
+第一阶段支持两种明确分离的部署模式：
+
+- `standalone`：一台 Linux 服务器运行 API、管理平台、PostgreSQL、WuKongIM、
+  LiveKit、MinIO 和 Nginx，使用 `docker-compose.production.yml`；
+- `external`：应用服务器只运行 gateway、API、worker、migrate 和管理平台，
+  PostgreSQL、WuKongIM、LiveKit 和 S3/MinIO 使用远程或托管服务，使用
+  `docker-compose.external-services.yml`。
+
+外部模式中的 API 固定为 `INSTANCE_ROLE=api`，worker 固定为
+`INSTANCE_ROLE=worker`。两者使用同一个 API 镜像和环境配置，只有 API 对 gateway
+提供服务。现有单机部署无需修改命令，未设置 `DEPLOYMENT_MODE` 时仍默认为
+`standalone`。
 
 ## 1. 域名和网络
 
 只需购买一个根域名，并添加四条 DNS 记录；它们可以全部解析到同一公网 IP：
 
-| DNS 记录 | 用途 |
-| --- | --- |
+| DNS 记录           | 用途                         |
+| ------------------ | ---------------------------- |
 | `chat.example.com` | App 业务 API、管理平台和文件 |
-| `im.example.com` | WuKongIM WSS |
-| `rtc.example.com` | LiveKit WSS 信令 |
-| `turn.example.com` | LiveKit TURN |
+| `im.example.com`   | WuKongIM WSS                 |
+| `rtc.example.com`  | LiveKit WSS 信令             |
+| `turn.example.com` | LiveKit TURN                 |
 
 App 用户只填写 `https://chat.example.com`。IM、RTC 和文件地址由业务 API 返回。
 
@@ -57,6 +67,7 @@ API 与数据库迁移使用独立镜像：`chat-api` 只包含编译后的业�
 
 ```text
 docker-compose.production.yml
+docker-compose.external-services.yml
 scripts/deploy-production.sh
 scripts/setup-production-interactive.sh
 scripts/renew-production-certificate.sh
@@ -69,8 +80,10 @@ scripts/verify-minio-backup.sh
 scripts/backup-wukongim.sh
 scripts/verify-wukongim-backup.sh
 deploy/nginx/nginx.production.example.conf
+deploy/nginx/nginx.external-services.example.conf
 deploy/livekit/livekit.production.example.yaml
 .env.production.example
+.env.external-services.example
 ```
 
 推荐在开发机仓库根目录运行上传脚本。它只上传上述部署文件和配置模板，不上传
@@ -168,6 +181,38 @@ cp deploy/livekit/livekit.production.example.yaml deploy/livekit/livekit.product
 chmod 600 .env.production deploy/livekit/livekit.production.yaml
 ```
 
+### 外部基础服务模式
+
+应用服务器执行：
+
+```sh
+cp .env.external-services.example .env.production
+cp deploy/nginx/nginx.external-services.example.conf deploy/nginx/nginx.production.conf
+chmod 600 .env.production
+```
+
+编辑 `.env.production`，配置可由容器访问的 `DATABASE_URL`、
+`WUKONGIM_API_URL`、`LIVEKIT_HTTP_URL` 和 `S3_ENDPOINT`，以及 App 使用的
+`WUKONGIM_WS_URL`、`LIVEKIT_URL`、`S3_PUBLIC_ENDPOINT`。私网地址不需要公网
+DNS，但必须允许应用服务器访问；公网地址必须使用可信 TLS。
+
+外部 PostgreSQL 必须已经创建数据库和账号，外部 bucket 也必须已经创建；应用
+不会尝试创建远程基础设施。WuKongIM 的 `msg.notify` webhook 应设置为
+`https://chat.example.com/api/v1/webhooks/wukongim/<WUKONGIM_WEBHOOK_SECRET>`，
+LiveKit webhook 设置为 `https://chat.example.com/api/v1/webhooks/livekit`，并保证
+双方密钥一致。外部服务分别维护自己的证书、端口、防火墙、备份和高可用。
+
+检查和部署命令与单机一致；脚本根据 `DEPLOYMENT_MODE=external` 自动选择编排：
+
+```sh
+sh scripts/deploy-production.sh --check-only
+sh scripts/deploy-production.sh --skip-pull
+```
+
+也可以显式传入 `--mode external`，用于检查某份尚未写入部署模式的环境文件。
+交互式 `setup-production-interactive.sh` 仍专用于一体化单机安装，外部模式使用上述
+模板显式配置，避免脚本替你生成与远程服务不一致的密钥。
+
 将所有 `example.com`、`replace-with-*` 替换为真实值。强密钥可使用：
 
 ```sh
@@ -260,6 +305,18 @@ curl --fail https://chat.example.com/api/v1/ready
 docker compose --env-file .env.production -f docker-compose.production.yml logs --tail=200 api
 ```
 
+首次启动或升级 WuKongIM / API 后，建议额外运行一次真实媒体回调检查：
+
+```sh
+sh scripts/verify-wukong-media-webhook-production.sh
+```
+
+脚本会临时创建两个测试用户和一条媒体记录，通过 WuKongIM 正式
+`/message/send` 接口发送一条 60 秒后过期的隔离文件消息，再等待 `msg.notify` 回调把该文件
+标记为已引用。成功时输出 `"messageNotifyDelivered":true` 和
+`"mediaReferenceRecorded":true`，测试数据随后自动清理。该检查不会上传真实文件，
+但必须使用包含 `dist/cli/verify-wukong-media-webhook.js` 的新版 API 镜像。
+
 首次部署不需要开放注册或先创建普通账号。系统尚无管理员时，在受信任的服务器
 终端运行一次初始化脚本：
 
@@ -301,7 +358,26 @@ sh scripts/deploy-production.sh
 只把备份留在同一台服务器不构成备份；应复制到独立磁盘或对象存储，并定期执行
 仓库提供的验证命令和人工恢复演练。
 
-## 7. 发布验收
+## 7. 从单节点扩展
+
+当前单节点把 `INSTANCE_ROLE` 设为 `all`。扩展业务 API 时，将对外实例设为
+`api`，至少部署一个不接收公网请求的实例并设为 `worker`；两类实例使用同一
+PostgreSQL、S3/MinIO、WuKongIM 和 LiveKit 配置。API 实例不会启动清理、IM
+策略巡检或通话超时定时器，worker 间另由 PostgreSQL advisory lock 防止任务
+重叠执行，因此无需使用负载均衡器的会话粘滞。
+
+上传和下载始终使用短期签名 URL 直连对象存储。上传携带 S3 原生 SHA-256
+checksum，由对象存储校验实际内容；App 下载后再次校验摘要。文件删除先持久化为
+`DELETE_PENDING`，对象存储暂时不可用时由维护任务幂等重试，不会出现数据库显示
+已删除但对象永久遗留的静默失败。
+
+真正多节点时，PostgreSQL 和 MinIO 应替换为托管或高可用集群，并让所有实例使用
+同一外部地址；LiveKit、WuKongIM 的信令/媒体/IM 集群按各自部署方式扩容。业务
+接口只依赖它们的公开 API 和共享标识，不需要改写聊天、文件或通话业务模型。
+本仓库的 Compose 仍定位为单机编排，不应跨服务器复制 Compose 后各自创建一套
+独立数据库或对象存储。
+
+## 8. 发布验收
 
 上线前至少完成：
 

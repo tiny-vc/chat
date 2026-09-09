@@ -16,6 +16,7 @@
 
 export interface UpdateGroupDto {
     'name'?: string;
+    'announcement'?: string;
     'muteAll'?: boolean;
 }
 

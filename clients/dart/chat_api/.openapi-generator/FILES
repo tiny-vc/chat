@@ -99,6 +99,7 @@ doc/SyncImReceiptsDto.md
 doc/TransferOwnerDto.md
 doc/UpdateConversationSettingDto.md
 doc/UpdateGroupDto.md
+doc/UpdateGroupNicknameDto.md
 doc/UpdateProfileDto.md
 doc/UpdateRuntimeSettingsDto.md
 doc/UserResponse.md
@@ -214,6 +215,7 @@ lib/src/model/sync_im_receipts_dto.dart
 lib/src/model/transfer_owner_dto.dart
 lib/src/model/update_conversation_setting_dto.dart
 lib/src/model/update_group_dto.dart
+lib/src/model/update_group_nickname_dto.dart
 lib/src/model/update_profile_dto.dart
 lib/src/model/update_runtime_settings_dto.dart
 lib/src/model/user_response.dart

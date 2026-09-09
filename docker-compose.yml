@@ -41,6 +41,7 @@ services:
       target: runtime
     environment:
       NODE_ENV: development
+      INSTANCE_ROLE: all
       SERVER_NAME: ${SERVER_NAME:-Chat}
       PORT: "3000"
       DATABASE_URL: postgresql://chat:chat@postgres:5432/chat?schema=public
@@ -53,6 +54,7 @@ services:
       JOBS_ENABLED: "true"
       CLEANUP_INTERVAL_MINUTES: "60"
       PENDING_UPLOAD_TTL_HOURS: "24"
+      UNREFERENCED_FILE_TTL_HOURS: "24"
       SESSION_RETENTION_DAYS: "30"
       LOGIN_THROTTLE_RETENTION_DAYS: "7"
       SLOW_REQUEST_MS: "1000"
@@ -133,6 +135,8 @@ services:
       WK_MODE: release
       WK_CLUSTER_NODEID: "1001"
       WK_TOKENAUTHON: "true"
+      WK_WEBHOOK_HTTPADDR: http://api:3000/api/v1/webhooks/wukongim/local-webhook-secret-12345
+      WK_WEBHOOK_MSGNOTIFYEVENTPUSHINTERVAL: 500ms
     ports:
       - "5001:5001"
       - "5100:5100"

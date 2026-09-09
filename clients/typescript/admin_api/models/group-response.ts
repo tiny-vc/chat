@@ -20,6 +20,7 @@ import type { GroupMemberResponse } from './group-member-response';
 export interface GroupResponse {
     'id': string;
     'name': string;
+    'announcement'?: string | null;
     'ownerId': string;
     'avatarFileId'?: string | null;
     'memberLimit': number;

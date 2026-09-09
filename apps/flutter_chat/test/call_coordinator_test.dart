@@ -2,6 +2,20 @@ import 'package:flutter_chat/core/calls/call_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('global hangup request is delivered only while handler is attached', () {
+    final coordinator = CallCoordinator();
+    var requests = 0;
+    void handler() => requests++;
+
+    coordinator.attachHangupHandler(handler);
+    coordinator.requestHangup();
+    expect(requests, 1);
+
+    coordinator.detachHangupHandler(handler);
+    coordinator.requestHangup();
+    expect(requests, 1);
+  });
+
   test('serializes outgoing and incoming call flows', () {
     final coordinator = CallCoordinator();
     final outgoing = coordinator.reserveOutgoing(video: true)!;

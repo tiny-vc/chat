@@ -15,6 +15,7 @@ part 'group_response.g.dart';
 /// Properties:
 /// * [id] 
 /// * [name] 
+/// * [announcement] 
 /// * [ownerId] 
 /// * [avatarFileId] 
 /// * [memberLimit] 
@@ -30,6 +31,9 @@ abstract class GroupResponse implements Built<GroupResponse, GroupResponseBuilde
 
   @BuiltValueField(wireName: r'name')
   String get name;
+
+  @BuiltValueField(wireName: r'announcement')
+  String? get announcement;
 
   @BuiltValueField(wireName: r'ownerId')
   String get ownerId;
@@ -89,6 +93,13 @@ class _$GroupResponseSerializer implements PrimitiveSerializer<GroupResponse> {
       object.name,
       specifiedType: const FullType(String),
     );
+    if (object.announcement != null) {
+      yield r'announcement';
+      yield serializers.serialize(
+        object.announcement,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
     yield r'ownerId';
     yield serializers.serialize(
       object.ownerId,
@@ -173,6 +184,14 @@ class _$GroupResponseSerializer implements PrimitiveSerializer<GroupResponse> {
             specifiedType: const FullType(String),
           ) as String;
           result.name = valueDes;
+          break;
+        case r'announcement':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.announcement = valueDes;
           break;
         case r'ownerId':
           final valueDes = serializers.deserialize(

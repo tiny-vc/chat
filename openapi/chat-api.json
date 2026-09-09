@@ -4390,6 +4390,91 @@
         ]
       }
     },
+    "/api/v1/groups/{groupId}/members/me/nickname": {
+      "patch": {
+        "operationId": "Groups_updateMyNickname",
+        "parameters": [
+          {
+            "name": "groupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupNicknameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Groups"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
     "/api/v1/groups/{groupId}/members/{memberId}/role": {
       "patch": {
         "operationId": "Groups_setMemberRole",
@@ -4982,6 +5067,12 @@
         "operationId": "WukongWebhook_receive",
         "parameters": [
           {
+            "name": "event",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
             "name": "token",
             "required": false,
             "in": "query",
@@ -4989,8 +5080,11 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": ""
+          },
           "201": {
-            "description": "",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
@@ -5042,6 +5136,90 @@
         },
         "tags": [
           "WukongWebhook"
+        ]
+      }
+    },
+    "/api/v1/webhooks/wukongim/{token}": {
+      "post": {
+        "operationId": "WukongWebhook_receiveWithPathToken",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenericObjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "WukongWebhook"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
         ]
       }
     },
@@ -6490,12 +6668,12 @@
                 "REJECTED",
                 "FAILED",
                 "ACCEPTED",
-                "INVITING",
-                "RINGING",
-                "CONNECTED",
                 "CANCELLED",
                 "MISSED",
-                "ENDED"
+                "ENDED",
+                "INVITING",
+                "RINGING",
+                "CONNECTED"
               ]
             }
           },
@@ -6623,6 +6801,7 @@
                 "UPLOADED",
                 "READY",
                 "REJECTED",
+                "DELETE_PENDING",
                 "DELETED"
               ]
             }
@@ -8102,6 +8281,10 @@
             "minimum": 1,
             "maximum": 104857600
           },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
           "purpose": {
             "type": "string",
             "enum": [
@@ -8129,6 +8312,7 @@
           "fileName",
           "mimeType",
           "size",
+          "sha256",
           "purpose",
           "scope"
         ]
@@ -8421,6 +8605,10 @@
             "minLength": 1,
             "maxLength": 120
           },
+          "announcement": {
+            "type": "string",
+            "maxLength": 1000
+          },
           "muteAll": {
             "type": "boolean"
           }
@@ -8442,6 +8630,18 @@
         },
         "required": [
           "userIds"
+        ]
+      },
+      "UpdateGroupNicknameDto": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "nickname"
         ]
       },
       "SetMemberRoleDto": {
@@ -9751,6 +9951,7 @@
           },
           "sha256": {
             "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
             "nullable": true
           },
           "purpose": {
@@ -9776,6 +9977,7 @@
               "UPLOADED",
               "READY",
               "REJECTED",
+              "DELETE_PENDING",
               "DELETED"
             ]
           },
@@ -10097,6 +10299,11 @@
             "type": "string",
             "pattern": "^[0-9]+$"
           },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "nullable": true
+          },
           "purpose": {
             "type": "string"
           },
@@ -10125,6 +10332,7 @@
               "UPLOADED",
               "READY",
               "REJECTED",
+              "DELETE_PENDING",
               "DELETED"
             ]
           },
@@ -10248,6 +10456,10 @@
               "REMOVED"
             ]
           },
+          "nickname": {
+            "type": "string",
+            "nullable": true
+          },
           "mutedUntil": {
             "type": "string",
             "format": "date-time",
@@ -10279,6 +10491,10 @@
           },
           "name": {
             "type": "string"
+          },
+          "announcement": {
+            "type": "string",
+            "nullable": true
           },
           "ownerId": {
             "type": "string",

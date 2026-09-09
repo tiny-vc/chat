@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **fileName** | **String** |  | 
 **mimeType** | **String** |  | 
 **size** | **num** |  | 
+**sha256** | **String** |  | 
 **purpose** | **String** |  | 
 **scope** | **String** |  | 
 **scopeId** | **String** |  | [optional] 

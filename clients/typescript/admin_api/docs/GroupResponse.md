@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **string** |  | [default to undefined]
 **name** | **string** |  | [default to undefined]
+**announcement** | **string** |  | [optional] [default to undefined]
 **ownerId** | **string** |  | [default to undefined]
 **avatarFileId** | **string** |  | [optional] [default to undefined]
 **memberLimit** | **number** |  | [default to undefined]
@@ -24,6 +25,7 @@ import { GroupResponse } from '@chat/admin-api-client';
 const instance: GroupResponse = {
     id,
     name,
+    announcement,
     ownerId,
     avatarFileId,
     memberLimit,

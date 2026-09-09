@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const baseUrl = process.env.SMOKE_API_URL ?? 'http://localhost:3000/api/v1';
 
 async function request(path, { method = 'GET', token, body, status = 200 } = {}) {
@@ -48,6 +50,7 @@ const upload = await request('/files/uploads', {
   method: 'POST', status: 201, token: alice.accessToken,
   body: {
     fileName: 'group-avatar.png', mimeType: 'image/png', size: bytes.length,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
     purpose: 'AVATAR', scope: 'PRIVATE',
   },
 });

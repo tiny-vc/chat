@@ -90,4 +90,31 @@ void main() {
     expect(find.byIcon(Icons.group_outlined), findsOneWidget);
     expect(tester.getSize(find.byType(AppAvatar)), const Size(48, 48));
   });
+
+  testWidgets('network avatar decodes near its rendered pixel size', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 3),
+          child: AppAvatar(
+            name: '小明',
+            fileId: 'avatar',
+            size: 40,
+            resolveUrl: (_) async => const ResolvedUrl(
+              'https://invalid.example/avatar.jpg',
+              headers: {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final image = tester.widget<Image>(find.byType(Image));
+    final provider = image.image as ResizeImage;
+    expect(provider.width, 120);
+    expect(provider.height, 120);
+  });
 }

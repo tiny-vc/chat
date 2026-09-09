@@ -1,6 +1,6 @@
 import 'package:permission_handler/permission_handler.dart' as handler;
 
-enum AppPermission { microphone, camera, notifications }
+enum AppPermission { microphone, camera, notifications, bluetoothConnect }
 
 enum AppPermissionStatus { granted, denied, permanentlyDenied, restricted }
 
@@ -18,6 +18,7 @@ class DevicePermissionGateway implements AppPermissionGateway {
         AppPermission.microphone => handler.Permission.microphone,
         AppPermission.camera => handler.Permission.camera,
         AppPermission.notifications => handler.Permission.notification,
+        AppPermission.bluetoothConnect => handler.Permission.bluetoothConnect,
       };
 
   AppPermissionStatus _status(handler.PermissionStatus status) {

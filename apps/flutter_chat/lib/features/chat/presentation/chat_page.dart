@@ -23,21 +23,26 @@ import '../../../core/im/im_service.dart';
 import '../../../core/permissions/permission_ui.dart';
 import '../../../core/im/conversation_draft_store.dart';
 import '../../../core/files/file_transfer_service.dart';
+import '../../../core/files/download_scheduler.dart';
 import '../../../core/files/file_open_service.dart';
 import '../../../core/files/file_size.dart';
 import '../../../core/files/image_send_preparation.dart';
+import '../../../core/files/video_thumbnail_service.dart';
+import '../../../core/files/video_send_preparation.dart';
 import '../../../core/calls/call_service.dart';
 import '../../../core/permissions/app_permission_service.dart';
 import '../../../core/im/chat_message_content.dart';
 import '../../calls/presentation/outgoing_call_launcher.dart';
 import '../../../core/widgets/app_feedback.dart';
+import '../../../core/widgets/app_avatar.dart';
 import '../../../core/widgets/im_connection_banner.dart';
 import '../../../core/im/recording_session.dart';
 import '../../../core/im/message_pagination.dart';
 import '../../../core/text/utf16_length_formatter.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/widgets/message_text.dart';
-import 'composer_action_button.dart';
 import 'message_renderer_registry.dart';
+import 'media_send_queue.dart';
 import '../../../config/server_settings.dart';
 
 class ForwardTarget {
@@ -63,6 +68,7 @@ class ChatPage extends StatefulWidget {
     required this.forwardTargets,
     required this.callService,
     this.memberNames = const {},
+    this.memberAvatarFileIds = const {},
     this.capabilities = ServerCapabilities.all,
   });
 
@@ -74,13 +80,14 @@ class ChatPage extends StatefulWidget {
   final List<ForwardTarget> forwardTargets;
   final CallService callService;
   final Map<String, String> memberNames;
+  final Map<String, String?> memberAvatarFileIds;
   final ServerCapabilities capabilities;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   ServerCapabilities get _capabilities =>
       ServerCapabilitiesScope.maybeOf(context) ?? widget.capabilities;
   static const _listenerKey = 'flutter-chat-page';
@@ -162,6 +169,7 @@ class _ChatPageState extends State<ChatPage> {
   final _receipts = <String, MessageReceipt>{};
   final _recorder = AudioRecorder();
   late final RecordingSession _recordingSession;
+  late final MediaSendQueue _mediaQueue;
   bool _voiceBusy = false;
   bool _uploading = false;
   double _uploadProgress = 0;
@@ -172,6 +180,7 @@ class _ChatPageState extends State<ChatPage> {
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
   bool _showEmojiPanel = false;
+  bool _voiceMode = false;
   WKMsg? _replyingTo;
   String? _highlightedClientMsgNo;
   Timer? _highlightTimer;
@@ -190,6 +199,8 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _mediaQueue = MediaSendQueue()..addListener(_refreshMediaTasks);
     _recordingSession = RecordingSession(
       startRecorder: () async {
         if (!await _recorder.hasPermission()) {
@@ -227,10 +238,33 @@ class _ChatPageState extends State<ChatPage> {
     _composer.addListener(_scheduleDraftSave);
     _scrollController.addListener(_onMessageScroll);
     widget.imService.markRead(widget.channelId, widget.channelType);
+    _startReceiptPolling();
+  }
+
+  void _startReceiptPolling() {
+    _receiptTimer?.cancel();
     _receiptTimer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => _refreshReceipts(),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startReceiptPolling();
+      unawaited(_refreshReceipts());
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _receiptTimer?.cancel();
+      _receiptTimer = null;
+    }
+  }
+
+  void _refreshMediaTasks() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadDraft() async {
@@ -411,15 +445,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     setState(() {
-      final index = _messages.indexWhere(
-        (item) => item.clientMsgNO == message.clientMsgNO,
-      );
-      if (index == -1) {
-        _messages.add(message);
-      } else {
-        _messages[index] = message;
-      }
-      _messages.sort((a, b) => a.orderSeq.compareTo(b.orderSeq));
+      upsertMessageInOrder(_messages, message);
     });
     _scrollToBottom();
     if (message.fromUID == WKIM.shared.options.uid) _refreshReceipts();
@@ -439,11 +465,19 @@ class _ChatPageState extends State<ChatPage> {
         messages: sent,
       );
       if (mounted) {
-        setState(() {
-          for (final receipt in receipts) {
-            _receipts[receipt.messageId] = receipt;
-          }
+        final changed = receipts.any((receipt) {
+          final current = _receipts[receipt.messageId];
+          return current == null ||
+              current.readCount != receipt.readCount ||
+              current.unreadCount != receipt.unreadCount;
         });
+        if (changed) {
+          setState(() {
+            for (final receipt in receipts) {
+              _receipts[receipt.messageId] = receipt;
+            }
+          });
+        }
       }
     } catch (_) {
       // Receipt refresh is best-effort and should not interrupt messaging.
@@ -490,6 +524,16 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Future<void> _confirmCall({required bool video}) async {
+    final confirmed = await AppFeedback.confirm(
+      context,
+      title: video ? '发起视频通话' : '发起语音通话',
+      message: '将呼叫“${widget.title}”，是否继续？',
+      confirmLabel: '呼叫',
+    );
+    if (confirmed == true && mounted) await _startCall(video: video);
+  }
+
   Future<void> _focusMessage(WKMsg target) async {
     if (!_messages.any((item) => item.clientMsgNO == target.clientMsgNO)) {
       await WKIM.shared.messageManager.getOrSyncHistoryMessages(
@@ -511,7 +555,10 @@ class _ChatPageState extends State<ChatPage> {
       if (itemContext != null) {
         Scrollable.ensureVisible(
           itemContext,
-          duration: const Duration(milliseconds: 320),
+          duration: appMotionDuration(
+            context,
+            const Duration(milliseconds: 320),
+          ),
           alignment: 0.35,
         );
       }
@@ -541,7 +588,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _attachReply(WKMessageContent content) {
+    _attachReplyFrom(content, _takeReply());
+  }
+
+  WKMsg? _takeReply() {
     final original = _replyingTo;
+    if (original != null && mounted) {
+      setState(() => _replyingTo = null);
+    }
+    return original;
+  }
+
+  void _attachReplyFrom(WKMessageContent content, WKMsg? original) {
     if (original == null) return;
     final parent = original.messageContent?.reply;
     content.reply = WKReply()
@@ -557,7 +615,6 @@ class _ChatPageState extends State<ChatPage> {
           ? widget.title
           : original.fromUID
       ..payload = original.messageContent;
-    setState(() => _replyingTo = null);
   }
 
   void _toggleEmojiPanel() {
@@ -567,6 +624,19 @@ class _ChatPageState extends State<ChatPage> {
     } else {
       _composerFocus.unfocus();
       setState(() => _showEmojiPanel = true);
+    }
+  }
+
+  void _toggleComposerMode() {
+    if (_recording || _voiceBusy || _uploading) return;
+    setState(() {
+      _voiceMode = !_voiceMode;
+      _showEmojiPanel = false;
+    });
+    if (_voiceMode) {
+      _composerFocus.unfocus();
+    } else {
+      _composerFocus.requestFocus();
     }
   }
 
@@ -621,22 +691,19 @@ class _ChatPageState extends State<ChatPage> {
             120;
     final action = await showModalBottomSheet<String>(
       context: context,
+      showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Wrap(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (canRetry)
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: const Text('重新发送'),
-                subtitle: const Text('将替换这条发送失败的本机记录'),
-                onTap: () => Navigator.pop(context, 'retry'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                '消息操作',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-            if (canForward)
-              ListTile(
-                leading: const Icon(Icons.forward_outlined),
-                title: const Text('转发'),
-                onTap: () => Navigator.pop(context, 'forward'),
-              ),
+            ),
             if (canReply)
               ListTile(
                 leading: const Icon(Icons.reply),
@@ -649,12 +716,19 @@ class _ChatPageState extends State<ChatPage> {
                 title: const Text('复制'),
                 onTap: () => Navigator.pop(context, 'copy'),
               ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('从本机删除'),
-              subtitle: const Text('只删除当前设备上的记录'),
-              onTap: () => Navigator.pop(context, 'delete'),
-            ),
+            if (canForward)
+              ListTile(
+                leading: const Icon(Icons.forward_outlined),
+                title: const Text('转发'),
+                onTap: () => Navigator.pop(context, 'forward'),
+              ),
+            if (canRetry)
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('重新发送'),
+                subtitle: const Text('将替换这条发送失败的本机记录'),
+                onTap: () => Navigator.pop(context, 'retry'),
+              ),
             if (canRevoke)
               ListTile(
                 leading: const Icon(Icons.undo),
@@ -662,6 +736,18 @@ class _ChatPageState extends State<ChatPage> {
                 subtitle: const Text('发送后 2 分钟内可撤回'),
                 onTap: () => Navigator.pop(context, 'revoke'),
               ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                '从本机删除',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              subtitle: const Text('只删除当前设备上的记录'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
           ],
         ),
       ),
@@ -803,25 +889,58 @@ class _ChatPageState extends State<ChatPage> {
     if (source case WKTextContent text) {
       forwarded = WKTextContent(text.content);
     } else if (source case ChatImageContent image) {
-      forwarded = ChatImageContent(
-        fileId: await widget.fileTransferService.forwardFile(
-          fileId: image.fileId,
+      final forwardedFileId = await widget.fileTransferService.forwardFile(
+        fileId: image.fileId,
+        channelId: target.channelId,
+        channelType: target.channelType,
+      );
+      var forwardedThumbnailId = '';
+      if (image.thumbnailFileId.isNotEmpty) {
+        forwardedThumbnailId = await widget.fileTransferService.forwardFile(
+          fileId: image.thumbnailFileId,
           channelId: target.channelId,
           channelType: target.channelType,
-        ),
+        );
+        await widget.fileTransferService.setThumbnail(
+          fileId: forwardedFileId,
+          thumbnailFileId: forwardedThumbnailId,
+        );
+      }
+      forwarded = ChatImageContent(
+        fileId: forwardedFileId,
+        size: image.size,
+        mimeType: image.mimeType,
         width: image.width,
         height: image.height,
+        thumbnailFileId: forwardedThumbnailId,
+        thumbnailSize: image.thumbnailSize,
       );
     } else if (source case ChatVideoContent video) {
-      forwarded = ChatVideoContent(
-        fileId: await widget.fileTransferService.forwardFile(
-          fileId: video.fileId,
+      final forwardedFileId = await widget.fileTransferService.forwardFile(
+        fileId: video.fileId,
+        channelId: target.channelId,
+        channelType: target.channelType,
+      );
+      var forwardedThumbnailId = '';
+      if (video.thumbnailFileId.isNotEmpty) {
+        forwardedThumbnailId = await widget.fileTransferService.forwardFile(
+          fileId: video.thumbnailFileId,
           channelId: target.channelId,
           channelType: target.channelType,
-        ),
+        );
+        await widget.fileTransferService.setThumbnail(
+          fileId: forwardedFileId,
+          thumbnailFileId: forwardedThumbnailId,
+        );
+      }
+      forwarded = ChatVideoContent(
+        fileId: forwardedFileId,
         name: video.name,
         size: video.size,
         durationMs: video.durationMs,
+        width: video.width,
+        height: video.height,
+        thumbnailFileId: forwardedThumbnailId,
       );
     } else if (source case ChatFileContent file) {
       forwarded = ChatFileContent(
@@ -842,6 +961,8 @@ class _ChatPageState extends State<ChatPage> {
           channelType: target.channelType,
         ),
         durationMs: audio.durationMs,
+        size: audio.size,
+        mimeType: audio.mimeType,
       );
     } else {
       throw StateError('暂不支持转发此类型消息');
@@ -861,9 +982,9 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _pickAndSend({required bool image}) async {
     Navigator.of(context).pop();
-    final file = await FilePicker.pickFile(
-      type: image ? FileType.image : FileType.any,
-    );
+    final file = image
+        ? await pickPortableChatImage()
+        : await FilePicker.pickFile(type: FileType.any);
     if (file == null || !mounted) return;
     final limits = ServerCapabilitiesScope.uploadLimitsOf(context);
     if (!await _validateSelectedFileSize(
@@ -890,11 +1011,23 @@ class _ChatPageState extends State<ChatPage> {
           ),
         );
         if (compress == null || !mounted) return;
-        final prepared = await prepareChatImage(file, compress: compress);
+        setState(() {
+          _uploading = true;
+          _uploadProgress = 0;
+          _uploadLabel = compress
+              ? '正在优化图片 · ${file.name}'
+              : '正在准备图片 · ${file.name}';
+        });
+        final prepared = await prepareChatImage(
+          file,
+          compress: compress,
+          sourceBytes: imageBytes,
+        );
         uploadFile = prepared.file;
         imageBytes = prepared.previewBytes;
       } catch (error) {
         if (mounted) {
+          setState(() => _uploading = false);
           AppFeedback.error(context, error, fallback: '图片处理失败，请重新选择');
         }
         return;
@@ -917,9 +1050,12 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _uploading = true;
       _uploadProgress = 0;
-      _uploadLabel = image ? '图片 · ${file.name}' : '文件 · ${file.name}';
+      _uploadLabel = image ? '正在上传图片 · ${file.name}' : '正在上传文件 · ${file.name}';
     });
     final cancelToken = CancelToken();
+    final reply = _takeReply();
+    final task = _mediaQueue.start(_uploadLabel, cancelToken: cancelToken);
+    _mediaQueue.upload(task.id);
     _uploadCancelToken = cancelToken;
     try {
       var width = 0;
@@ -935,17 +1071,64 @@ class _ChatPageState extends State<ChatPage> {
         channelType: widget.channelType,
         image: image,
         onProgress: (sent, total) {
+          _mediaQueue.progress(task.id, sent, total);
           if (mounted && total > 0) {
             setState(() => _uploadProgress = sent / total);
           }
         },
         cancelToken: cancelToken,
       );
+      String thumbnailFileId = '';
+      var thumbnailSize = 0;
+      if (image) {
+        try {
+          _mediaQueue.prepare(task.id, label: '正在生成聊天预览…');
+          if (mounted) {
+            setState(() => _uploadLabel = '正在生成聊天预览…');
+          }
+          final thumbnail = await prepareChatThumbnail(
+            imageBytes!,
+            baseName: file.name,
+          );
+          if (thumbnail != null) {
+            _mediaQueue.upload(task.id, label: '正在上传聊天预览…');
+            if (mounted) {
+              setState(() => _uploadLabel = '正在上传聊天预览…');
+            }
+            final uploadedThumbnail = await widget.fileTransferService.upload(
+              file: thumbnail.file,
+              channelId: widget.channelId,
+              channelType: widget.channelType,
+              image: true,
+              onProgress: (sent, total) {
+                _mediaQueue.progress(task.id, sent, total);
+              },
+              cancelToken: cancelToken,
+            );
+            await widget.fileTransferService.setThumbnail(
+              fileId: uploaded.fileId,
+              thumbnailFileId: uploadedThumbnail.fileId,
+            );
+            thumbnailFileId = uploadedThumbnail.fileId;
+            thumbnailSize = uploadedThumbnail.size;
+          }
+        } on DioException catch (error) {
+          if (CancelToken.isCancel(error)) rethrow;
+          // A thumbnail is an optimization. If its upload or binding fails,
+          // keep the original image send reliable and use the legacy fallback.
+        } catch (_) {
+          // Unsupported/corrupt preview data must not discard an uploaded image.
+        }
+      }
       final content = image
           ? ChatImageContent(
               fileId: uploaded.fileId,
+              size: uploaded.size,
+              mimeType: uploaded.mimeType,
               width: width,
               height: height,
+              thumbnailFileId: thumbnailFileId,
+              thumbnailSize: thumbnailSize,
             )
           : ChatFileContent(
               fileId: uploaded.fileId,
@@ -953,15 +1136,23 @@ class _ChatPageState extends State<ChatPage> {
               size: uploaded.size,
               mimeType: uploaded.mimeType,
             );
-      _attachReply(content);
+      _attachReplyFrom(content, reply);
       WKIM.shared.messageManager.sendMessage(
         content,
         WKChannel(widget.channelId, widget.channelType),
       );
+      _mediaQueue.complete(task.id);
     } on DioException catch (error) {
       if (mounted && CancelToken.isCancel(error)) {
+        _mediaQueue.complete(task.id);
         AppFeedback.show(context, '已取消上传，未发送');
       } else if (mounted) {
+        _mediaQueue.fail(
+          task.id,
+          image ? '图片发送失败' : '文件发送失败',
+          retry: () => _pickAndSend(image: image),
+          retryLabel: '重新选择',
+        );
         AppFeedback.error(
           context,
           error,
@@ -972,6 +1163,12 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (error) {
       if (mounted) {
+        _mediaQueue.fail(
+          task.id,
+          image ? '图片发送失败' : '文件发送失败',
+          retry: () => _pickAndSend(image: image),
+          retryLabel: '重新选择',
+        );
         AppFeedback.error(
           context,
           error,
@@ -997,83 +1194,163 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _pickAndSendVideo() async {
     Navigator.of(context).pop();
-    final file = await FilePicker.pickFile(type: FileType.video);
+    final file = await pickPortableChatVideo();
     if (file == null || !mounted) return;
+    final maxVideoBytes = ServerCapabilitiesScope.uploadLimitsOf(
+      context,
+    ).chatVideo;
     if (!await _validateSelectedFileSize(
       file,
-      maxBytes: ServerCapabilitiesScope.uploadLimitsOf(context).chatVideo,
+      maxBytes: maxVideoBytes,
       kindLabel: '视频',
     )) {
       return;
     }
     VideoPlayerController? metadataController;
+    PreparedChatVideo? preparedVideo;
     var durationMs = 0;
+    var videoWidth = 0;
+    var videoHeight = 0;
     var confirmed = false;
     try {
-      if (file.path case final path?) {
-        metadataController = VideoPlayerController.file(File(path));
-        await metadataController.initialize();
-        durationMs = metadataController.value.duration.inMilliseconds;
+      setState(() {
+        _uploading = true;
+        _uploadProgress = -1;
+        _uploadLabel = '正在转换为兼容视频…';
+      });
+      preparedVideo = await VideoSendPreparation.prepare(file);
+      if (!await _validateSelectedFileSize(
+        preparedVideo.file,
+        maxBytes: maxVideoBytes,
+        kindLabel: '转换后的视频',
+      )) {
+        await preparedVideo.dispose();
+        if (mounted) setState(() => _uploading = false);
+        return;
+      }
+      final path = preparedVideo.file.path!;
+      metadataController = VideoPlayerController.file(File(path));
+      await metadataController.initialize();
+      durationMs = metadataController.value.duration.inMilliseconds;
+      videoWidth = metadataController.value.size.width.round();
+      videoHeight = metadataController.value.size.height.round();
+      if (durationMs <= 0 || videoWidth <= 0 || videoHeight <= 0) {
+        throw StateError('无法读取视频时长或画面尺寸');
       }
       if (!mounted) return;
       confirmed = await _confirmAttachmentSend(
-        file: file,
+        file: preparedVideo.file,
         kindLabel: '视频',
         icon: Icons.video_library_outlined,
-        preview: metadataController == null
-            ? null
-            : AspectRatio(
-                aspectRatio: metadataController.value.aspectRatio > 0
-                    ? metadataController.value.aspectRatio
-                    : 16 / 9,
-                child: VideoPlayer(metadataController),
-              ),
+        preview: AspectRatio(
+          aspectRatio: metadataController.value.aspectRatio > 0
+              ? metadataController.value.aspectRatio
+              : 16 / 9,
+          child: VideoPlayer(metadataController),
+        ),
       );
     } catch (error) {
       await metadataController?.dispose();
+      await preparedVideo?.dispose();
+      if (mounted) setState(() => _uploading = false);
       if (mounted) {
         AppFeedback.error(context, error, fallback: '无法读取视频，请重新选择');
       }
       return;
     }
     if (!confirmed || !mounted) {
-      await metadataController?.dispose();
+      await metadataController.dispose();
+      await preparedVideo.dispose();
+      if (mounted) setState(() => _uploading = false);
       return;
     }
+    final uploadVideo = preparedVideo.file;
     setState(() {
       _uploading = true;
       _uploadProgress = 0;
-      _uploadLabel = '视频 · ${file.name}';
+      _uploadLabel = '视频 · ${uploadVideo.name}';
     });
     final cancelToken = CancelToken();
+    final reply = _takeReply();
+    final task = _mediaQueue.start(_uploadLabel, cancelToken: cancelToken);
+    _mediaQueue.upload(task.id);
     _uploadCancelToken = cancelToken;
     try {
       final uploaded = await widget.fileTransferService.uploadVideo(
-        file: file,
+        file: uploadVideo,
         channelId: widget.channelId,
         channelType: widget.channelType,
         onProgress: (sent, total) {
+          _mediaQueue.progress(task.id, sent, total);
           if (mounted && total > 0) {
             setState(() => _uploadProgress = sent / total);
           }
         },
         cancelToken: cancelToken,
       );
+      var thumbnailFileId = '';
+      try {
+        _mediaQueue.prepare(task.id, label: '正在生成视频封面…');
+        if (mounted) setState(() => _uploadLabel = '正在生成视频封面…');
+        final thumbnailBytes = await VideoThumbnailService.create(
+          uploadVideo.path!,
+        );
+        if (thumbnailBytes != null && thumbnailBytes.isNotEmpty) {
+          final thumbnail = MemoryPlatformFile(
+            name:
+                '${uploadVideo.name.replaceFirst(RegExp(r'\.[^.]+$'), '')}_cover.jpg',
+            bytes: thumbnailBytes,
+          );
+          _mediaQueue.upload(task.id, label: '正在上传视频封面…');
+          if (mounted) setState(() => _uploadLabel = '正在上传视频封面…');
+          final uploadedThumbnail = await widget.fileTransferService.upload(
+            file: thumbnail,
+            channelId: widget.channelId,
+            channelType: widget.channelType,
+            image: true,
+            onProgress: (sent, total) {
+              _mediaQueue.progress(task.id, sent, total);
+            },
+            cancelToken: cancelToken,
+          );
+          await widget.fileTransferService.setThumbnail(
+            fileId: uploaded.fileId,
+            thumbnailFileId: uploadedThumbnail.fileId,
+          );
+          thumbnailFileId = uploadedThumbnail.fileId;
+        }
+      } on DioException catch (error) {
+        if (CancelToken.isCancel(error)) rethrow;
+        // A cover is an optimization; keep a valid uploaded video sendable.
+      } catch (_) {
+        // Unsupported codecs render the neutral play placeholder instead.
+      }
       final content = ChatVideoContent(
         fileId: uploaded.fileId,
         name: uploaded.name,
         size: uploaded.size,
         durationMs: durationMs,
+        width: videoWidth,
+        height: videoHeight,
+        thumbnailFileId: thumbnailFileId,
       );
-      _attachReply(content);
+      _attachReplyFrom(content, reply);
       WKIM.shared.messageManager.sendMessage(
         content,
         WKChannel(widget.channelId, widget.channelType),
       );
+      _mediaQueue.complete(task.id);
     } on DioException catch (error) {
       if (mounted && CancelToken.isCancel(error)) {
+        _mediaQueue.complete(task.id);
         AppFeedback.show(context, '已取消上传，未发送');
       } else if (mounted) {
+        _mediaQueue.fail(
+          task.id,
+          '视频发送失败',
+          retry: _pickAndSendVideo,
+          retryLabel: '重新选择',
+        );
         AppFeedback.error(
           context,
           error,
@@ -1084,6 +1361,12 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (error) {
       if (mounted) {
+        _mediaQueue.fail(
+          task.id,
+          '视频发送失败',
+          retry: _pickAndSendVideo,
+          retryLabel: '重新选择',
+        );
         AppFeedback.error(
           context,
           error,
@@ -1093,7 +1376,8 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     } finally {
-      await metadataController?.dispose();
+      await metadataController.dispose();
+      await preparedVideo.dispose();
       if (identical(_uploadCancelToken, cancelToken)) {
         _uploadCancelToken = null;
       }
@@ -1150,8 +1434,11 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _showAttachments() {
-    if (!_capabilities.canSendFiles) {
-      AppFeedback.show(context, '当前服务器未提供文件发送功能');
+    final canCall =
+        widget.channelType == 1 &&
+        (_capabilities.canAudioCall || _capabilities.canVideoCall);
+    if (!_capabilities.canSendFiles && !canCall) {
+      AppFeedback.show(context, '当前服务器未提供更多功能');
       return;
     }
     _composerFocus.unfocus();
@@ -1166,38 +1453,76 @@ class _ChatPageState extends State<ChatPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('发送内容', style: Theme.of(context).textTheme.titleMedium),
+              Text('更多功能', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _AttachmentAction(
-                      icon: Icons.image_outlined,
-                      label: '图片',
-                      color: const Color(0xFF45A675),
-                      onTap: () => _pickAndSend(image: true),
+              if (_capabilities.canSendFiles)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AttachmentAction(
+                        icon: Icons.image_outlined,
+                        label: '图片',
+                        color: const Color(0xFF45A675),
+                        onTap: () => _pickAndSend(image: true),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AttachmentAction(
-                      icon: Icons.video_library_outlined,
-                      label: '视频',
-                      color: const Color(0xFF7B61D1),
-                      onTap: _pickAndSendVideo,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _AttachmentAction(
+                        icon: Icons.video_library_outlined,
+                        label: '视频',
+                        color: const Color(0xFF7B61D1),
+                        onTap: _pickAndSendVideo,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AttachmentAction(
-                      icon: Icons.description_outlined,
-                      label: '文件',
-                      color: const Color(0xFF3978C5),
-                      onTap: () => _pickAndSend(image: false),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _AttachmentAction(
+                        icon: Icons.description_outlined,
+                        label: '文件',
+                        color: const Color(0xFF3978C5),
+                        onTap: () => _pickAndSend(image: false),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              if (_capabilities.canSendFiles && canCall)
+                const SizedBox(height: 14),
+              if (canCall)
+                Row(
+                  children: [
+                    if (_capabilities.canAudioCall)
+                      Expanded(
+                        child: _AttachmentAction(
+                          icon: Icons.call_outlined,
+                          label: '语音通话',
+                          color: const Color(0xFF2F9D74),
+                          onTap: () {
+                            Navigator.pop(context);
+                            unawaited(_startCall(video: false));
+                          },
+                        ),
+                      ),
+                    if (_capabilities.canAudioCall &&
+                        _capabilities.canVideoCall)
+                      const SizedBox(width: 12),
+                    if (_capabilities.canVideoCall)
+                      Expanded(
+                        child: _AttachmentAction(
+                          icon: Icons.videocam_outlined,
+                          label: '视频通话',
+                          color: const Color(0xFF6C5BC7),
+                          onTap: () {
+                            Navigator.pop(context);
+                            unawaited(_startCall(video: true));
+                          },
+                        ),
+                      ),
+                    if (!(_capabilities.canAudioCall &&
+                        _capabilities.canVideoCall))
+                      const Spacer(),
+                  ],
+                ),
             ],
           ),
         ),
@@ -1206,7 +1531,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _toggleRecording() async {
-    if (_voiceBusy || _uploading || !mounted) return;
+    if (_voiceBusy || _uploading || _mediaQueue.hasActive || !mounted) return;
     if (_recording) {
       await _stopAndSendVoice();
       return;
@@ -1249,6 +1574,7 @@ class _ChatPageState extends State<ChatPage> {
     if (_voiceBusy || !_recording || !mounted) return;
     setState(() => _voiceBusy = true);
     String? path;
+    MediaSendTask? mediaTask;
     try {
       path = await _recordingSession.stop();
       _recordingTimer?.cancel();
@@ -1289,12 +1615,15 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
       final cancelToken = CancelToken();
+      mediaTask = _mediaQueue.start('语音消息', cancelToken: cancelToken);
+      _mediaQueue.upload(mediaTask.id);
       _uploadCancelToken = cancelToken;
       final uploaded = await widget.fileTransferService.uploadVoice(
         path: path,
         channelId: widget.channelId,
         channelType: widget.channelType,
         onProgress: (sent, total) {
+          _mediaQueue.progress(mediaTask!.id, sent, total);
           if (mounted && total > 0) {
             setState(() => _uploadProgress = sent / total);
           }
@@ -1305,16 +1634,28 @@ class _ChatPageState extends State<ChatPage> {
       final content = ChatAudioContent(
         fileId: uploaded.fileId,
         durationMs: duration,
+        size: uploaded.size,
+        mimeType: uploaded.mimeType,
       );
       _attachReply(content);
       WKIM.shared.messageManager.sendMessage(
         content,
         WKChannel(widget.channelId, widget.channelType),
       );
+      _mediaQueue.complete(mediaTask.id);
     } on DioException catch (error) {
       if (mounted && CancelToken.isCancel(error)) {
+        if (mediaTask != null) _mediaQueue.complete(mediaTask.id);
         AppFeedback.show(context, '已取消上传，未发送');
       } else if (mounted) {
+        if (mediaTask != null) {
+          _mediaQueue.fail(
+            mediaTask.id,
+            '语音发送失败',
+            retry: _toggleRecording,
+            retryLabel: '重新录制',
+          );
+        }
         AppFeedback.error(
           context,
           error,
@@ -1325,6 +1666,14 @@ class _ChatPageState extends State<ChatPage> {
       }
     } catch (error) {
       if (mounted) {
+        if (mediaTask != null) {
+          _mediaQueue.fail(
+            mediaTask.id,
+            '语音发送失败',
+            retry: _toggleRecording,
+            retryLabel: '重新录制',
+          );
+        }
         AppFeedback.error(
           context,
           error,
@@ -1365,6 +1714,12 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _receiptTimer?.cancel();
+    _mediaQueue
+      ..removeListener(_refreshMediaTasks)
+      ..cancelAll()
+      ..dispose();
     _uploadCancelToken?.cancel('聊天页面已关闭');
     widget.imService.removeListener(_onHistorySync);
     WKIM.shared.messageManager.removeNewMsgListener(_listenerKey);
@@ -1391,21 +1746,33 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
-          if (widget.channelType == 1 && _capabilities.canAudioCall)
-            IconButton(
-              tooltip: '语音通话',
-              onPressed: _recording || _voiceBusy || _uploading
-                  ? null
-                  : () => _startCall(video: false),
+          if (widget.channelType == 1 &&
+              (_capabilities.canAudioCall || _capabilities.canVideoCall))
+            PopupMenuButton<bool>(
+              tooltip: '发起通话',
+              enabled: !_recording && !_voiceBusy,
               icon: const Icon(Icons.call_outlined),
-            ),
-          if (widget.channelType == 1 && _capabilities.canVideoCall)
-            IconButton(
-              tooltip: '视频通话',
-              onPressed: _recording || _voiceBusy || _uploading
-                  ? null
-                  : () => _startCall(video: true),
-              icon: const Icon(Icons.videocam_outlined),
+              onSelected: (video) => _startCall(video: video),
+              itemBuilder: (_) => [
+                if (_capabilities.canAudioCall)
+                  const PopupMenuItem(
+                    value: false,
+                    child: ListTile(
+                      leading: Icon(Icons.call_outlined),
+                      title: Text('语音通话'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                if (_capabilities.canVideoCall)
+                  const PopupMenuItem(
+                    value: true,
+                    child: ListTile(
+                      leading: Icon(Icons.videocam_outlined),
+                      title: Text('视频通话'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+              ],
             ),
           IconButton(
             tooltip: '搜索聊天记录',
@@ -1496,6 +1863,8 @@ class _ChatPageState extends State<ChatPage> {
                 : ListView.builder(
                     controller: _scrollController,
                     reverse: true,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(12),
                     itemCount: _messages.length,
                     itemBuilder: (context, reverseIndex) {
@@ -1522,173 +1891,226 @@ class _ChatPageState extends State<ChatPage> {
                         children: [
                           if (showDate)
                             _DateDivider(timestamp: message.timestamp),
-                          Align(
-                            alignment: mine
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                if (groupIncoming) ...[
-                                  showSender
-                                      ? _MessageAvatar(name: senderName)
-                                      : const SizedBox(width: 34),
-                                  const SizedBox(width: 8),
-                                ],
-                                GestureDetector(
-                                  onLongPress:
-                                      _revokedClientMsgNos.contains(
-                                        message.clientMsgNO,
-                                      )
-                                      ? null
-                                      : () =>
-                                            _showMessageActions(message, mine),
-                                  child: Container(
-                                    key: _messageKeys.putIfAbsent(
-                                      message.clientMsgNO,
-                                      GlobalKey.new,
-                                    ),
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.sizeOf(context).width *
-                                          (groupIncoming ? 0.66 : 0.78),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          _highlightedClientMsgNo ==
-                                              message.clientMsgNO
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.tertiaryContainer
-                                          : mine
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primaryContainer
-                                          : Theme.of(context)
-                                                .colorScheme
-                                                .surfaceContainerLowest,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: const Radius.circular(18),
-                                        topRight: const Radius.circular(18),
-                                        bottomLeft: Radius.circular(
-                                          mine ? 18 : 5,
+                          if (message.messageContent
+                              case ChatSystemContent notice)
+                            _SystemNotice(
+                              text: notice.displayText(),
+                              time: _messageTime(message.timestamp),
+                            )
+                          else
+                            Align(
+                              alignment: mine
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (groupIncoming) ...[
+                                    showSender
+                                        ? _MessageAvatar(
+                                            name: senderName,
+                                            fileId:
+                                                widget
+                                                    .memberAvatarFileIds[message
+                                                    .fromUID],
+                                            fileTransferService:
+                                                widget.fileTransferService,
+                                          )
+                                        : const SizedBox(width: 34),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Semantics(
+                                    onLongPress:
+                                        _revokedClientMsgNos.contains(
+                                          message.clientMsgNO,
+                                        )
+                                        ? null
+                                        : () => _showMessageActions(
+                                            message,
+                                            mine,
+                                          ),
+                                    hint:
+                                        _revokedClientMsgNos.contains(
+                                          message.clientMsgNO,
+                                        )
+                                        ? null
+                                        : '长按可回复、转发或查看更多操作',
+                                    child: GestureDetector(
+                                      onTap:
+                                          message.messageContent
+                                              is ChatCallRecordContent
+                                          ? () => _confirmCall(
+                                              video:
+                                                  (message.messageContent
+                                                          as ChatCallRecordContent)
+                                                      .video,
+                                            )
+                                          : null,
+                                      onLongPress:
+                                          _revokedClientMsgNos.contains(
+                                            message.clientMsgNO,
+                                          )
+                                          ? null
+                                          : () => _showMessageActions(
+                                              message,
+                                              mine,
+                                            ),
+                                      child: Container(
+                                        key: _messageKeys.putIfAbsent(
+                                          message.clientMsgNO,
+                                          GlobalKey.new,
                                         ),
-                                        bottomRight: Radius.circular(
-                                          mine ? 5 : 18,
+                                        margin: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
+                                        constraints: BoxConstraints(
+                                          maxWidth:
+                                              MediaQuery.sizeOf(context).width *
+                                              (groupIncoming ? 0.66 : 0.78),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              _highlightedClientMsgNo ==
+                                                  message.clientMsgNO
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.tertiaryContainer
+                                              : mine
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primaryContainer
+                                              : Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerLowest,
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: const Radius.circular(18),
+                                            topRight: const Radius.circular(18),
+                                            bottomLeft: Radius.circular(
+                                              mine ? 18 : 5,
+                                            ),
+                                            bottomRight: Radius.circular(
+                                              mine ? 5 : 18,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child:
+                                                  _revokedClientMsgNos.contains(
+                                                    message.clientMsgNO,
+                                                  )
+                                                  ? const Text(
+                                                      '消息已撤回',
+                                                      style: TextStyle(
+                                                        fontStyle:
+                                                            FontStyle.italic,
+                                                      ),
+                                                    )
+                                                  : Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        if (showSender) ...[
+                                                          Text(
+                                                            senderName,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 4,
+                                                          ),
+                                                        ],
+                                                        if (message
+                                                                .messageContent
+                                                                ?.reply !=
+                                                            null)
+                                                          _ReplyQuote(
+                                                            reply: message
+                                                                .messageContent!
+                                                                .reply!,
+                                                          ),
+                                                        _MessageBody(
+                                                          content: message
+                                                              .messageContent,
+                                                          fileTransferService:
+                                                              widget
+                                                                  .fileTransferService,
+                                                        ),
+                                                        MessageMeta(
+                                                          time: _messageTime(
+                                                            message.timestamp,
+                                                          ),
+                                                          status: mine
+                                                              ? _SendStatus(
+                                                                  status: message
+                                                                      .status,
+                                                                  onRetry:
+                                                                      message.status ==
+                                                                          WKSendMsgResult
+                                                                              .sendFail
+                                                                      ? () {
+                                                                          _retryMessage(
+                                                                            message,
+                                                                          );
+                                                                        }
+                                                                      : null,
+                                                                )
+                                                              : null,
+                                                          receipt:
+                                                              mine &&
+                                                                  _receipts[message
+                                                                          .messageID] !=
+                                                                      null
+                                                              ? (widget.channelType ==
+                                                                        1
+                                                                    ? (_receipts[message.messageID]!.readCount >
+                                                                              0
+                                                                          ? '已读'
+                                                                          : '未读')
+                                                                    : '${_receipts[message.messageID]!.readCount}人已读')
+                                                              : null,
+                                                          read:
+                                                              (_receipts[message
+                                                                          .messageID]
+                                                                      ?.readCount ??
+                                                                  0) >
+                                                              0,
+                                                        ),
+                                                      ],
+                                                    ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Flexible(
-                                          child:
-                                              _revokedClientMsgNos.contains(
-                                                message.clientMsgNO,
-                                              )
-                                              ? const Text(
-                                                  '消息已撤回',
-                                                  style: TextStyle(
-                                                    fontStyle: FontStyle.italic,
-                                                  ),
-                                                )
-                                              : Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    if (showSender) ...[
-                                                      Text(
-                                                        senderName,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: TextStyle(
-                                                          color: Theme.of(
-                                                            context,
-                                                          ).colorScheme.primary,
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                    ],
-                                                    if (message
-                                                            .messageContent
-                                                            ?.reply !=
-                                                        null)
-                                                      _ReplyQuote(
-                                                        reply: message
-                                                            .messageContent!
-                                                            .reply!,
-                                                      ),
-                                                    _MessageBody(
-                                                      content: message
-                                                          .messageContent,
-                                                      fileTransferService: widget
-                                                          .fileTransferService,
-                                                    ),
-                                                    MessageMeta(
-                                                      time: _messageTime(
-                                                        message.timestamp,
-                                                      ),
-                                                      status: mine
-                                                          ? _SendStatus(
-                                                              status: message
-                                                                  .status,
-                                                              onRetry:
-                                                                  message.status ==
-                                                                      WKSendMsgResult
-                                                                          .sendFail
-                                                                  ? () {
-                                                                      _retryMessage(
-                                                                        message,
-                                                                      );
-                                                                    }
-                                                                  : null,
-                                                            )
-                                                          : null,
-                                                      receipt:
-                                                          mine &&
-                                                              _receipts[message
-                                                                      .messageID] !=
-                                                                  null
-                                                          ? (widget.channelType ==
-                                                                    1
-                                                                ? (_receipts[message.messageID]!
-                                                                              .readCount >
-                                                                          0
-                                                                      ? '已读'
-                                                                      : '未读')
-                                                                : '${_receipts[message.messageID]!.readCount}人已读')
-                                                          : null,
-                                                      read:
-                                                          (_receipts[message
-                                                                      .messageID]
-                                                                  ?.readCount ??
-                                                              0) >
-                                                          0,
-                                                    ),
-                                                  ],
-                                                ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
                         ],
                       );
                     },
@@ -1718,7 +2140,7 @@ class _ChatPageState extends State<ChatPage> {
                         Text(
                           _replyingTo!.fromUID == WKIM.shared.options.uid
                               ? '回复 我'
-                              : '回复 ${widget.channelType == 1 ? widget.title : _replyingTo!.fromUID}',
+                              : '回复 ${widget.channelType == 1 ? widget.title : widget.memberNames[_replyingTo!.fromUID] ?? '群成员'}',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w600,
@@ -1753,83 +2175,142 @@ class _ChatPageState extends State<ChatPage> {
               ),
               padding: const EdgeInsets.fromLTRB(8, 8, 6, 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   IconButton(
-                    tooltip: _capabilities.canSendFiles
-                        ? '发送图片或文件'
-                        : '服务器已暂停文件发送',
+                    tooltip: '更多功能',
                     onPressed:
-                        !_capabilities.canSendFiles ||
-                            _uploading ||
+                        ((!_capabilities.canSendFiles &&
+                                !(widget.channelType == 1 &&
+                                    (_capabilities.canAudioCall ||
+                                        _capabilities.canVideoCall))) ||
                             _recording ||
-                            _voiceBusy
+                            _voiceBusy)
                         ? null
                         : _showAttachments,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
+                  IconButton(
+                    tooltip: _voiceMode ? '切换到文字输入' : '切换到语音消息',
+                    onPressed:
+                        !_capabilities.messaging ||
+                            !_capabilities.canSendFiles ||
+                            _uploading ||
+                            _mediaQueue.hasActive ||
+                            _recording ||
+                            _voiceBusy
+                        ? null
+                        : _toggleComposerMode,
+                    icon: Icon(
+                      _voiceMode
+                          ? Icons.keyboard_alt_outlined
+                          : Icons.mic_none_outlined,
+                    ),
+                  ),
                   Expanded(
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _composer,
-                      builder: (context, value, _) => Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          TextField(
-                            enabled: _capabilities.messaging,
-                            controller: _composer,
-                            focusNode: _composerFocus,
-                            minLines: 1,
-                            maxLines: 4,
-                            inputFormatters: const [
-                              Utf16LengthLimitingTextInputFormatter(10000),
-                            ],
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _send(),
-                            onTap: () {
-                              if (_showEmojiPanel) {
-                                setState(() => _showEmojiPanel = false);
-                              }
-                            },
-                            decoration: ChatStyles.composer(
-                              Theme.of(context).colorScheme,
-                            ),
-                          ),
-                          if (value.text.length >= 9000)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2, right: 4),
-                              child: Text(
-                                '${value.text.length}/10000',
-                                style: Theme.of(context).textTheme.labelSmall,
+                    child: _voiceMode
+                        ? SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed:
+                                  !_capabilities.canSendFiles ||
+                                      _voiceBusy ||
+                                      _uploading ||
+                                      _mediaQueue.hasActive
+                                  ? null
+                                  : _toggleRecording,
+                              icon: Icon(
+                                _recording
+                                    ? Icons.graphic_eq
+                                    : Icons.mic_none_outlined,
+                              ),
+                              label: Text(
+                                _recording
+                                    ? '正在录音 ${_recordingSeconds}s'
+                                    : '点击开始录音',
                               ),
                             ),
-                        ],
+                          )
+                        : ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: _composer,
+                            builder: (context, value, _) => Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                TextField(
+                                  enabled: _capabilities.messaging,
+                                  controller: _composer,
+                                  focusNode: _composerFocus,
+                                  minLines: 1,
+                                  maxLines: 4,
+                                  inputFormatters: const [
+                                    Utf16LengthLimitingTextInputFormatter(
+                                      10000,
+                                    ),
+                                  ],
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _send(),
+                                  onTap: () {
+                                    if (_showEmojiPanel) {
+                                      setState(() => _showEmojiPanel = false);
+                                    }
+                                  },
+                                  decoration: ChatStyles.composer(
+                                    Theme.of(context).colorScheme,
+                                    hintText:
+                                        _connectionState ==
+                                            ImConnectionState.connected
+                                        ? '输入消息'
+                                        : '连接恢复后可发送',
+                                  ),
+                                ),
+                                if (value.text.length >= 9000)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: 2,
+                                      right: 4,
+                                    ),
+                                    child: Text(
+                                      '${value.text.length}/10000',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelSmall,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                  ),
+                  if (!_voiceMode) ...[
+                    IconButton(
+                      tooltip: _showEmojiPanel ? '显示键盘' : '表情',
+                      onPressed: _capabilities.messaging
+                          ? _toggleEmojiPanel
+                          : null,
+                      icon: Icon(
+                        _showEmojiPanel
+                            ? Icons.keyboard_alt_outlined
+                            : Icons.sentiment_satisfied_alt_outlined,
                       ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: _showEmojiPanel ? '显示键盘' : '表情',
-                    onPressed: _capabilities.messaging
-                        ? _toggleEmojiPanel
-                        : null,
-                    icon: Icon(
-                      _showEmojiPanel
-                          ? Icons.keyboard_alt_outlined
-                          : Icons.sentiment_satisfied_alt_outlined,
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _composer,
+                      builder: (context, value, _) => IconButton.filled(
+                        tooltip: '发送',
+                        onPressed:
+                            _capabilities.messaging &&
+                                value.text.trim().isNotEmpty
+                            ? _send
+                            : null,
+                        icon: const Icon(Icons.send_rounded),
+                      ),
                     ),
-                  ),
-                  ComposerActionButton(
-                    hasText: _composer.text.trim().isNotEmpty,
-                    recording: _recording,
-                    voiceBusy: _uploading || _voiceBusy,
-                    onSend: _send,
-                    onVoice: _toggleRecording,
-                    voiceEnabled: _capabilities.canSendFiles,
-                  ),
+                  ],
                 ],
               ),
             ),
           ),
-          if (_uploading)
+          if (_uploading && _mediaQueue.tasks.isEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: TransferProgressPanel(
@@ -1837,7 +2318,31 @@ class _ChatPageState extends State<ChatPage> {
                 progress: _uploadProgress,
                 onCancel: _uploadCancelToken == null
                     ? null
-                    : () => _uploadCancelToken?.cancel('用户取消上传'),
+                    : () {
+                        _uploadCancelToken?.cancel('用户取消上传');
+                      },
+              ),
+            ),
+          if (_mediaQueue.tasks.isNotEmpty)
+            ListenableBuilder(
+              listenable: _mediaQueue,
+              builder: (context, _) => Column(
+                children: [
+                  for (final task in _mediaQueue.tasks)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: TransferProgressPanel(
+                        label: task.label,
+                        progress: task.progress,
+                        error: task.error,
+                        onRetry: task.retry == null
+                            ? null
+                            : () => _mediaQueue.retry(task.id),
+                        retryLabel: task.retryLabel ?? '重试',
+                        onCancel: () => _mediaQueue.cancel(task.id),
+                      ),
+                    ),
+                ],
               ),
             ),
           if (_recording)
@@ -2035,16 +2540,12 @@ class _AttachmentAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: '发送$label',
+    label: label.contains('通话') ? '发起$label' : '发送$label',
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-        ),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2053,12 +2554,17 @@ class _AttachmentAction extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(icon, color: Colors.white),
             ),
-            const SizedBox(height: 9),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
           ],
         ),
       ),
@@ -2067,22 +2573,23 @@ class _AttachmentAction extends StatelessWidget {
 }
 
 class _MessageAvatar extends StatelessWidget {
-  const _MessageAvatar({required this.name});
+  const _MessageAvatar({
+    required this.name,
+    required this.fileId,
+    required this.fileTransferService,
+  });
 
   final String name;
+  final String? fileId;
+  final FileTransferService fileTransferService;
 
   @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: 17,
-    backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-    child: Text(
-      name.trim().isEmpty ? '?' : name.trim().characters.first,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSecondaryContainer,
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
+  Widget build(BuildContext context) => AppAvatar(
+    name: name,
+    fileId: fileId,
+    size: 34,
+    resolveUrl: fileTransferService.downloadUrl,
+    resolveFile: fileTransferService.downloadAvatar,
   );
 }
 
@@ -2222,11 +2729,15 @@ class _ChatSearchPageState extends State<_ChatSearchPage> {
                         },
                         icon: const Icon(Icons.close),
                       ),
-                border: const OutlineInputBorder(),
               ),
             ),
           ),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading)
+            Semantics(
+              liveRegion: true,
+              label: '正在搜索聊天记录',
+              child: const LinearProgressIndicator(),
+            ),
           Expanded(child: _buildResults(keyword)),
         ],
       ),
@@ -2235,13 +2746,26 @@ class _ChatSearchPageState extends State<_ChatSearchPage> {
 
   Widget _buildResults(String keyword) {
     if (_error != null) {
-      return Center(child: Text('搜索失败：$_error'));
+      return AppStatus(
+        icon: Icons.cloud_off_outlined,
+        title: '搜索失败',
+        message: '无法读取当前设备的聊天记录，请稍后重试',
+        onRetry: () => _search(keyword),
+      );
     }
     if (keyword.isEmpty) {
-      return const Center(child: Text('搜索当前设备已同步的聊天记录'));
+      return const AppStatus(
+        icon: Icons.manage_search_outlined,
+        title: '搜索聊天记录',
+        message: '可搜索当前设备已同步的消息内容和文件名',
+      );
     }
     if (!_loading && _results.isEmpty) {
-      return const Center(child: Text('没有找到相关消息'));
+      return const AppStatus(
+        icon: Icons.search_off_outlined,
+        title: '没有找到相关消息',
+        message: '请尝试更短的关键词或检查输入内容',
+      );
     }
     return ListView.separated(
       itemCount: _results.length,
@@ -2340,6 +2864,20 @@ class _MessageBody extends StatelessWidget {
             (_, audio, files) =>
                 _AudioMessage(content: audio, fileTransferService: files),
           ),
+          TypedMessageRenderer<ChatCallRecordContent, FileTransferService>(
+            (_, call, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  call.video ? Icons.videocam_outlined : Icons.call_outlined,
+                ),
+                const SizedBox(width: 8),
+                Flexible(child: Text(call.displayText())),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
           TypedMessageRenderer<WKTextContent, FileTransferService>(
             (_, text, _) => MessageText(text: text.content),
           ),
@@ -2375,7 +2913,7 @@ class _ImageMessage extends StatefulWidget {
 }
 
 class _ImageMessageState extends State<_ImageMessage> {
-  late Future<ResolvedUrl> _endpoint;
+  late Future<File> _displayFile;
 
   @override
   void initState() {
@@ -2384,71 +2922,129 @@ class _ImageMessageState extends State<_ImageMessage> {
   }
 
   void _load() {
-    _endpoint = widget.fileTransferService.downloadUrl(widget.content.fileId);
+    final thumbnailFileId = widget.content.thumbnailFileId;
+    _displayFile = widget.fileTransferService.download(
+      fileId: thumbnailFileId.isEmpty ? widget.content.fileId : thumbnailFileId,
+      fileName: thumbnailFileId.isEmpty
+          ? 'chat_image_original'
+          : 'chat_image_thumbnail.jpg',
+      expectedSize: thumbnailFileId.isEmpty
+          ? widget.content.size
+          : widget.content.thumbnailSize,
+      priority: DownloadPriority.background,
+    );
+  }
+
+  Future<void> _openPreview() async {
+    try {
+      final displayed = await _displayFile;
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _ImagePreviewPage(
+            file: displayed,
+            loadOriginal: widget.content.thumbnailFileId.isEmpty
+                ? null
+                : () => widget.fileTransferService.download(
+                    fileId: widget.content.fileId,
+                    fileName: 'chat_image_original',
+                    expectedSize: widget.content.size,
+                  ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) AppFeedback.error(context, error, fallback: '图片预览失败，请稍后重试');
+    }
   }
 
   @override
   Widget build(BuildContext context) => ChatMediaFrame(
     width: widget.content.width,
     height: widget.content.height,
-    child: FutureBuilder<ResolvedUrl>(
-      future: _endpoint,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return SizedBox(
-            width: 180,
-            height: 110,
-            child: TextButton.icon(
-              onPressed: () => setState(_load),
-              icon: const Icon(Icons.refresh),
-              label: const Text('图片加载失败，重试'),
-            ),
-          );
-        }
-        final endpoint = snapshot.data;
-        if (endpoint == null) {
-          return const SizedBox(
-            width: 180,
-            height: 120,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return InkWell(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => _ImagePreviewPage(endpoint: endpoint),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              endpoint.url,
-              key: ValueKey('message-image-${widget.content.fileId}'),
-              headers: endpoint.headers,
-              width: 220,
-              height: 180,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => SizedBox(
-                width: 180,
-                height: 100,
-                child: TextButton.icon(
-                  onPressed: () => setState(_load),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('图片加载失败，重试'),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    child: FutureBuilder<File>(
+      future: _displayFile,
+      builder: (context, snapshot) =>
+          _buildCachedImage(file: snapshot.data, error: snapshot.hasError),
     ),
   );
+
+  Widget _loadingOrRetry(bool error) => error
+      ? SizedBox(
+          width: 180,
+          height: 110,
+          child: TextButton.icon(
+            onPressed: () => setState(_load),
+            icon: const Icon(Icons.refresh),
+            label: const Text('图片加载失败，重试'),
+          ),
+        )
+      : const SizedBox(
+          width: 180,
+          height: 120,
+          child: Center(child: CircularProgressIndicator()),
+        );
+
+  Widget _buildCachedImage({required File? file, required bool error}) {
+    if (file == null) return _loadingOrRetry(error);
+    final decodeWidth = (220 * MediaQuery.devicePixelRatioOf(context))
+        .ceil()
+        .clamp(220, 960);
+    return InkWell(
+      onTap: _openPreview,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.file(
+          file,
+          key: ValueKey(
+            'message-image-${widget.content.thumbnailFileId.isEmpty ? widget.content.fileId : widget.content.thumbnailFileId}',
+          ),
+          width: 220,
+          height: 180,
+          cacheWidth: decodeWidth,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => _loadingOrRetry(true),
+        ),
+      ),
+    );
+  }
 }
 
-class _ImagePreviewPage extends StatelessWidget {
-  const _ImagePreviewPage({required this.endpoint});
+class _ImagePreviewPage extends StatefulWidget {
+  const _ImagePreviewPage({this.endpoint, this.file, this.loadOriginal})
+    : assert(endpoint != null || file != null);
 
-  final ResolvedUrl endpoint;
+  final ResolvedUrl? endpoint;
+  final File? file;
+  final Future<File> Function()? loadOriginal;
+
+  @override
+  State<_ImagePreviewPage> createState() => _ImagePreviewPageState();
+}
+
+class _ImagePreviewPageState extends State<_ImagePreviewPage> {
+  late File? _file = widget.file;
+  bool _loadingOriginal = false;
+  bool _showingOriginal = false;
+
+  Future<void> _showOriginal() async {
+    final load = widget.loadOriginal;
+    if (load == null || _loadingOriginal) return;
+    setState(() => _loadingOriginal = true);
+    try {
+      final file = await load();
+      if (mounted) {
+        setState(() {
+          _file = file;
+          _showingOriginal = true;
+        });
+      }
+    } catch (error) {
+      if (mounted) AppFeedback.error(context, error, fallback: '原图加载失败，请稍后重试');
+    } finally {
+      if (mounted) setState(() => _loadingOriginal = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -2457,21 +3053,43 @@ class _ImagePreviewPage extends StatelessWidget {
       foregroundColor: Colors.white,
       backgroundColor: Colors.black,
       title: const Text('图片预览'),
+      actions: [
+        if (widget.loadOriginal != null)
+          TextButton(
+            onPressed: _loadingOriginal || _showingOriginal
+                ? null
+                : _showOriginal,
+            child: _loadingOriginal
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(_showingOriginal ? '已显示原图' : '查看原图'),
+          ),
+      ],
     ),
     body: Center(
       child: InteractiveViewer(
         minScale: 0.5,
         maxScale: 5,
-        child: Image.network(
-          endpoint.url,
-          headers: endpoint.headers,
-          fit: BoxFit.contain,
-          loadingBuilder: (context, child, progress) => progress == null
-              ? child
-              : const Center(child: CircularProgressIndicator()),
-          errorBuilder: (_, _, _) =>
-              const Text('图片加载失败', style: TextStyle(color: Colors.white)),
-        ),
+        child: _file != null
+            ? Image.file(
+                _file!,
+                key: ValueKey(_file!.path),
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) =>
+                    const Text('图片加载失败', style: TextStyle(color: Colors.white)),
+              )
+            : Image.network(
+                widget.endpoint!.url,
+                headers: widget.endpoint!.headers,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const Center(child: CircularProgressIndicator()),
+                errorBuilder: (_, _, _) =>
+                    const Text('图片加载失败', style: TextStyle(color: Colors.white)),
+              ),
       ),
     ),
   );
@@ -2578,15 +3196,30 @@ class _VideoMessage extends StatefulWidget {
 class _VideoMessageState extends State<_VideoMessage> {
   VideoPlayerController? _controller;
   ResolvedUrl? _endpoint;
+  Future<File>? _poster;
   Object? _error;
+  bool _requested = false;
+  bool? _lastPlaying;
+  int _lastPositionSecond = -1;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    if (widget.content.thumbnailFileId.isNotEmpty) {
+      _poster = widget.fileTransferService.download(
+        fileId: widget.content.thumbnailFileId,
+        fileName: 'video_cover.jpg',
+        priority: DownloadPriority.background,
+      );
+    }
   }
 
   Future<void> _initialize() async {
+    if (_requested) return;
+    setState(() {
+      _requested = true;
+      _error = null;
+    });
     try {
       final endpoint = await widget.fileTransferService.downloadUrl(
         widget.content.fileId,
@@ -2612,7 +3245,28 @@ class _VideoMessageState extends State<_VideoMessage> {
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final controller = _controller;
+    if (controller == null) return;
+    if (controller.value.isPlaying && _isOutsideViewport()) {
+      unawaited(controller.pause());
+      return;
+    }
+    final playing = controller.value.isPlaying;
+    final second = controller.value.position.inSeconds;
+    if (_lastPlaying == playing && _lastPositionSecond == second) return;
+    _lastPlaying = playing;
+    _lastPositionSecond = second;
+    setState(() {});
+  }
+
+  bool _isOutsideViewport() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return false;
+    final top = renderObject.localToGlobal(Offset.zero).dy;
+    final bottom = top + renderObject.size.height;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    return bottom <= 0 || top >= viewportHeight;
   }
 
   Future<void> _retry() async {
@@ -2622,6 +3276,7 @@ class _VideoMessageState extends State<_VideoMessage> {
     setState(() {
       _controller = null;
       _error = null;
+      _requested = false;
     });
     await _initialize();
   }
@@ -2673,10 +3328,50 @@ class _VideoMessageState extends State<_VideoMessage> {
     }
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
-      return const SizedBox(
-        width: 220,
-        height: 130,
-        child: Center(child: CircularProgressIndicator()),
+      final aspect = widget.content.width > 0 && widget.content.height > 0
+          ? widget.content.width / widget.content.height
+          : 16 / 9;
+      return SizedBox(
+        width: 230,
+        child: AspectRatio(
+          aspectRatio: aspect.clamp(.55, 2.0),
+          child: Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: _requested ? null : _initialize,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_poster != null)
+                    FutureBuilder<File>(
+                      future: _poster,
+                      builder: (context, snapshot) => snapshot.data == null
+                          ? const SizedBox.shrink()
+                          : Image.file(
+                              snapshot.data!,
+                              fit: BoxFit.cover,
+                              cacheWidth:
+                                  (230 * MediaQuery.devicePixelRatioOf(context))
+                                      .ceil()
+                                      .clamp(230, 960),
+                            ),
+                    ),
+                  Center(
+                    child: _requested
+                        ? const CircularProgressIndicator()
+                        : const Icon(
+                            Icons.play_circle_fill_rounded,
+                            color: Colors.white,
+                            size: 56,
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
     }
     final aspect = controller.value.aspectRatio > 0
@@ -2746,6 +3441,7 @@ class _FullScreenVideoPage extends StatefulWidget {
 class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
   late final VideoPlayerController _controller;
   bool _ready = false;
+  bool _initializing = false;
   Object? _error;
 
   @override
@@ -2755,21 +3451,38 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
       Uri.parse(widget.endpoint.url),
       httpHeaders: widget.endpoint.headers,
     )..addListener(_refresh);
-    _controller
-        .initialize()
-        .then((_) {
-          if (mounted) {
-            setState(() => _ready = true);
-            _controller.play();
-          }
-        })
-        .catchError((Object error) {
-          if (mounted) setState(() => _error = error);
-        });
+    unawaited(_initialize());
+  }
+
+  Future<void> _initialize() async {
+    if (_initializing) return;
+    setState(() {
+      _initializing = true;
+      _ready = false;
+      _error = null;
+    });
+    try {
+      await _controller.initialize();
+      if (!mounted) return;
+      setState(() => _ready = true);
+      await _controller.play();
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _initializing = false);
+    }
   }
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  void _togglePlayback() {
+    if (_controller.value.isPlaying) {
+      _controller.pause();
+    } else {
+      _controller.play();
+    }
   }
 
   @override
@@ -2788,22 +3501,66 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
       title: const Text('视频播放'),
     ),
     body: _error != null
-        ? const Center(
-            child: Text('视频加载失败', style: TextStyle(color: Colors.white)),
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.videocam_off_outlined,
+                    color: Colors.white70,
+                    size: 54,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    '视频加载失败',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    '请检查网络后重试',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 18),
+                  OutlinedButton.icon(
+                    onPressed: _initializing ? null : _initialize,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('重试'),
+                  ),
+                ],
+              ),
+            ),
           )
         : !_ready
-        ? const Center(child: CircularProgressIndicator())
+        ? Center(
+            child: Semantics(
+              liveRegion: true,
+              label: '正在加载视频',
+              child: const CircularProgressIndicator(),
+            ),
+          )
         : Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 AspectRatio(
                   aspectRatio: _controller.value.aspectRatio,
-                  child: GestureDetector(
-                    onTap: () => _controller.value.isPlaying
-                        ? _controller.pause()
-                        : _controller.play(),
-                    child: VideoPlayer(_controller),
+                  child: Semantics(
+                    button: true,
+                    label: _controller.value.isPlaying ? '暂停视频' : '播放视频',
+                    onTap: _togglePlayback,
+                    child: GestureDetector(
+                      onTap: _togglePlayback,
+                      child: VideoPlayer(_controller),
+                    ),
                   ),
                 ),
                 VideoProgressIndicator(
@@ -2812,9 +3569,8 @@ class _FullScreenVideoPageState extends State<_FullScreenVideoPage> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 IconButton.filled(
-                  onPressed: () => _controller.value.isPlaying
-                      ? _controller.pause()
-                      : _controller.play(),
+                  tooltip: _controller.value.isPlaying ? '暂停视频' : '播放视频',
+                  onPressed: _togglePlayback,
                   icon: Icon(
                     _controller.value.isPlaying
                         ? Icons.pause
@@ -2831,6 +3587,38 @@ String _formatDuration(Duration duration) {
   final minutes = duration.inMinutes;
   final seconds = duration.inSeconds.remainder(60);
   return '$minutes:${seconds.toString().padLeft(2, '0')}';
+}
+
+class _SystemNotice extends StatelessWidget {
+  const _SystemNotice({required this.text, required this.time});
+
+  final String text;
+  final String time;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: '$text，$time',
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            '$text  $time',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ReplyQuote extends StatelessWidget {
@@ -2909,11 +3697,13 @@ class _AudioMessageState extends State<_AudioMessage> {
       }
       setState(() => _loading = true);
       if (_player.audioSource == null) {
-        final endpoint = await widget.fileTransferService.downloadUrl(
-          widget.content.fileId,
+        final file = await widget.fileTransferService.download(
+          fileId: widget.content.fileId,
+          fileName: 'voice_message.m4a',
+          expectedSize: widget.content.size,
         );
         if (!mounted) return;
-        await _player.setUrl(endpoint.url, headers: endpoint.headers);
+        await _player.setFilePath(file.path);
       } else if (_player.processingState == ProcessingState.completed) {
         await _player.seek(Duration.zero);
       }
@@ -2984,22 +3774,40 @@ class _SendStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color) = switch (status) {
-      WKSendMsgResult.sendSuccess => (Icons.check, Colors.green),
+    final (icon, color, label) = switch (status) {
+      WKSendMsgResult.sendSuccess => (Icons.check, Colors.green, '已发送'),
       WKSendMsgResult.sendFail ||
       WKSendMsgResult.noRelation ||
       WKSendMsgResult.blackList ||
-      WKSendMsgResult.notOnWhiteList => (Icons.error_outline, Colors.red),
-      _ => (Icons.schedule, Theme.of(context).colorScheme.outline),
+      WKSendMsgResult.notOnWhiteList => (
+        Icons.error_outline,
+        Theme.of(context).colorScheme.error,
+        '发送失败',
+      ),
+      _ => (Icons.schedule, Theme.of(context).colorScheme.outline, '发送中'),
     };
-    final statusIcon = Icon(icon, size: 14, color: color);
-    if (onRetry == null) return statusIcon;
+    final failed = label == '发送失败';
+    final content = Semantics(
+      label: onRetry == null ? label : '$label，双击重试',
+      button: onRetry != null,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          if (failed) ...[
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 11, color: color)),
+          ],
+        ],
+      ),
+    );
+    if (onRetry == null) return Tooltip(message: label, child: content);
     return Tooltip(
       message: '发送失败，点击重试',
-      child: InkResponse(
+      child: InkWell(
         onTap: onRetry,
-        radius: 18,
-        child: Padding(padding: const EdgeInsets.all(3), child: statusIcon),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(padding: const EdgeInsets.all(3), child: content),
       ),
     );
   }

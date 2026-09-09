@@ -26,6 +26,7 @@ All URIs are relative to *http://localhost:3000*
 |[**groupsSetMemberRole**](#groupssetmemberrole) | **PATCH** /api/v1/groups/{groupId}/members/{memberId}/role | |
 |[**groupsTransferOwner**](#groupstransferowner) | **POST** /api/v1/groups/{groupId}/transfer-owner | |
 |[**groupsUpdate**](#groupsupdate) | **PATCH** /api/v1/groups/{groupId} | |
+|[**groupsUpdateMyNickname**](#groupsupdatemynickname) | **PATCH** /api/v1/groups/{groupId}/members/me/nickname | |
 
 # **groupsAddMembers**
 > GroupResponse groupsAddMembers(addGroupMembersDto)
@@ -1231,6 +1232,64 @@ const { status, data } = await apiInstance.groupsUpdate(
 ### Return type
 
 **GroupResponse**
+
+### Authorization
+
+[access-token](../README.md#access-token)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful response |  -  |
+|**400** | Request rejected |  -  |
+|**401** | Request rejected |  -  |
+|**403** | Request rejected |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **groupsUpdateMyNickname**
+> GroupMemberResponse groupsUpdateMyNickname(updateGroupNicknameDto)
+
+
+### Example
+
+```typescript
+import {
+    GroupsApi,
+    Configuration,
+    UpdateGroupNicknameDto
+} from '@chat/admin-api-client';
+
+const configuration = new Configuration();
+const apiInstance = new GroupsApi(configuration);
+
+let groupId: string; // (default to undefined)
+let updateGroupNicknameDto: UpdateGroupNicknameDto; //
+
+const { status, data } = await apiInstance.groupsUpdateMyNickname(
+    groupId,
+    updateGroupNicknameDto
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **updateGroupNicknameDto** | **UpdateGroupNicknameDto**|  | |
+| **groupId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**GroupMemberResponse**
 
 ### Authorization
 

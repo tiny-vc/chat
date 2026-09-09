@@ -14,9 +14,35 @@ class HomeController extends ChangeNotifier {
   int? pendingJoinCount;
   Object? pendingJoinError;
   bool pendingJoinLoading = false;
+  int? pendingFriendCount;
+  Object? pendingFriendError;
+  bool pendingFriendLoading = false;
   bool _disposed = false;
   bool _reloadRequested = false;
+  DateTime? _lastLoadedAt;
   final Map<String, int> groupRevisions = {};
+
+  void reset() {
+    snapshot = null;
+    error = null;
+    pendingJoinCount = null;
+    pendingJoinError = null;
+    pendingFriendCount = null;
+    pendingFriendError = null;
+    _lastLoadedAt = null;
+    groupRevisions.clear();
+    notifyListeners();
+  }
+
+  Future<void> loadIfStale({Duration freshness = const Duration(seconds: 30)}) {
+    final loadedAt = _lastLoadedAt;
+    if (snapshot != null &&
+        loadedAt != null &&
+        DateTime.now().difference(loadedAt) < freshness) {
+      return Future.value();
+    }
+    return load();
+  }
 
   Future<void> refreshRemoteGroup(String groupId) async {
     if (_disposed) return;
@@ -52,6 +78,26 @@ class HomeController extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshPendingFriends() async {
+    if (_disposed || pendingFriendLoading) return;
+    pendingFriendLoading = true;
+    pendingFriendError = null;
+    notifyListeners();
+    try {
+      final requests = await _repository.friendRequests();
+      if (!_disposed) pendingFriendCount = requests.length;
+    } catch (caught) {
+      if (!_disposed) pendingFriendError = caught;
+    } finally {
+      pendingFriendLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshNotifications() async {
+    await Future.wait([refreshPendingFriends(), refreshPendingJoins()]);
+  }
+
   Future<void> load() async {
     if (_disposed) return;
     if (loading) {
@@ -63,7 +109,8 @@ class HomeController extends ChangeNotifier {
     notifyListeners();
     try {
       snapshot = await _repository.load();
-      await refreshPendingJoins();
+      _lastLoadedAt = DateTime.now();
+      await refreshNotifications();
     } catch (caught) {
       error = caught;
     } finally {
@@ -90,9 +137,13 @@ class HomeController extends ChangeNotifier {
     await load();
   }
 
-  Future<void> createGroup(String name, Iterable<String> memberIds) async {
-    await _repository.createGroup(name, memberIds);
+  Future<GroupResponse> createGroup(
+    String name,
+    Iterable<String> memberIds,
+  ) async {
+    final group = await _repository.createGroup(name, memberIds);
     await load();
+    return group;
   }
 
   Future<GroupResponse> getGroup(String groupId) =>
@@ -120,6 +171,19 @@ class HomeController extends ChangeNotifier {
 
   Future<void> setGroupAdmin(String groupId, String userId, bool admin) async {
     await _repository.setGroupAdmin(groupId, userId, admin);
+    await load();
+  }
+
+  Future<void> updateGroupAnnouncement(
+    String groupId,
+    String announcement,
+  ) async {
+    await _repository.updateGroupAnnouncement(groupId, announcement);
+    await load();
+  }
+
+  Future<void> updateMyGroupNickname(String groupId, String nickname) async {
+    await _repository.updateMyGroupNickname(groupId, nickname);
     await load();
   }
 
@@ -184,13 +248,26 @@ class HomeController extends ChangeNotifier {
   }
 
   Future<void> setAvatar(String fileId) async {
-    await _repository.setAvatar(fileId);
+    final user = await _repository.setAvatar(fileId);
+    _replaceCurrentUser(user);
     await load();
   }
 
   Future<void> removeAvatar() async {
-    await _repository.removeAvatar();
+    final user = await _repository.removeAvatar();
+    _replaceCurrentUser(user);
     await load();
+  }
+
+  void _replaceCurrentUser(UserResponse user) {
+    final current = snapshot;
+    if (_disposed || current == null) return;
+    snapshot = HomeSnapshot(
+      me: user,
+      friends: current.friends,
+      groups: current.groups,
+    );
+    notifyListeners();
   }
 
   Future<void> changePassword(String currentPassword, String newPassword) =>

@@ -79,6 +79,7 @@ class _Auth implements AuthRepository {
 
 Future<void> _tap(WidgetTester tester, String text) async {
   await tester.ensureVisible(find.text(text).last);
+  await tester.pumpAndSettle();
   await tester.tap(find.text(text).last);
   await tester.pumpAndSettle();
 }
@@ -165,12 +166,81 @@ void main() {
     expect(auth.deactivations, 1);
     expect(exited, isFalse);
     expect(
-      tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
-      isNull,
+      tester
+          .widget<ListTile>(find.byKey(const ValueKey('deactivate-account')))
+          .enabled,
+      isFalse,
     );
     auth.pending!.complete();
     await tester.pumpAndSettle();
     expect(exited, isTrue);
+  });
+
+  testWidgets('profile sections fit narrow dark layout with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.6)),
+          child: Scaffold(
+            body: ProfilePage(
+              controller: controller,
+              fileTransferService: _Files(),
+              callService: _Calls(),
+              authRepository: auth,
+              onDeactivated: () {},
+              onLogout: () async {},
+              serverName: '蜘蛛侠通信服务器',
+              serverAddress: 'https://chat.sipnexus.org',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('账号'), findsOneWidget);
+    expect(find.text('蜘蛛侠通信服务器'), findsOneWidget);
+    await tester.ensureVisible(find.text('退出登录'));
+    await tester.pumpAndSettle();
+    expect(find.text('退出登录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('profile appearance picker reports an explicit theme mode', (
+    tester,
+  ) async {
+    ThemeMode? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProfilePage(
+            controller: controller,
+            fileTransferService: _Files(),
+            callService: _Calls(),
+            authRepository: auth,
+            onDeactivated: () {},
+            onLogout: () async {},
+            themeMode: ThemeMode.system,
+            onThemeModeChanged: (mode) async => selected = mode,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _tap(tester, '外观模式');
+    expect(find.text('跟随系统'), findsWidgets);
+    await _tap(tester, '深色模式');
+
+    expect(selected, ThemeMode.dark);
+    expect(tester.takeException(), isNull);
   });
 
   for (final fails in [true, false]) {

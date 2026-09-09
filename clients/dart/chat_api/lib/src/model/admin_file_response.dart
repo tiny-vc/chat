@@ -59,7 +59,7 @@ abstract class AdminFileResponse implements Built<AdminFileResponse, AdminFileRe
 
   @BuiltValueField(wireName: r'status')
   AdminFileResponseStatusEnum get status;
-  // enum statusEnum {  PENDING,  UPLOADED,  READY,  REJECTED,  DELETED,  };
+  // enum statusEnum {  PENDING,  UPLOADED,  READY,  REJECTED,  DELETE_PENDING,  DELETED,  };
 
   @BuiltValueField(wireName: r'thumbnailFileId')
   String? get thumbnailFileId;
@@ -357,6 +357,8 @@ class AdminFileResponseStatusEnum extends EnumClass {
   static const AdminFileResponseStatusEnum READY = _$adminFileResponseStatusEnum_READY;
   @BuiltValueEnumConst(wireName: r'REJECTED')
   static const AdminFileResponseStatusEnum REJECTED = _$adminFileResponseStatusEnum_REJECTED;
+  @BuiltValueEnumConst(wireName: r'DELETE_PENDING')
+  static const AdminFileResponseStatusEnum DELETE_PENDING = _$adminFileResponseStatusEnum_DELETE_PENDING;
   @BuiltValueEnumConst(wireName: r'DELETED')
   static const AdminFileResponseStatusEnum DELETED = _$adminFileResponseStatusEnum_DELETED;
   @BuiltValueEnumConst(wireName: r'unknown_default_open_api', fallback: true)

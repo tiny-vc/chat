@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **fileName** | **string** |  | [default to undefined]
 **mimeType** | **string** |  | [default to undefined]
 **size** | **number** |  | [default to undefined]
+**sha256** | **string** |  | [default to undefined]
 **purpose** | **string** |  | [default to undefined]
 **scope** | **string** |  | [default to undefined]
 **scopeId** | **string** |  | [optional] [default to undefined]
@@ -21,6 +22,7 @@ const instance: CreateUploadDto = {
     fileName,
     mimeType,
     size,
+    sha256,
     purpose,
     scope,
     scopeId,

@@ -1,5 +1,5 @@
 import { FileScope } from '@prisma/client';
-import { IsEnum, IsInt, IsMimeType, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsMimeType, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 
 export enum FilePurpose {
   AVATAR = 'AVATAR',
@@ -21,6 +21,9 @@ export class CreateUploadDto {
   @Min(1)
   @Max(104_857_600)
   size!: number;
+
+  @Matches(/^[a-f0-9]{64}$/)
+  sha256!: string;
 
   @IsEnum(FilePurpose)
   purpose!: FilePurpose;

@@ -10,6 +10,7 @@ export const MessageType = {
   VIDEO: 5,
   STICKER: 6,
   CALL_SIGNAL: 2001,
+  CALL_RECORD: 2002,
   REVOKE: 9001,
   SYSTEM: 9002,
 } as const;
@@ -54,6 +55,8 @@ export const audioMessageSchema = z.object({
   type: z.literal(MessageType.AUDIO),
   fileId,
   durationMs: z.number().int().positive().max(600_000),
+  size: z.number().int().positive().max(20_971_520),
+  mimeType: z.string().min(1).max(120),
   waveform: z.array(z.number().int().min(0).max(100)).max(100).optional(),
 });
 
@@ -64,7 +67,11 @@ export const videoMessageSchema = z.object({
   durationMs: z.number().int().positive().max(3_600_000),
   width: z.number().int().positive().max(20_000),
   height: z.number().int().positive().max(20_000),
-  thumbnailFileId: fileId,
+  // Older/native clients may not be able to extract a frame locally. The
+  // receiver must render a video placeholder when no poster is available.
+  thumbnailFileId: fileId.optional(),
+  name: z.string().min(1).max(255).optional(),
+  size: z.number().int().positive().max(524_288_000).optional(),
   caption: z.string().max(2_000).optional(),
 });
 
@@ -94,6 +101,16 @@ export const callSignalMessageSchema = z.object({
   roomName: z.string().min(1).max(120),
 });
 
+export const callRecordMessageSchema = z.object({
+  ...base,
+  type: z.literal(MessageType.CALL_RECORD),
+  callId: z.uuid(),
+  callType: z.enum(["audio", "video"]),
+  status: z.enum(["REJECTED", "CANCELLED", "MISSED", "ENDED", "FAILED"]),
+  endReason: z.string().max(80).nullable().optional(),
+  durationSeconds: z.number().int().nonnegative().max(86_400),
+});
+
 export const revokeMessageSchema = z.object({
   ...base,
   type: z.literal(MessageType.REVOKE),
@@ -116,6 +133,7 @@ export const messageSchema = z.discriminatedUnion("type", [
   videoMessageSchema,
   stickerMessageSchema,
   callSignalMessageSchema,
+  callRecordMessageSchema,
   revokeMessageSchema,
   systemMessageSchema,
 ]);

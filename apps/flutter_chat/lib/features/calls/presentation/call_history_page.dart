@@ -93,6 +93,7 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
       title: const Text('通话记录'),
       actions: [
         IconButton(
+          tooltip: '刷新通话记录',
           onPressed: _loading ? null : _load,
           icon: const Icon(Icons.refresh),
         ),
@@ -139,27 +140,33 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
                 }
                 final item = _items[index];
                 final missed = item.status == 'MISSED';
+                final canRedial =
+                    item.peerId.isNotEmpty && widget.onRedial != null;
                 return ListTile(
-                  onTap:
-                      item.peerId.isEmpty ||
-                          widget.onRedial == null ||
-                          _redialingId != null
+                  contentPadding: const EdgeInsets.only(left: 16, right: 8),
+                  onTap: !canRedial || _redialingId != null
                       ? null
                       : () => _redial(item),
-                  leading: CircleAvatar(
-                    child: Icon(item.video ? Icons.videocam : Icons.call),
-                  ),
+                  leading: _CallAvatar(item: item, missed: missed),
                   title: Text(
                     item.peerName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: missed
-                        ? TextStyle(color: Theme.of(context).colorScheme.error)
-                        : null,
+                        ? TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          )
+                        : const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Row(
                     children: [
                       Icon(
                         item.outgoing ? Icons.call_made : Icons.call_received,
                         size: 15,
+                        color: missed
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 4),
                       Flexible(
@@ -174,15 +181,34 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_time(item.startedAt)),
+                      Text(
+                        _time(item.startedAt),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                       if (_redialingId == item.id)
-                        const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         )
-                      else if (item.peerId.isNotEmpty &&
-                          widget.onRedial != null)
-                        const Icon(Icons.call_outlined, size: 18),
+                      else if (canRedial)
+                        IconButton(
+                          tooltip: item.video ? '重拨视频通话' : '重拨语音通话',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: _redialingId == null
+                              ? () => _redial(item)
+                              : null,
+                          icon: Icon(
+                            item.video
+                                ? Icons.videocam_outlined
+                                : Icons.call_outlined,
+                            size: 20,
+                          ),
+                        ),
                     ],
                   ),
                 );
@@ -200,6 +226,52 @@ class _CallHistoryPageState extends State<CallHistoryPage> {
       return '${two(value.hour)}:${two(value.minute)}';
     }
     return '${value.month}/${value.day}';
+  }
+}
+
+class _CallAvatar extends StatelessWidget {
+  const _CallAvatar({required this.item, required this.missed});
+
+  final CallHistoryItem item;
+  final bool missed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final name = item.peerName.trim();
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CircleAvatar(
+          backgroundColor: missed
+              ? colors.errorContainer
+              : colors.primaryContainer,
+          foregroundColor: missed
+              ? colors.onErrorContainer
+              : colors.onPrimaryContainer,
+          child: Text(name.isEmpty ? '?' : name.characters.first),
+        ),
+        Positioned(
+          right: -3,
+          bottom: -3,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: colors.surface, width: 2),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                item.video ? Icons.videocam : Icons.call,
+                size: 13,
+                color: missed ? colors.error : colors.primary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

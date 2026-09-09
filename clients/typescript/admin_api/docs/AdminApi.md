@@ -386,7 +386,7 @@ const apiInstance = new AdminApi(configuration);
 let limit: number; // (optional) (default to 50)
 let cursor: string; // (optional) (default to undefined)
 let type: 'AUDIO' | 'VIDEO'; // (optional) (default to undefined)
-let status: 'REJECTED' | 'FAILED' | 'ACCEPTED' | 'INVITING' | 'RINGING' | 'CONNECTED' | 'CANCELLED' | 'MISSED' | 'ENDED'; // (optional) (default to undefined)
+let status: 'REJECTED' | 'FAILED' | 'ACCEPTED' | 'CANCELLED' | 'MISSED' | 'ENDED' | 'INVITING' | 'RINGING' | 'CONNECTED'; // (optional) (default to undefined)
 let participant: string; // (optional) (default to undefined)
 let from: string; // (optional) (default to undefined)
 let to: string; // (optional) (default to undefined)
@@ -409,7 +409,7 @@ const { status, data } = await apiInstance.adminListCalls(
 | **limit** | [**number**] |  | (optional) defaults to 50|
 | **cursor** | [**string**] |  | (optional) defaults to undefined|
 | **type** | [**&#39;AUDIO&#39; | &#39;VIDEO&#39;**]**Array<&#39;AUDIO&#39; &#124; &#39;VIDEO&#39;>** |  | (optional) defaults to undefined|
-| **status** | [**&#39;REJECTED&#39; | &#39;FAILED&#39; | &#39;ACCEPTED&#39; | &#39;INVITING&#39; | &#39;RINGING&#39; | &#39;CONNECTED&#39; | &#39;CANCELLED&#39; | &#39;MISSED&#39; | &#39;ENDED&#39;**]**Array<&#39;REJECTED&#39; &#124; &#39;FAILED&#39; &#124; &#39;ACCEPTED&#39; &#124; &#39;INVITING&#39; &#124; &#39;RINGING&#39; &#124; &#39;CONNECTED&#39; &#124; &#39;CANCELLED&#39; &#124; &#39;MISSED&#39; &#124; &#39;ENDED&#39;>** |  | (optional) defaults to undefined|
+| **status** | [**&#39;REJECTED&#39; | &#39;FAILED&#39; | &#39;ACCEPTED&#39; | &#39;CANCELLED&#39; | &#39;MISSED&#39; | &#39;ENDED&#39; | &#39;INVITING&#39; | &#39;RINGING&#39; | &#39;CONNECTED&#39;**]**Array<&#39;REJECTED&#39; &#124; &#39;FAILED&#39; &#124; &#39;ACCEPTED&#39; &#124; &#39;CANCELLED&#39; &#124; &#39;MISSED&#39; &#124; &#39;ENDED&#39; &#124; &#39;INVITING&#39; &#124; &#39;RINGING&#39; &#124; &#39;CONNECTED&#39;>** |  | (optional) defaults to undefined|
 | **participant** | [**string**] |  | (optional) defaults to undefined|
 | **from** | [**string**] |  | (optional) defaults to undefined|
 | **to** | [**string**] |  | (optional) defaults to undefined|
@@ -457,7 +457,7 @@ const apiInstance = new AdminApi(configuration);
 
 let limit: number; // (optional) (default to 50)
 let cursor: string; // (optional) (default to undefined)
-let status: 'PENDING' | 'UPLOADED' | 'READY' | 'REJECTED' | 'DELETED'; // (optional) (default to undefined)
+let status: 'PENDING' | 'UPLOADED' | 'READY' | 'REJECTED' | 'DELETE_PENDING' | 'DELETED'; // (optional) (default to undefined)
 let scope: 'PRIVATE' | 'DIRECT' | 'GROUP'; // (optional) (default to undefined)
 let search: string; // (optional) (default to undefined)
 let from: string; // (optional) (default to undefined)
@@ -480,7 +480,7 @@ const { status, data } = await apiInstance.adminListFiles(
 |------------- | ------------- | ------------- | -------------|
 | **limit** | [**number**] |  | (optional) defaults to 50|
 | **cursor** | [**string**] |  | (optional) defaults to undefined|
-| **status** | [**&#39;PENDING&#39; | &#39;UPLOADED&#39; | &#39;READY&#39; | &#39;REJECTED&#39; | &#39;DELETED&#39;**]**Array<&#39;PENDING&#39; &#124; &#39;UPLOADED&#39; &#124; &#39;READY&#39; &#124; &#39;REJECTED&#39; &#124; &#39;DELETED&#39;>** |  | (optional) defaults to undefined|
+| **status** | [**&#39;PENDING&#39; | &#39;UPLOADED&#39; | &#39;READY&#39; | &#39;REJECTED&#39; | &#39;DELETE_PENDING&#39; | &#39;DELETED&#39;**]**Array<&#39;PENDING&#39; &#124; &#39;UPLOADED&#39; &#124; &#39;READY&#39; &#124; &#39;REJECTED&#39; &#124; &#39;DELETE_PENDING&#39; &#124; &#39;DELETED&#39;>** |  | (optional) defaults to undefined|
 | **scope** | [**&#39;PRIVATE&#39; | &#39;DIRECT&#39; | &#39;GROUP&#39;**]**Array<&#39;PRIVATE&#39; &#124; &#39;DIRECT&#39; &#124; &#39;GROUP&#39;>** |  | (optional) defaults to undefined|
 | **search** | [**string**] |  | (optional) defaults to undefined|
 | **from** | [**string**] |  | (optional) defaults to undefined|

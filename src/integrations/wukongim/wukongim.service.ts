@@ -174,10 +174,15 @@ export class WuKongImService {
     fromUserId: string;
     toUserId: string;
     payload: Record<string, unknown>;
+    persist?: boolean;
+    clientMsgNo?: string;
   }): Promise<void> {
     await this.post("/message/send", {
-      header: { no_persist: 0, red_dot: 1, sync_once: 0 },
-      client_msg_no: randomUUID(),
+      // Call signaling is transient transport state. Persisting it makes
+      // same-account signals (answered_elsewhere) appear as UUID chats and
+      // leaves misleading unread conversations on every device.
+      header: { no_persist: input.persist ? 0 : 1, red_dot: 0, sync_once: 0 },
+      client_msg_no: input.clientMsgNo ?? randomUUID(),
       from_uid: input.fromUserId,
       channel_id: input.toUserId,
       channel_type: 1,

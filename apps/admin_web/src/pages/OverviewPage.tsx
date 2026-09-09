@@ -27,10 +27,10 @@ type Readiness = {
   dependencies: Record<string, DependencyHealth>;
 };
 const dependencyNames: Record<string, string> = {
-  postgresql: "PostgreSQL",
-  wukongim: "WuKongIM",
-  livekit: "LiveKit",
-  objectStorage: "对象存储",
+  postgresql: "数据库",
+  wukongim: "即时通信",
+  livekit: "音视频服务",
+  objectStorage: "文件存储",
 };
 
 export function OverviewPage() {

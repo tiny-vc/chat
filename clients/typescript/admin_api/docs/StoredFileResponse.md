@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **originalName** | **string** |  | [default to undefined]
 **mimeType** | **string** |  | [default to undefined]
 **sizeBytes** | **string** |  | [default to undefined]
+**sha256** | **string** |  | [optional] [default to undefined]
 **purpose** | **string** |  | [default to undefined]
 **scope** | **string** |  | [default to undefined]
 **scopeId** | **string** |  | [optional] [default to undefined]
@@ -27,6 +28,7 @@ const instance: StoredFileResponse = {
     originalName,
     mimeType,
     sizeBytes,
+    sha256,
     purpose,
     scope,
     scopeId,

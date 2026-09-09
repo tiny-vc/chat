@@ -5,6 +5,7 @@
   "description": "Chat application backend using NestJS, WuKongIM and LiveKit",
   "license": "UNLICENSED",
   "scripts": {
+    "branding:sync": "node scripts/sync-branding.mjs",
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -24,6 +25,7 @@
     "smoke:multi-device": "node scripts/smoke-multi-device.mjs",
     "smoke:security": "node scripts/smoke-security.mjs",
     "smoke:media": "node scripts/smoke-media.mjs",
+    "smoke:wukong-media-webhook": "node --env-file=.env.example --env-file-if-exists=.env dist/cli/verify-wukong-media-webhook.js",
     "smoke:livekit-webhook": "node --env-file=.env.example --env-file-if-exists=.env scripts/smoke-livekit-webhook.mjs",
     "smoke:livekit-integration": "node --env-file=.env.example --env-file-if-exists=.env scripts/smoke-livekit-integration.mjs",
     "smoke:groups": "node scripts/smoke-groups.mjs",

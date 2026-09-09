@@ -30,11 +30,12 @@ export const WukongWebhookApiAxiosParamCreator = function (configuration?: Confi
     return {
         /**
          * 
+         * @param {any} [event] 
          * @param {any} [token] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        wukongWebhookReceive: async (token?: any, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        wukongWebhookReceive: async (event?: any, token?: any, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/api/v1/webhooks/wukongim`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -47,8 +48,58 @@ export const WukongWebhookApiAxiosParamCreator = function (configuration?: Confi
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
+            if (event !== undefined) {
+                for (const [key, value] of Object.entries(event)) {
+                    localVarQueryParameter[key] = value;
+                }
+            }
+
             if (token !== undefined) {
                 for (const [key, value] of Object.entries(token)) {
+                    localVarQueryParameter[key] = value;
+                }
+            }
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {string} token 
+         * @param {any} [event] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        wukongWebhookReceiveWithPathToken: async (token: string, event?: any, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'token' is not null or undefined
+            assertParamExists('wukongWebhookReceiveWithPathToken', 'token', token)
+            const localVarPath = `/api/v1/webhooks/wukongim/{token}`
+                .replace('{token}', encodeURIComponent(String(token)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication access-token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (event !== undefined) {
+                for (const [key, value] of Object.entries(event)) {
                     localVarQueryParameter[key] = value;
                 }
             }
@@ -75,14 +126,28 @@ export const WukongWebhookApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
+         * @param {any} [event] 
          * @param {any} [token] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async wukongWebhookReceive(token?: any, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: any; }>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.wukongWebhookReceive(token, options);
+        async wukongWebhookReceive(event?: any, token?: any, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.wukongWebhookReceive(event, token, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['WukongWebhookApi.wukongWebhookReceive']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @param {string} token 
+         * @param {any} [event] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async wukongWebhookReceiveWithPathToken(token: string, event?: any, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.wukongWebhookReceiveWithPathToken(token, event, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['WukongWebhookApi.wukongWebhookReceiveWithPathToken']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -100,8 +165,17 @@ export const WukongWebhookApiFactory = function (configuration?: Configuration, 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        wukongWebhookReceive(requestParameters: WukongWebhookApiWukongWebhookReceiveRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: any; }> {
-            return localVarFp.wukongWebhookReceive(requestParameters.token, options).then((request) => request(axios, basePath));
+        wukongWebhookReceive(requestParameters: WukongWebhookApiWukongWebhookReceiveRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.wukongWebhookReceive(requestParameters.event, requestParameters.token, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @param {WukongWebhookApiWukongWebhookReceiveWithPathTokenRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        wukongWebhookReceiveWithPathToken(requestParameters: WukongWebhookApiWukongWebhookReceiveWithPathTokenRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.wukongWebhookReceiveWithPathToken(requestParameters.token, requestParameters.event, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -110,7 +184,18 @@ export const WukongWebhookApiFactory = function (configuration?: Configuration, 
  * Request parameters for wukongWebhookReceive operation in WukongWebhookApi.
  */
 export interface WukongWebhookApiWukongWebhookReceiveRequest {
+    readonly event?: any
+
     readonly token?: any
+}
+
+/**
+ * Request parameters for wukongWebhookReceiveWithPathToken operation in WukongWebhookApi.
+ */
+export interface WukongWebhookApiWukongWebhookReceiveWithPathTokenRequest {
+    readonly token: string
+
+    readonly event?: any
 }
 
 /**
@@ -124,7 +209,17 @@ export class WukongWebhookApi extends BaseAPI {
      * @throws {RequiredError}
      */
     public wukongWebhookReceive(requestParameters: WukongWebhookApiWukongWebhookReceiveRequest = {}, options?: RawAxiosRequestConfig) {
-        return WukongWebhookApiFp(this.configuration).wukongWebhookReceive(requestParameters.token, options).then((request) => request(this.axios, this.basePath));
+        return WukongWebhookApiFp(this.configuration).wukongWebhookReceive(requestParameters.event, requestParameters.token, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {WukongWebhookApiWukongWebhookReceiveWithPathTokenRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public wukongWebhookReceiveWithPathToken(requestParameters: WukongWebhookApiWukongWebhookReceiveWithPathTokenRequest, options?: RawAxiosRequestConfig) {
+        return WukongWebhookApiFp(this.configuration).wukongWebhookReceiveWithPathToken(requestParameters.token, requestParameters.event, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

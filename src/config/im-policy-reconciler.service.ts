@@ -12,6 +12,7 @@ import {
   createDisabledWuKongImToken,
   createWuKongImToken,
 } from "../integrations/wukongim/wukongim-token";
+import { backgroundJobsEnabled } from "./instance-role";
 
 export const MESSAGING_POLICY_KEY = "wukongim.messaging";
 
@@ -29,7 +30,7 @@ export class ImPolicyReconcilerService
   ) {}
 
   onApplicationBootstrap() {
-    if (this.config.getOrThrow<string>("JOBS_ENABLED") !== "true") return;
+    if (!backgroundJobsEnabled(this.config)) return;
     void this.reconcile();
     this.timer = setInterval(() => void this.reconcile(), 15_000);
     this.timer.unref();

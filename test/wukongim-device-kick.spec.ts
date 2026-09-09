@@ -77,4 +77,33 @@ describe("WuKongImService device disconnect", () => {
       }),
     );
   });
+
+  it("delivers personal call signals without creating conversations or unread badges", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+    });
+    global.fetch = fetchMock;
+    const config = {
+      getOrThrow: jest.fn().mockReturnValue("http://wukongim:5001"),
+      get: jest.fn().mockReturnValue(undefined),
+    } as unknown as ConfigService;
+    const service = new WuKongImService(config);
+
+    await service.sendPersonalMessage({
+      fromUserId: "same-user",
+      toUserId: "same-user",
+      payload: { type: 2001, action: "answered_elsewhere" },
+    });
+
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(request.body as string) as {
+      header: Record<string, number>;
+    };
+    expect(body.header).toEqual({
+      no_persist: 1,
+      red_dot: 0,
+      sync_once: 0,
+    });
+  });
 });

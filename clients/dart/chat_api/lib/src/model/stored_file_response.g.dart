@@ -48,6 +48,9 @@ const StoredFileResponseStatusEnum _$storedFileResponseStatusEnum_READY =
     const StoredFileResponseStatusEnum._('READY');
 const StoredFileResponseStatusEnum _$storedFileResponseStatusEnum_REJECTED =
     const StoredFileResponseStatusEnum._('REJECTED');
+const StoredFileResponseStatusEnum
+    _$storedFileResponseStatusEnum_DELETE_PENDING =
+    const StoredFileResponseStatusEnum._('DELETE_PENDING');
 const StoredFileResponseStatusEnum _$storedFileResponseStatusEnum_DELETED =
     const StoredFileResponseStatusEnum._('DELETED');
 const StoredFileResponseStatusEnum
@@ -65,6 +68,8 @@ StoredFileResponseStatusEnum _$storedFileResponseStatusEnumValueOf(
       return _$storedFileResponseStatusEnum_READY;
     case 'REJECTED':
       return _$storedFileResponseStatusEnum_REJECTED;
+    case 'DELETE_PENDING':
+      return _$storedFileResponseStatusEnum_DELETE_PENDING;
     case 'DELETED':
       return _$storedFileResponseStatusEnum_DELETED;
     case 'unknownDefaultOpenApi':
@@ -81,6 +86,7 @@ final BuiltSet<StoredFileResponseStatusEnum>
   _$storedFileResponseStatusEnum_UPLOADED,
   _$storedFileResponseStatusEnum_READY,
   _$storedFileResponseStatusEnum_REJECTED,
+  _$storedFileResponseStatusEnum_DELETE_PENDING,
   _$storedFileResponseStatusEnum_DELETED,
   _$storedFileResponseStatusEnum_unknownDefaultOpenApi,
 ]);
@@ -132,6 +138,7 @@ class _$StoredFileResponseStatusEnumSerializer
     'UPLOADED': 'UPLOADED',
     'READY': 'READY',
     'REJECTED': 'REJECTED',
+    'DELETE_PENDING': 'DELETE_PENDING',
     'DELETED': 'DELETED',
     'unknownDefaultOpenApi': 'unknown_default_open_api',
   };
@@ -140,6 +147,7 @@ class _$StoredFileResponseStatusEnumSerializer
     'UPLOADED': 'UPLOADED',
     'READY': 'READY',
     'REJECTED': 'REJECTED',
+    'DELETE_PENDING': 'DELETE_PENDING',
     'DELETED': 'DELETED',
     'unknown_default_open_api': 'unknownDefaultOpenApi',
   };
@@ -172,6 +180,8 @@ class _$StoredFileResponse extends StoredFileResponse {
   @override
   final String sizeBytes;
   @override
+  final String? sha256;
+  @override
   final String purpose;
   @override
   final StoredFileResponseScopeEnum scope;
@@ -195,6 +205,7 @@ class _$StoredFileResponse extends StoredFileResponse {
       required this.originalName,
       required this.mimeType,
       required this.sizeBytes,
+      this.sha256,
       required this.purpose,
       required this.scope,
       this.scopeId,
@@ -220,6 +231,7 @@ class _$StoredFileResponse extends StoredFileResponse {
         originalName == other.originalName &&
         mimeType == other.mimeType &&
         sizeBytes == other.sizeBytes &&
+        sha256 == other.sha256 &&
         purpose == other.purpose &&
         scope == other.scope &&
         scopeId == other.scopeId &&
@@ -236,6 +248,7 @@ class _$StoredFileResponse extends StoredFileResponse {
     _$hash = $jc(_$hash, originalName.hashCode);
     _$hash = $jc(_$hash, mimeType.hashCode);
     _$hash = $jc(_$hash, sizeBytes.hashCode);
+    _$hash = $jc(_$hash, sha256.hashCode);
     _$hash = $jc(_$hash, purpose.hashCode);
     _$hash = $jc(_$hash, scope.hashCode);
     _$hash = $jc(_$hash, scopeId.hashCode);
@@ -254,6 +267,7 @@ class _$StoredFileResponse extends StoredFileResponse {
           ..add('originalName', originalName)
           ..add('mimeType', mimeType)
           ..add('sizeBytes', sizeBytes)
+          ..add('sha256', sha256)
           ..add('purpose', purpose)
           ..add('scope', scope)
           ..add('scopeId', scopeId)
@@ -284,6 +298,10 @@ class StoredFileResponseBuilder
   String? _sizeBytes;
   String? get sizeBytes => _$this._sizeBytes;
   set sizeBytes(String? sizeBytes) => _$this._sizeBytes = sizeBytes;
+
+  String? _sha256;
+  String? get sha256 => _$this._sha256;
+  set sha256(String? sha256) => _$this._sha256 = sha256;
 
   String? _purpose;
   String? get purpose => _$this._purpose;
@@ -325,6 +343,7 @@ class StoredFileResponseBuilder
       _originalName = $v.originalName;
       _mimeType = $v.mimeType;
       _sizeBytes = $v.sizeBytes;
+      _sha256 = $v.sha256;
       _purpose = $v.purpose;
       _scope = $v.scope;
       _scopeId = $v.scopeId;
@@ -361,6 +380,7 @@ class StoredFileResponseBuilder
               mimeType, r'StoredFileResponse', 'mimeType'),
           sizeBytes: BuiltValueNullFieldError.checkNotNull(
               sizeBytes, r'StoredFileResponse', 'sizeBytes'),
+          sha256: sha256,
           purpose: BuiltValueNullFieldError.checkNotNull(
               purpose, r'StoredFileResponse', 'purpose'),
           scope: BuiltValueNullFieldError.checkNotNull(

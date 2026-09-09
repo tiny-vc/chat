@@ -165,6 +165,8 @@ class _$CreateUploadDto extends CreateUploadDto {
   @override
   final num size;
   @override
+  final String sha256;
+  @override
   final CreateUploadDtoPurposeEnum purpose;
   @override
   final CreateUploadDtoScopeEnum scope;
@@ -178,6 +180,7 @@ class _$CreateUploadDto extends CreateUploadDto {
       {required this.fileName,
       required this.mimeType,
       required this.size,
+      required this.sha256,
       required this.purpose,
       required this.scope,
       this.scopeId})
@@ -196,6 +199,7 @@ class _$CreateUploadDto extends CreateUploadDto {
         fileName == other.fileName &&
         mimeType == other.mimeType &&
         size == other.size &&
+        sha256 == other.sha256 &&
         purpose == other.purpose &&
         scope == other.scope &&
         scopeId == other.scopeId;
@@ -207,6 +211,7 @@ class _$CreateUploadDto extends CreateUploadDto {
     _$hash = $jc(_$hash, fileName.hashCode);
     _$hash = $jc(_$hash, mimeType.hashCode);
     _$hash = $jc(_$hash, size.hashCode);
+    _$hash = $jc(_$hash, sha256.hashCode);
     _$hash = $jc(_$hash, purpose.hashCode);
     _$hash = $jc(_$hash, scope.hashCode);
     _$hash = $jc(_$hash, scopeId.hashCode);
@@ -220,6 +225,7 @@ class _$CreateUploadDto extends CreateUploadDto {
           ..add('fileName', fileName)
           ..add('mimeType', mimeType)
           ..add('size', size)
+          ..add('sha256', sha256)
           ..add('purpose', purpose)
           ..add('scope', scope)
           ..add('scopeId', scopeId))
@@ -243,6 +249,10 @@ class CreateUploadDtoBuilder
   num? get size => _$this._size;
   set size(num? size) => _$this._size = size;
 
+  String? _sha256;
+  String? get sha256 => _$this._sha256;
+  set sha256(String? sha256) => _$this._sha256 = sha256;
+
   CreateUploadDtoPurposeEnum? _purpose;
   CreateUploadDtoPurposeEnum? get purpose => _$this._purpose;
   set purpose(CreateUploadDtoPurposeEnum? purpose) => _$this._purpose = purpose;
@@ -265,6 +275,7 @@ class CreateUploadDtoBuilder
       _fileName = $v.fileName;
       _mimeType = $v.mimeType;
       _size = $v.size;
+      _sha256 = $v.sha256;
       _purpose = $v.purpose;
       _scope = $v.scope;
       _scopeId = $v.scopeId;
@@ -295,6 +306,8 @@ class CreateUploadDtoBuilder
               mimeType, r'CreateUploadDto', 'mimeType'),
           size: BuiltValueNullFieldError.checkNotNull(
               size, r'CreateUploadDto', 'size'),
+          sha256: BuiltValueNullFieldError.checkNotNull(
+              sha256, r'CreateUploadDto', 'sha256'),
           purpose: BuiltValueNullFieldError.checkNotNull(
               purpose, r'CreateUploadDto', 'purpose'),
           scope: BuiltValueNullFieldError.checkNotNull(

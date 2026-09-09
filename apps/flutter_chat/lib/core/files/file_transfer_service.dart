@@ -5,9 +5,11 @@ import 'package:chat_api_client/chat_api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:crypto/crypto.dart' as crypto;
 
 import '../../config/app_config.dart';
 import '../../config/server_settings.dart';
+import 'download_scheduler.dart';
 
 class UploadedChatFile {
   const UploadedChatFile({
@@ -53,7 +55,14 @@ class FileTransferService {
   final ChatApiClient _api;
   final Dio _storage;
   Future<void>? _cachePrune;
+  final Map<String, _CachedResolvedUrl> _resolvedUrls = {};
+  final Map<String, Future<ResolvedUrl>> _resolvingUrls = {};
+  final Map<String, int> _resolvedSizes = {};
+  final Map<String, String> _resolvedSha256 = {};
+  final Map<String, Future<File>> _avatarDownloads = {};
+  final DownloadScheduler _downloadScheduler = DownloadScheduler();
   var _activeDownloads = 0;
+  final Set<String> _pendingCachePaths = {};
 
   Future<UploadedChatFile> upload({
     required PlatformFile file,
@@ -64,10 +73,12 @@ class FileTransferService {
     CancelToken? cancelToken,
   }) async {
     final size = await file.length();
-    final mimeType = _mimeType(file.extension, image: image);
+    final checksum = await calculateFileSha256(file.readAsByteStream());
+    final mimeType = inferFileMimeType(file.extension, image: image);
     return _upload(
       name: file.name,
       size: size,
+      sha256: checksum,
       mimeType: mimeType,
       purpose: image
           ? CreateUploadDtoPurposeEnum.CHAT_IMAGE
@@ -88,9 +99,11 @@ class FileTransferService {
     CancelToken? cancelToken,
   }) async {
     final source = File(path);
+    final checksum = await calculateFileSha256(source.openRead());
     return _upload(
       name: path.split(Platform.pathSeparator).last,
       size: await source.length(),
+      sha256: checksum,
       mimeType: 'audio/mp4',
       purpose: CreateUploadDtoPurposeEnum.CHAT_VOICE,
       channelId: channelId,
@@ -106,10 +119,12 @@ class FileTransferService {
     ProgressCallback? onProgress,
   }) async {
     final size = await file.length();
+    final checksum = await calculateFileSha256(file.readAsByteStream());
     return _upload(
       name: file.name,
       size: size,
-      mimeType: _mimeType(file.extension, image: true),
+      sha256: checksum,
+      mimeType: inferFileMimeType(file.extension, image: true),
       purpose: CreateUploadDtoPurposeEnum.AVATAR,
       scope: CreateUploadDtoScopeEnum.PRIVATE,
       stream: file.readAsByteStream(),
@@ -125,10 +140,12 @@ class FileTransferService {
     CancelToken? cancelToken,
   }) async {
     final size = await file.length();
+    final checksum = await calculateFileSha256(file.readAsByteStream());
     return _upload(
       name: file.name,
       size: size,
-      mimeType: _mimeType(file.extension, image: false),
+      sha256: checksum,
+      mimeType: inferFileMimeType(file.extension, image: false),
       purpose: CreateUploadDtoPurposeEnum.CHAT_VIDEO,
       channelId: channelId,
       channelType: channelType,
@@ -141,6 +158,7 @@ class FileTransferService {
   Future<UploadedChatFile> _upload({
     required String name,
     required int size,
+    required String sha256,
     required String mimeType,
     required CreateUploadDtoPurposeEnum purpose,
     String? channelId,
@@ -155,6 +173,7 @@ class FileTransferService {
         ..fileName = name
         ..mimeType = mimeType
         ..size = size
+        ..sha256 = sha256
         ..purpose = purpose
         ..scope =
             scope ??
@@ -208,11 +227,60 @@ class FileTransferService {
   }
 
   Future<ResolvedUrl> downloadUrl(String fileId) async {
+    final now = DateTime.now();
+    final cached = _resolvedUrls[fileId];
+    if (cached != null && now.isBefore(cached.refreshAt)) return cached.url;
+    final active = _resolvingUrls[fileId];
+    if (active != null) return active;
+    final resolving = _resolveDownloadUrl(fileId, now);
+    _resolvingUrls[fileId] = resolving;
+    try {
+      return await resolving;
+    } finally {
+      _resolvingUrls.remove(fileId);
+    }
+  }
+
+  Future<File> downloadAvatar(String fileId) async {
+    final active = _avatarDownloads[fileId];
+    if (active != null) return active;
+    final downloading = download(
+      fileId: fileId,
+      fileName: 'avatar_image',
+      priority: DownloadPriority.avatar,
+    );
+    _avatarDownloads[fileId] = downloading;
+    try {
+      return await downloading;
+    } finally {
+      if (identical(_avatarDownloads[fileId], downloading)) {
+        _avatarDownloads.remove(fileId);
+      }
+    }
+  }
+
+  Future<ResolvedUrl> _resolveDownloadUrl(String fileId, DateTime now) async {
     final result = (await _api.getFilesApi().filesDownload(
       fileId: fileId,
     )).data;
     if (result == null) throw StateError('服务器未返回下载地址');
-    return AppConfig.resolveSignedUrl(result.downloadUrl);
+    final resolved = AppConfig.resolveSignedUrl(result.downloadUrl);
+    final resolvedSize = int.tryParse(result.file.sizeBytes);
+    if (resolvedSize != null && resolvedSize > 0) {
+      _resolvedSizes[fileId] = resolvedSize;
+    }
+    final resolvedChecksum = result.file.sha256;
+    if (resolvedChecksum != null && resolvedChecksum.length == 64) {
+      _resolvedSha256[fileId] = resolvedChecksum;
+    }
+    // Refresh before the signed URL actually expires so an image already on
+    // screen never races the storage server's expiry boundary.
+    final usableSeconds = (result.expiresIn - 30).clamp(1, 3600);
+    _resolvedUrls[fileId] = _CachedResolvedUrl(
+      resolved,
+      now.add(Duration(seconds: usableSeconds)),
+    );
+    return resolved;
   }
 
   Future<File> download({
@@ -221,7 +289,12 @@ class FileTransferService {
     int? expectedSize,
     ProgressCallback? onProgress,
     CancelToken? cancelToken,
+    DownloadPriority priority = DownloadPriority.interactive,
   }) async {
+    // Authorization and immutable integrity metadata always come from the API.
+    await downloadUrl(fileId);
+    expectedSize ??= _resolvedSizes[fileId];
+    final expectedSha256 = _resolvedSha256[fileId];
     final directory = await getTemporaryDirectory();
     final sanitized = fileName
         .replaceAll(RegExp(r'[/\\:*?"<>|]'), '_')
@@ -240,39 +313,76 @@ class FileTransferService {
       safeName += extension;
     }
     final target = File(
-      '${directory.path}${Platform.pathSeparator}${scopedFileCacheKey(_api.dio.options.baseUrl, fileId)}_${safeName.isEmpty ? 'file' : safeName}',
+      '${directory.path}${Platform.pathSeparator}${scopedFileCacheKey(_api.dio.options.baseUrl, fileId)}_${expectedSha256?.substring(0, 12) ?? 'unchecked'}_${safeName.isEmpty ? 'file' : safeName}',
     );
-    _cachePrune ??= pruneChatDownloadCache(
-      directory,
-      namespace: serverNamespace(_api.dio.options.baseUrl),
-      preservedPaths: {target.path},
-    );
-    await _cachePrune;
-    if (await cachedDownloadIsValid(target, expectedSize: expectedSize)) {
-      await markCachedDownloadAccessed(target);
-      return target;
-    }
-    if (await target.exists()) await target.delete();
-    final partial = File('${target.path}.part');
-    if (await partial.exists()) await partial.delete();
+    _pendingCachePaths.add(target.path);
     try {
-      _activeDownloads++;
-      final endpoint = await downloadUrl(fileId);
-      await _storage.download(
-        endpoint.url,
-        partial.path,
-        options: Options(headers: endpoint.headers),
-        onReceiveProgress: onProgress,
-        cancelToken: cancelToken,
-      );
-      await partial.rename(target.path);
-    } catch (_) {
-      if (await partial.exists()) await partial.delete();
-      rethrow;
+      final previousPrune = _cachePrune;
+      final prune = () async {
+        if (previousPrune != null) await previousPrune;
+        await pruneChatDownloadCache(
+          directory,
+          namespace: serverNamespace(_api.dio.options.baseUrl),
+          preservedPaths: {..._pendingCachePaths},
+        );
+      }();
+      _cachePrune = prune;
+      try {
+        await prune;
+      } finally {
+        if (identical(_cachePrune, prune)) _cachePrune = null;
+      }
+      if (await cachedDownloadIsValid(
+        target,
+        expectedSize: expectedSize,
+        expectedSha256: expectedSha256,
+      )) {
+        await markCachedDownloadAccessed(target);
+        return target;
+      }
+      return await _downloadScheduler.schedule(() async {
+        // A transfer ahead of this task may have populated the cache while it
+        // waited for a slot.
+        if (await cachedDownloadIsValid(
+          target,
+          expectedSize: expectedSize,
+          expectedSha256: expectedSha256,
+        )) {
+          await markCachedDownloadAccessed(target);
+          return target;
+        }
+        if (await target.exists()) await target.delete();
+        final partial = File('${target.path}.part');
+        if (await partial.exists()) await partial.delete();
+        try {
+          _activeDownloads++;
+          final endpoint = await downloadUrl(fileId);
+          await _storage.download(
+            endpoint.url,
+            partial.path,
+            options: Options(headers: endpoint.headers),
+            onReceiveProgress: onProgress,
+            cancelToken: cancelToken,
+          );
+          if (!await cachedDownloadIsValid(
+            partial,
+            expectedSize: expectedSize,
+            expectedSha256: expectedSha256,
+          )) {
+            throw StateError('下载文件不完整或校验失败，请重试');
+          }
+          await partial.rename(target.path);
+        } catch (_) {
+          if (await partial.exists()) await partial.delete();
+          rethrow;
+        } finally {
+          _activeDownloads--;
+        }
+        return target;
+      }, priority: priority);
     } finally {
-      _activeDownloads--;
+      _pendingCachePaths.remove(target.path);
     }
-    return target;
   }
 
   Future<DownloadCacheStats> downloadCacheStats() async {
@@ -315,7 +425,11 @@ class FileTransferService {
   }
 
   Future<void> clearDownloadCache() async {
-    if (_activeDownloads > 0) throw StateError('有文件正在下载，请稍后再清理');
+    if (_activeDownloads > 0 ||
+        _pendingCachePaths.isNotEmpty ||
+        _downloadScheduler.hasWork) {
+      throw StateError('有文件正在下载或等待下载，请稍后再清理');
+    }
     final files = await chatDownloadCacheFiles(
       await getTemporaryDirectory(),
       namespace: serverNamespace(_api.dio.options.baseUrl),
@@ -351,31 +465,73 @@ class FileTransferService {
     return forwarded.id;
   }
 
-  String _mimeType(String? extension, {required bool image}) {
-    return switch (extension?.toLowerCase()) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'gif' => 'image/gif',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      'txt' => 'text/plain',
-      'json' => 'application/json',
-      'zip' => 'application/zip',
-      'mp4' => 'video/mp4',
-      _ => image ? 'image/*' : 'application/octet-stream',
-    };
+  Future<void> setThumbnail({
+    required String fileId,
+    required String thumbnailFileId,
+  }) async {
+    await _api.getFilesApi().filesSetThumbnail(
+      fileId: fileId,
+      setThumbnailDto: SetThumbnailDto(
+        (builder) => builder.thumbnailFileId = thumbnailFileId,
+      ),
+    );
   }
 
-  void dispose() => _storage.close(force: true);
+  void dispose() {
+    _downloadScheduler.close();
+    _resolvedUrls.clear();
+    _resolvedSizes.clear();
+    _resolvedSha256.clear();
+    _resolvingUrls.clear();
+    _avatarDownloads.clear();
+    _storage.close(force: true);
+  }
 }
 
-Future<bool> cachedDownloadIsValid(File file, {int? expectedSize}) async {
+Future<String> calculateFileSha256(Stream<List<int>> stream) async =>
+    (await crypto.sha256.bind(stream).first).toString();
+
+String inferFileMimeType(String? extension, {required bool image}) {
+  return switch (extension?.toLowerCase()) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'gif' => 'image/gif',
+    'webp' => 'image/webp',
+    'heic' => 'image/heic',
+    'heif' => 'image/heif',
+    'pdf' => 'application/pdf',
+    'txt' => 'text/plain',
+    'json' => 'application/json',
+    'zip' => 'application/zip',
+    'mp4' => 'video/mp4',
+    'm4v' => 'video/x-m4v',
+    'mov' => 'video/quicktime',
+    'webm' => 'video/webm',
+    'mkv' => 'video/x-matroska',
+    'avi' => 'video/x-msvideo',
+    _ => image ? 'image/*' : 'application/octet-stream',
+  };
+}
+
+class _CachedResolvedUrl {
+  const _CachedResolvedUrl(this.url, this.refreshAt);
+  final ResolvedUrl url;
+  final DateTime refreshAt;
+}
+
+Future<bool> cachedDownloadIsValid(
+  File file, {
+  int? expectedSize,
+  String? expectedSha256,
+}) async {
   if (!await file.exists()) return false;
   final actualSize = await file.length();
   if (actualSize <= 0) return false;
-  return expectedSize == null ||
-      expectedSize <= 0 ||
-      actualSize == expectedSize;
+  final sizeMatches =
+      expectedSize == null || expectedSize <= 0 || actualSize == expectedSize;
+  if (!sizeMatches) return false;
+  return expectedSha256 == null ||
+      await calculateFileSha256(file.openRead()) == expectedSha256;
 }
 
 Future<void> markCachedDownloadAccessed(File file, {DateTime? now}) async {

@@ -9,6 +9,7 @@ Name | Type | Description | Notes
 **userId** | **string** |  | [default to undefined]
 **role** | **string** |  | [default to undefined]
 **status** | **string** |  | [default to undefined]
+**nickname** | **string** |  | [optional] [default to undefined]
 **mutedUntil** | **string** |  | [optional] [default to undefined]
 **joinedAt** | **string** |  | [default to undefined]
 **user** | [**UserResponse**](UserResponse.md) |  | [optional] [default to undefined]
@@ -23,6 +24,7 @@ const instance: GroupMemberResponse = {
     userId,
     role,
     status,
+    nickname,
     mutedUntil,
     joinedAt,
     user,

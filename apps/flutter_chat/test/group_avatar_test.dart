@@ -130,7 +130,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, '上传群头像'))
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.camera_alt_outlined),
+          )
           .onPressed,
       isNotNull,
     );
@@ -147,7 +149,9 @@ void main() {
     expect(find.text('当前服务器未开放群头像上传'), findsOneWidget);
     expect(
       tester
-          .widget<TextButton>(find.widgetWithText(TextButton, '上传群头像'))
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.camera_alt_outlined),
+          )
           .onPressed,
       isNull,
     );
@@ -170,8 +174,8 @@ void main() {
     );
 
     expect(find.text('当前服务器未开放群头像上传'), findsOneWidget);
-    final button = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, '上传群头像'),
+    final button = tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, Icons.camera_alt_outlined),
     );
     expect(button.onPressed, isNull);
     expect(picks, 0);
@@ -183,8 +187,8 @@ void main() {
   ) async {
     final repo = AvatarRepo()..me = 'member';
     await openAvatar(tester, repo, AvatarFiles());
-    expect(find.byType(AppAvatar), findsOneWidget);
-    expect(find.text('上传群头像'), findsNothing);
+    expect(find.byKey(const ValueKey('group-avatar')), findsOneWidget);
+    expect(find.byTooltip('添加群头像'), findsNothing);
     expect(find.text('移除群头像'), findsNothing);
   });
 
@@ -205,7 +209,7 @@ void main() {
         chatFile: 2048,
       ),
     );
-    await tester.tap(find.text('上传群头像'));
+    await tester.tap(find.byTooltip('添加群头像'));
     await tester.pumpAndSettle();
     expect(find.textContaining('服务器上限为 1.0 KB'), findsOneWidget);
     expect(files.uploads, 0);
@@ -227,7 +231,7 @@ void main() {
       },
     );
     for (var i = 0; i < 2; i++) {
-      await tester.tap(find.text('上传群头像'));
+      await tester.tap(find.byTooltip('添加群头像'));
       await tester.pumpAndSettle();
     }
     expect(picks, 2);
@@ -241,16 +245,16 @@ void main() {
     final repo = AvatarRepo()..me = 'admin';
     final files = AvatarFiles()..pending = Completer<void>();
     await openAvatar(tester, repo, files);
-    await tester.tap(find.text('上传群头像'));
+    await tester.tap(find.byTooltip('添加群头像'));
     await tester.pump();
-    await tester.tap(find.text('上传群头像'));
+    await tester.tap(find.byTooltip('添加群头像'));
     expect(files.uploads, 1);
     expect(repo.calls, 0);
     files.pending!.complete();
     await tester.pumpAndSettle();
     expect(repo.calls, 1);
     expect(tester.widget<AppAvatar>(find.byType(AppAvatar)).fileId, 'new');
-    expect(find.text('更换群头像'), findsOneWidget);
+    expect(find.byTooltip('更换群头像'), findsOneWidget);
   });
 
   testWidgets('upload and bind failures retain old avatar and allow retry', (
@@ -260,16 +264,16 @@ void main() {
       ..group = AvatarRepo().group.rebuild((b) => b.avatarFileId = 'old');
     final files = AvatarFiles()..fail = true;
     await openAvatar(tester, repo, files);
-    await tester.tap(find.text('更换群头像'));
+    await tester.tap(find.byTooltip('更换群头像'));
     await tester.pumpAndSettle();
     expect(repo.calls, 0);
     files.fail = false;
     repo.failBind = true;
-    await tester.tap(find.text('更换群头像'));
+    await tester.tap(find.byTooltip('更换群头像'));
     await tester.pumpAndSettle();
     expect(tester.widget<AppAvatar>(find.byType(AppAvatar)).fileId, 'old');
     repo.failBind = false;
-    await tester.tap(find.text('更换群头像'));
+    await tester.tap(find.byTooltip('更换群头像'));
     await tester.pumpAndSettle();
     expect(tester.widget<AppAvatar>(find.byType(AppAvatar)).fileId, 'new');
   });

@@ -19,6 +19,7 @@ export interface StoredFileResponse {
     'originalName': string;
     'mimeType': string;
     'sizeBytes': string;
+    'sha256'?: string | null;
     'purpose': string;
     'scope': StoredFileResponseScopeEnum;
     'scopeId'?: string | null;
@@ -38,6 +39,7 @@ export enum StoredFileResponseStatusEnum {
     Uploaded = 'UPLOADED',
     Ready = 'READY',
     Rejected = 'REJECTED',
+    DeletePending = 'DELETE_PENDING',
     Deleted = 'DELETED'
 }
 

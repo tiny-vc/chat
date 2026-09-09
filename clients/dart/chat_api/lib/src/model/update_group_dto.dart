@@ -12,11 +12,15 @@ part 'update_group_dto.g.dart';
 ///
 /// Properties:
 /// * [name] 
+/// * [announcement] 
 /// * [muteAll] 
 @BuiltValue()
 abstract class UpdateGroupDto implements Built<UpdateGroupDto, UpdateGroupDtoBuilder> {
   @BuiltValueField(wireName: r'name')
   String? get name;
+
+  @BuiltValueField(wireName: r'announcement')
+  String? get announcement;
 
   @BuiltValueField(wireName: r'muteAll')
   bool? get muteAll;
@@ -48,6 +52,13 @@ class _$UpdateGroupDtoSerializer implements PrimitiveSerializer<UpdateGroupDto> 
       yield r'name';
       yield serializers.serialize(
         object.name,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.announcement != null) {
+      yield r'announcement';
+      yield serializers.serialize(
+        object.announcement,
         specifiedType: const FullType(String),
       );
     }
@@ -88,6 +99,14 @@ class _$UpdateGroupDtoSerializer implements PrimitiveSerializer<UpdateGroupDto> 
           ) as String?;
           if (valueDes == null) continue;
           result.name = valueDes;
+          break;
+        case r'announcement':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.announcement = valueDes;
           break;
         case r'muteAll':
           final valueDes = serializers.deserialize(

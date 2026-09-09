@@ -104,7 +104,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
-          home: GroupJoinPage(controller: controller, actionable: true),
+          home: GroupJoinPage(
+            controller: controller,
+            fileTransferService: files,
+            actionable: true,
+          ),
         ),
       );
       final deadline = DateTime.now().add(const Duration(seconds: 20));

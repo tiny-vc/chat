@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **userId** | **String** |  | 
 **role** | **String** |  | 
 **status** | **String** |  | 
+**nickname** | **String** |  | [optional] 
 **mutedUntil** | [**DateTime**](DateTime.md) |  | [optional] 
 **joinedAt** | [**DateTime**](DateTime.md) |  | 
 **user** | [**UserResponse**](UserResponse.md) |  | [optional] 

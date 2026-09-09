@@ -115,17 +115,28 @@ class _StoragePageState extends State<StoragePage> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          const _SectionTitle('云端空间'),
           Card(
+            margin: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.cloud_outlined),
-                    title: Text('服务器文件'),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.cloud_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '服务器文件',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 14),
                   if (_serverUsage != null) ...[
                     LinearProgressIndicator(
                       value: _serverUsage!.usedRatio,
@@ -176,40 +187,89 @@ class _StoragePageState extends State<StoragePage> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
+          const _SectionTitle('本机存储'),
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.folder_outlined),
-              title: const Text('下载缓存'),
-              subtitle: Text(
-                _error != null
-                    ? '读取失败，请重试'
-                    : _stats == null
-                    ? '正在计算…'
-                    : '${formatFileSize(_stats!.totalBytes)} · ${_stats!.fileCount} 个文件',
-              ),
-              trailing: _stats == null
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.folder_outlined),
+                  title: const Text('下载缓存'),
+                  subtitle: Text(
+                    _error != null
+                        ? '读取失败，请重试'
+                        : _stats == null
+                        ? '正在计算…'
+                        : '${formatFileSize(_stats!.totalBytes)} · ${_stats!.fileCount} 个文件',
+                  ),
+                  trailing: _stats == null
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                ),
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  enabled: !_busy && (_stats?.fileCount ?? 0) > 0,
+                  onTap: _busy || (_stats?.fileCount ?? 0) == 0 ? null : _clear,
+                  leading: _busy
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          Icons.cleaning_services_outlined,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                  title: Text(
+                    _busy ? '正在清理…' : '清理下载缓存',
+                    style: TextStyle(
+                      color: _busy || (_stats?.fileCount ?? 0) == 0
+                          ? null
+                          : Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: _busy || (_stats?.fileCount ?? 0) == 0 ? null : _clear,
-            icon: const Icon(Icons.cleaning_services_outlined),
-            label: Text(_busy ? '正在清理…' : '清理下载缓存'),
-          ),
           if (_error != null)
-            TextButton(onPressed: _load, child: const Text('重新读取')),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('重新读取'),
+              ),
+            ),
           const SizedBox(height: 12),
           Text(
             '这里只清理当前服务器已下载到本机的文件，不会删除聊天记录、服务器文件或其他账号数据。',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
+      ),
+    ),
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w700,
       ),
     ),
   );

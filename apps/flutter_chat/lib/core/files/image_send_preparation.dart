@@ -3,6 +3,27 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
+const _portableAvatarPickerOptions = DarwinOptions(
+  assetRepresentationMode: DarwinAssetRepresentationMode.compatible,
+);
+
+/// Requests an Apple-compatible representation so an iPhone HEIC photo is
+/// exported as a format that Android can decode as well.
+Future<PlatformFile?> pickPortableAvatar() => FilePicker.pickFile(
+  type: FileType.image,
+  darwinOptions: _portableAvatarPickerOptions,
+);
+
+Future<PlatformFile?> pickPortableChatImage() => FilePicker.pickFile(
+  type: FileType.image,
+  darwinOptions: _portableAvatarPickerOptions,
+);
+
+Future<PlatformFile?> pickPortableChatVideo() => FilePicker.pickFile(
+  type: FileType.video,
+  darwinOptions: _portableAvatarPickerOptions,
+);
+
 class PreparedChatImage {
   const PreparedChatImage({
     required this.file,
@@ -17,9 +38,29 @@ class PreparedChatImage {
   final bool compressed;
 }
 
+class PreparedChatThumbnail {
+  const PreparedChatThumbnail({required this.file});
+
+  final PlatformFile file;
+}
+
 bool canCompressChatImage(PlatformFile file) {
   final extension = file.extension?.toLowerCase();
   return extension == 'jpg' || extension == 'jpeg';
+}
+
+bool isPortableChatImage(PlatformFile file) {
+  final extension = file.extension?.toLowerCase();
+  return extension == 'jpg' ||
+      extension == 'jpeg' ||
+      extension == 'png' ||
+      extension == 'gif' ||
+      extension == 'webp';
+}
+
+bool isPortableChatVideo(PlatformFile file) {
+  final extension = file.extension?.toLowerCase();
+  return extension == 'mp4' || extension == 'm4v' || extension == 'mov';
 }
 
 Future<Uint8List> readPlatformFileBytes(PlatformFile file) async =>
@@ -54,8 +95,12 @@ final class MemoryPlatformFile extends PlatformFile {
 Future<PreparedChatImage> prepareChatImage(
   PlatformFile source, {
   required bool compress,
+  Uint8List? sourceBytes,
 }) async {
-  final bytes = await readPlatformFileBytes(source);
+  if (!isPortableChatImage(source)) {
+    throw UnsupportedError('暂不支持此图片格式，请选择 JPEG、PNG、GIF 或 WebP 图片');
+  }
+  final bytes = sourceBytes ?? await readPlatformFileBytes(source);
   if (!compress || !canCompressChatImage(source)) {
     return PreparedChatImage(
       file: source,
@@ -94,4 +139,36 @@ Uint8List? _compressJpeg(Uint8List bytes) {
         : img.copyResize(decoded, height: maxSide);
   }
   return Uint8List.fromList(img.encodeJpg(decoded, quality: 82));
+}
+
+/// Creates a small, orientation-correct preview that can be downloaded before
+/// the original image. Unsupported formats return null and keep the historical
+/// full-image fallback working.
+Future<PreparedChatThumbnail?> prepareChatThumbnail(
+  Uint8List bytes, {
+  String baseName = 'image',
+}) async {
+  final output = await compute(_createThumbnailJpeg, bytes);
+  if (output == null || output.isEmpty) return null;
+  final safeBase = baseName.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  return PreparedChatThumbnail(
+    file: MemoryPlatformFile(name: '${safeBase}_thumb.jpg', bytes: output),
+  );
+}
+
+Uint8List? _createThumbnailJpeg(Uint8List bytes) {
+  try {
+    var decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    decoded = img.bakeOrientation(decoded);
+    const maxSide = 480;
+    if (decoded.width > maxSide || decoded.height > maxSide) {
+      decoded = decoded.width >= decoded.height
+          ? img.copyResize(decoded, width: maxSide)
+          : img.copyResize(decoded, height: maxSide);
+    }
+    return Uint8List.fromList(img.encodeJpg(decoded, quality: 74));
+  } catch (_) {
+    return null;
+  }
 }

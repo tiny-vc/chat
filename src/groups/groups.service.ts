@@ -98,7 +98,36 @@ export class GroupsService {
     if (input.muteAll !== undefined) {
       await this.wuKongIm.updateChannelPolicy(groupId, { sendBanned: input.muteAll });
     }
-    return this.prisma.group.update({ where: { id: groupId }, data: input });
+    const group = await this.prisma.group.update({
+      where: { id: groupId },
+      data: {
+        ...(input.name === undefined ? {} : { name: input.name.trim() }),
+        ...(input.muteAll === undefined ? {} : { muteAll: input.muteAll }),
+        ...(input.announcement === undefined
+          ? {}
+          : { announcement: input.announcement.trim() || null }),
+      },
+    });
+    if (input.name !== undefined) {
+      await this.sendSystemNotice(groupId, userId, 'group.name_changed', {
+        name: group.name,
+      });
+    }
+    if (input.announcement !== undefined) {
+      await this.sendSystemNotice(groupId, userId, 'group.announcement_changed', {
+        announcement: group.announcement,
+      });
+    }
+    return group;
+  }
+
+  async updateMyNickname(groupId: string, userId: string, nickname: string) {
+    await this.requireMember(groupId, userId);
+    return this.prisma.groupMember.update({
+      where: { groupId_userId: { groupId, userId } },
+      data: { nickname: nickname.trim() || null },
+      include: memberInclude,
+    });
   }
 
   async setMemberRole(

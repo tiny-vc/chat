@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:chat_api_client/chat_api_client.dart';
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'config/app_config.dart';
 import 'config/server_settings.dart';
@@ -22,6 +23,7 @@ import 'features/home/data/home_repository.dart';
 import 'features/home/presentation/home_controller.dart';
 import 'features/home/presentation/home_page.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode_store.dart';
 import 'core/widgets/app_feedback.dart';
 
 class ChatApp extends StatefulWidget {
@@ -42,16 +44,38 @@ class ChatApp extends StatefulWidget {
 
 class _ChatAppState extends State<ChatApp> {
   late final _serverStore = widget.serverStore ?? ServerSettingsStore();
+  late final _themeModeStore = ThemeModeStore();
+  ThemeMode _themeMode = ThemeMode.system;
   String? _address;
   Object? _error;
 
   @override
   void initState() {
     super.initState();
+    _loadThemeMode();
     if (widget.tokenStore != null && widget.serverStore == null) {
       _address = AppConfig.resolvedApiBaseUrl;
     } else {
       _loadServer();
+    }
+  }
+
+  Future<void> _loadThemeMode() async {
+    try {
+      final mode = await _themeModeStore.read();
+      if (mounted) setState(() => _themeMode = mode);
+    } catch (_) {
+      // Appearance preferences must never block startup.
+    }
+  }
+
+  Future<void> _setThemeMode(ThemeMode mode) async {
+    if (_themeMode == mode) return;
+    setState(() => _themeMode = mode);
+    try {
+      await _themeModeStore.write(mode);
+    } catch (_) {
+      // Keep the selected in-memory theme even if local persistence fails.
     }
   }
 
@@ -94,6 +118,7 @@ class _ChatAppState extends State<ChatApp> {
       return MaterialApp(
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
+        themeMode: _themeMode,
         home: Scaffold(
           body: _error == null
               ? const AppLoading(message: '正在读取服务器设置…')
@@ -112,6 +137,8 @@ class _ChatAppState extends State<ChatApp> {
       serverStore: _serverStore,
       onServerChanged: _switchServer,
       installationIdStore: widget.installationIdStore,
+      themeMode: _themeMode,
+      onThemeModeChanged: _setThemeMode,
     );
   }
 }
@@ -124,11 +151,15 @@ class _ServerSessionApp extends StatefulWidget {
     required this.onServerChanged,
     this.tokenStore,
     this.installationIdStore,
+    required this.themeMode,
+    required this.onThemeModeChanged,
   });
   final String address;
   final TokenStore? tokenStore;
   final InstallationIdStore? installationIdStore;
   final ServerSettingsStore serverStore;
+  final ThemeMode themeMode;
+  final Future<void> Function(ThemeMode) onThemeModeChanged;
   final Future<void> Function(String) onServerChanged;
   @override
   State<_ServerSessionApp> createState() => _ServerSessionAppState();
@@ -169,6 +200,7 @@ class _ServerSessionAppState extends State<_ServerSessionApp>
     _imService = ImService(
       _api.dio,
       installationIdStore: widget.installationIdStore,
+      networkChanges: Connectivity().onConnectivityChanged,
     );
     _fileTransferService = FileTransferService(_api);
     _callService = CallService(_api);
@@ -314,6 +346,7 @@ class _ServerSessionAppState extends State<_ServerSessionApp>
       // AuthRepository always clears the local session in finally.
     }
     if (!mounted) return;
+    _homeController.reset();
     setState(() {
       _loginNotice = '当前设备已被下线，请重新登录。';
       _loggedIn = false;
@@ -342,7 +375,7 @@ class _ServerSessionAppState extends State<_ServerSessionApp>
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: widget.themeMode,
       builder: (context, child) => ServerCapabilitiesScope(
         capabilities: _serverInfo?.capabilities ?? ServerCapabilities.all,
         uploadLimits: _serverInfo?.uploadLimits ?? UploadLimits.defaults,
@@ -397,17 +430,27 @@ class _ServerSessionAppState extends State<_ServerSessionApp>
               fileTransferService: _fileTransferService,
               callService: _callService,
               authRepository: _repository,
-              onLoggedOut: () => setState(() => _loggedIn = false),
+              onLoggedOut: () {
+                _homeController.reset();
+                setState(() => _loggedIn = false);
+              },
               capabilities: _serverInfo?.capabilities ?? ServerCapabilities.all,
+              serverAddress: widget.address,
+              serverName: _serverInfo?.name,
+              themeMode: widget.themeMode,
+              onThemeModeChanged: widget.onThemeModeChanged,
             );
           }
           return LoginPage(
             controller: _authController,
             notice: _loginNotice,
-            onLoggedIn: () => setState(() {
-              _loginNotice = null;
-              _loggedIn = true;
-            }),
+            onLoggedIn: () {
+              _homeController.reset();
+              setState(() {
+                _loginNotice = null;
+                _loggedIn = true;
+              });
+            },
             serverAddress: widget.address,
             serverName: _serverInfo?.name,
             serverMetadataState: _serverInfoLoading

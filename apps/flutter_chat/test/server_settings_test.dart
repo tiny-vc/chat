@@ -356,6 +356,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('连接正常'), findsOneWidget);
         expect(find.text('API v1 · 注册开放'), findsOneWidget);
+        await tester.ensureVisible(find.byType(ExpansionTile));
+        await tester.tap(find.byType(ExpansionTile));
+        await tester.pumpAndSettle();
         expect(find.text('文字消息 · 支持'), findsOneWidget);
         await tester.ensureVisible(find.text('上传大小上限'));
         expect(find.text('聊天图片'), findsOneWidget);

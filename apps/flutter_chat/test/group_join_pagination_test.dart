@@ -4,10 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat/features/home/data/home_repository.dart';
 import 'package:flutter_chat/features/home/presentation/home_controller.dart';
 import 'package:flutter_chat/features/home/presentation/group_join_page.dart';
+import 'package:flutter_chat/core/files/file_transfer_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'group_join_test.dart' as fixture;
 
 class Repo implements HomeRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class Files implements FileTransferService {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -112,14 +118,18 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        home: GroupJoinPage(controller: controller, actionable: true),
+        home: GroupJoinPage(
+          controller: controller,
+          fileTransferService: Files(),
+          actionable: true,
+        ),
       ),
     );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('同意申请'));
     await tester.tap(find.text('同意申请'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '同意申请'));
+    await tester.tap(find.widgetWithText(FilledButton, '同意申请').last);
     await tester.pumpAndSettle();
     expect(controller.decision, 'apply:approve');
   });
@@ -130,7 +140,12 @@ void main() {
     final controller = Controller();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
-      MaterialApp(home: GroupJoinPage(controller: controller)),
+      MaterialApp(
+        home: GroupJoinPage(
+          controller: controller,
+          fileTransferService: Files(),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('加载更多'), 2000, maxScrolls: 100);

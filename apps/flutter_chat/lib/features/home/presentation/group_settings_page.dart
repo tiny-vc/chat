@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/files/file_transfer_service.dart';
 import '../../../core/files/file_size.dart';
+import '../../../core/files/image_send_preparation.dart';
 import '../../../core/widgets/app_avatar.dart';
+import '../../../core/im/im_service.dart';
 
 import 'home_controller.dart';
 import 'group_join_page.dart';
@@ -19,6 +21,7 @@ class GroupSettingsPage extends StatefulWidget {
     required this.fileTransferService,
     this.pickAvatar,
     this.allowAvatarUpload = true,
+    this.imService,
   });
 
   final String groupId;
@@ -26,6 +29,7 @@ class GroupSettingsPage extends StatefulWidget {
   final FileTransferService fileTransferService;
   final Future<PlatformFile?> Function()? pickAvatar;
   final bool allowAvatarUpload;
+  final ImService? imService;
 
   @override
   State<GroupSettingsPage> createState() => _GroupSettingsPageState();
@@ -104,11 +108,15 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
   Future<void> _changeAvatar() async {
     if (!_canManage || !_allowAvatarUpload) return;
     await _run(() async {
-      final file =
-          await (widget.pickAvatar?.call() ??
-              FilePicker.pickFile(type: FileType.image));
+      final file = await (widget.pickAvatar?.call() ?? pickPortableAvatar());
       if (file == null || !mounted) return;
-      final size = await file.length();
+      final uploadFile = widget.pickAvatar == null
+          ? (await prepareChatImage(
+              file,
+              compress: canCompressChatImage(file),
+            )).file
+          : file;
+      final size = await uploadFile.length();
       if (!mounted) return;
       final limit = ServerCapabilitiesScope.uploadLimitsOf(context).avatar;
       if (size > limit) {
@@ -122,7 +130,7 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
       setState(() => _uploadProgress = 0);
       try {
         final uploaded = await widget.fileTransferService.uploadAvatar(
-          file: file,
+          file: uploadFile,
           onProgress: (sent, total) {
             if (mounted && total > 0) {
               setState(() => _uploadProgress = (sent / total).clamp(0, 1));
@@ -172,6 +180,78 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
     await _run(() => widget.controller.renameGroup(widget.groupId, name));
   }
 
+  Future<void> _editAnnouncement() async {
+    final controller = TextEditingController(text: _group?.announcement ?? '');
+    final value = await showAppFormDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑群公告'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          maxLength: 1000,
+          decoration: const InputDecoration(
+            hintText: '填写群规则、通知或重要信息',
+            helperText: '留空并保存可清除公告',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.trim() == (_group?.announcement ?? '')) return;
+    await _run(
+      () => widget.controller.updateGroupAnnouncement(widget.groupId, value),
+    );
+    if (mounted) _message(value.trim().isEmpty ? '群公告已清除' : '群公告已更新');
+  }
+
+  Future<void> _editMyNickname() async {
+    final controller = TextEditingController(text: _me?.nickname ?? '');
+    final value = await showAppFormDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('我在本群的昵称'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 80,
+          decoration: InputDecoration(
+            hintText: _me?.user?.nickname ?? '使用账号昵称',
+            helperText: '留空时显示账号昵称',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || value.trim() == (_me?.nickname ?? '')) return;
+    await _run(
+      () => widget.controller.updateMyGroupNickname(widget.groupId, value),
+    );
+    if (mounted) _message('群昵称已更新');
+  }
+
   Future<void> _invite() async {
     final memberIds = {
       for (final member in _group?.members ?? const <GroupMemberResponse>[])
@@ -185,55 +265,189 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
       _message('没有可邀请的好友');
       return;
     }
-    String? selected;
-    final confirmed = await showDialog<bool>(
+    final selected = <String>{};
+    final searchController = TextEditingController();
+    var query = '';
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('邀请群成员'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final friend in candidates)
-                  ListTile(
-                    trailing: selected == friend.user.id
-                        ? const Icon(Icons.check)
-                        : null,
-                    title: Text(friend.user.nickname),
-                    subtitle: Text('@${friend.user.username}'),
-                    onTap: () =>
-                        setDialogState(() => selected = friend.user.id),
-                  ),
-              ],
+        builder: (context, setDialogState) {
+          final visible = candidates.where((friend) {
+            if (query.isEmpty) return true;
+            return friend.user.nickname.toLowerCase().contains(query) ||
+                friend.user.username.toLowerCase().contains(query);
+          }).toList();
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                16 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: SizedBox(
+                height: MediaQuery.sizeOf(context).height * .72,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '邀请好友入群',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                        Text(
+                          '已选 ${selected.length} 人',
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: searchController,
+                      autofocus: candidates.length > 8,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (value) => setDialogState(
+                        () => query = value.trim().toLowerCase(),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '搜索昵称或用户名',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: '清空搜索',
+                                onPressed: () {
+                                  searchController.clear();
+                                  setDialogState(() => query = '');
+                                },
+                                icon: const Icon(Icons.close),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: visible.isEmpty
+                          ? const AppStatus(
+                              icon: Icons.person_search_outlined,
+                              title: '没有匹配的好友',
+                              message: '请尝试其他昵称或用户名',
+                            )
+                          : ListView.builder(
+                              itemCount: visible.length,
+                              itemBuilder: (context, index) {
+                                final friend = visible[index];
+                                return CheckboxListTile(
+                                  value: selected.contains(friend.user.id),
+                                  secondary: AppAvatar(
+                                    name: friend.user.nickname,
+                                    fileId: friend.user.avatarFileId,
+                                    resolveUrl:
+                                        widget.fileTransferService.downloadUrl,
+                                    resolveFile: widget
+                                        .fileTransferService
+                                        .downloadAvatar,
+                                  ),
+                                  title: Text(friend.user.nickname),
+                                  subtitle: Text('@${friend.user.username}'),
+                                  onChanged: (checked) => setDialogState(() {
+                                    if (checked == true) {
+                                      selected.add(friend.user.id);
+                                    } else {
+                                      selected.remove(friend.user.id);
+                                    }
+                                  }),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('取消'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: selected.isEmpty
+                                ? null
+                                : () => Navigator.pop(context, true),
+                            child: Text('发送邀请（${selected.length}）'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: selected == null
-                  ? null
-                  : () => Navigator.pop(context, true),
-              child: const Text('发送邀请'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
+    searchController.dispose();
     if (confirmed == true) {
-      await _run(() async {
-        await widget.controller.inviteToGroup(widget.groupId, selected!);
-        if (mounted) _message('邀请已发送，等待对方接受');
-      });
+      if (!_canAct) return;
+      setState(() => _working = true);
+      final failures = <String>[];
+      var sent = 0;
+      try {
+        for (final userId in selected) {
+          final friend = candidates
+              .where((item) => item.user.id == userId)
+              .firstOrNull;
+          final displayName = friend?.user.nickname ?? userId;
+          try {
+            await widget.controller.inviteToGroup(widget.groupId, userId);
+            sent++;
+          } catch (_) {
+            failures.add(displayName);
+          }
+        }
+        if (!mounted) return;
+        await _load();
+        if (!mounted) return;
+        if (failures.isEmpty) {
+          _message('已发送 $sent 份邀请，等待对方接受');
+        } else {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('邀请结果'),
+              content: Text(
+                '成功 $sent 人，失败 ${failures.length} 人。\n\n'
+                '未发送：${failures.join('、')}\n\n'
+                '可稍后重新邀请失败的好友。',
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('知道了'),
+                ),
+              ],
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _working = false);
+      }
     }
   }
 
   Future<void> _removeMember(GroupMemberResponse member) async {
-    final name = member.user?.nickname ?? member.userId;
+    final name = member.nickname ?? member.user?.nickname ?? member.userId;
     final confirmed = await _confirm(
       '移除群成员',
       '确定将 $name 移出群聊吗？',
@@ -288,7 +502,7 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
 
   Future<void> _memberAction(GroupMemberResponse member, String action) async {
     if (!_canAct || !_canRemove(member)) return;
-    final name = member.user?.nickname ?? member.userId;
+    final name = member.nickname ?? member.user?.nickname ?? member.userId;
     if (action == 'remove') return _removeMember(member);
     if (action == 'role') {
       if (!_isOwner) return;
@@ -367,6 +581,18 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
     await _run(() => widget.controller.setGroupMuteAll(widget.groupId, muted));
   }
 
+  Future<void> _toggleNotifications(bool muted) async {
+    final imService = widget.imService;
+    if (!_canAct || imService == null) return;
+    await _run(
+      () => imService.updateConversationSetting(
+        channelId: widget.groupId,
+        channelType: 2,
+        muted: muted,
+      ),
+    );
+  }
+
   Future<bool> _confirm(
     String title,
     String content, {
@@ -396,16 +622,28 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
           ),
         ],
       ),
-      body: _loading && _group == null
-          ? const AppLoading(message: '正在加载群资料…')
-          : _error != null && _group == null
-          ? AppStatus(
-              title: '群资料加载失败',
-              message: '请检查网络后重试',
-              icon: Icons.cloud_off_outlined,
-              onRetry: _load,
-            )
-          : _buildContent(),
+      body: Column(
+        children: [
+          if (_working)
+            Semantics(
+              liveRegion: true,
+              label: '正在更新群资料',
+              child: const LinearProgressIndicator(),
+            ),
+          Expanded(
+            child: _loading && _group == null
+                ? const AppLoading(message: '正在加载群资料…')
+                : _error != null && _group == null
+                ? AppStatus(
+                    title: '群资料加载失败',
+                    message: '请检查网络后重试',
+                    icon: Icons.cloud_off_outlined,
+                    onRetry: _load,
+                  )
+                : _buildContent(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -418,84 +656,164 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       children: [
-        Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              children: [
-                AppAvatar(
-                  name: group.name,
-                  fileId: group.avatarFileId,
-                  resolveUrl: widget.fileTransferService.downloadUrl,
-                  group: true,
-                  size: 76,
-                ),
-                if (_canManage)
-                  Wrap(
-                    alignment: WrapAlignment.center,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      TextButton.icon(
-                        onPressed: _canAct && _allowAvatarUpload
-                            ? _changeAvatar
-                            : null,
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: Text(
-                          group.avatarFileId == null ? '上传群头像' : '更换群头像',
-                        ),
+                      AppAvatar(
+                        key: const ValueKey('group-avatar'),
+                        name: group.name,
+                        fileId: group.avatarFileId,
+                        resolveUrl: widget.fileTransferService.downloadUrl,
+                        resolveFile: widget.fileTransferService.downloadAvatar,
+                        group: true,
+                        size: 76,
                       ),
-                      if (group.avatarFileId != null)
-                        TextButton(
-                          onPressed: _canAct ? _removeAvatar : null,
-                          child: const Text('移除群头像'),
+                      if (_canManage)
+                        Positioned(
+                          right: -9,
+                          bottom: -8,
+                          child: IconButton.filled(
+                            tooltip: group.avatarFileId == null
+                                ? '添加群头像'
+                                : '更换群头像',
+                            onPressed: _canAct && _allowAvatarUpload
+                                ? _changeAvatar
+                                : null,
+                            icon: const Icon(
+                              Icons.camera_alt_outlined,
+                              size: 18,
+                            ),
+                          ),
                         ),
                     ],
                   ),
-                if (_canManage && !_allowAvatarUpload)
-                  Text(
-                    '当前服务器未开放群头像上传',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                if (_uploadProgress != null)
-                  LinearProgressIndicator(value: _uploadProgress),
-                const SizedBox(height: 12),
-                Text(
-                  group.name,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 5),
-                TextButton.icon(
-                  onPressed: () async {
-                    try {
-                      await Clipboard.setData(
-                        ClipboardData(text: widget.groupId),
-                      );
-                      if (mounted) _message('群 ID 已复制，可用于申请入群');
-                    } catch (_) {
-                      if (mounted) _message('复制失败，请重试');
-                    }
-                  },
-                  icon: const Icon(Icons.copy_outlined, size: 18),
-                  label: const Text('复制群 ID'),
-                ),
-                Text(
-                  '${members.length}/${group.memberLimit} 位成员 · ${_roleName(_me?.role ?? GroupMemberResponseRoleEnum.MEMBER)}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-                if (group.muteAll) ...[
-                  const SizedBox(height: 10),
-                  const Chip(
-                    avatar: Icon(Icons.volume_off_outlined, size: 17),
-                    label: Text('全员禁言中'),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          group.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              _roleName(
+                                _me?.role ?? GroupMemberResponseRoleEnum.MEMBER,
+                              ),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '${members.length}/${group.memberLimit} 人',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            if (group.muteAll)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.volume_off_outlined,
+                                    size: 16,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  const Text('全员禁言'),
+                                ],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () async {
+                                try {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: widget.groupId),
+                                  );
+                                  if (mounted) {
+                                    _message('群 ID 已复制，可用于申请入群');
+                                  }
+                                } catch (_) {
+                                  if (mounted) _message('复制失败，请重试');
+                                }
+                              },
+                              icon: const Icon(Icons.copy_outlined, size: 17),
+                              label: const Text('复制群 ID'),
+                            ),
+                            if (_canManage && group.avatarFileId != null)
+                              TextButton(
+                                onPressed: _canAct ? _removeAvatar : null,
+                                child: const Text('移除群头像'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
+              ),
+              if (_canManage && !_allowAvatarUpload) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '当前服务器未开放群头像上传',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
-            ),
+              if (_uploadProgress != null) ...[
+                const SizedBox(height: 10),
+                LinearProgressIndicator(value: _uploadProgress),
+              ],
+              if ((group.announcement ?? '').isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Material(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.campaign_outlined, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            group.announcement!,
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -504,6 +822,33 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
             padding: EdgeInsets.only(bottom: 12),
             child: Text('群资料更新失败，暂时无法操作。请刷新后重试。'),
           ),
+        const _SectionTitle(title: '我的群聊设置'),
+        const SizedBox(height: 8),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('我在本群的昵称'),
+                subtitle: Text(
+                  (_me?.nickname ?? '').isEmpty ? '未设置，显示账号昵称' : _me!.nickname!,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _canAct ? _editMyNickname : null,
+              ),
+              if (widget.imService case final imService?)
+                SwitchListTile.adaptive(
+                  secondary: const Icon(Icons.notifications_off_outlined),
+                  title: const Text('消息免打扰'),
+                  subtitle: const Text('仍会接收消息，但不会主动提醒'),
+                  value: imService.settingFor(widget.groupId, 2).muted,
+                  onChanged: _canAct ? _toggleNotifications : null,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
         if (_canManage) ...[
           const _SectionTitle(title: '群资料'),
           const SizedBox(height: 8),
@@ -517,6 +862,19 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
                   subtitle: const Text('所有群成员都会看到新名称'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _canAct ? _rename : null,
+                ),
+                ListTile(
+                  leading: const Icon(Icons.campaign_outlined),
+                  title: const Text('群公告'),
+                  subtitle: Text(
+                    (group.announcement ?? '').isEmpty
+                        ? '暂未设置群公告'
+                        : group.announcement!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _canAct ? _editAnnouncement : null,
                 ),
               ],
             ),
@@ -542,6 +900,8 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
                               MaterialPageRoute<void>(
                                 builder: (_) => GroupJoinPage(
                                   controller: widget.controller,
+                                  fileTransferService:
+                                      widget.fileTransferService,
                                   groupId: widget.groupId,
                                 ),
                               ),
@@ -570,7 +930,7 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
         ],
         const SizedBox(height: 22),
         _SectionTitle(title: '群成员', trailing: '${members.length} 人'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Card(
           margin: EdgeInsets.zero,
           child: Column(
@@ -578,12 +938,14 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
               for (var index = 0; index < visibleMembers.length; index++) ...[
                 _MemberTile(
                   member: visibleMembers[index],
+                  fileTransferService: widget.fileTransferService,
                   isMe: visibleMembers[index].userId == _myId,
                   canRemove: _canRemove(visibleMembers[index]),
                   working: !_canAct,
                   isOwner: _isOwner,
                   muted: _isMuted(visibleMembers[index]),
-                  onAction: (action) => _memberAction(members[index], action),
+                  onAction: (action) =>
+                      _memberAction(visibleMembers[index], action),
                 ),
                 if (index != visibleMembers.length - 1 ||
                     visibleMembers.length != members.length)
@@ -632,12 +994,6 @@ class _GroupSettingsPageState extends State<GroupSettingsPage> {
             onTap: _canAct ? _exitGroup : null,
           ),
         ),
-        if (_working) ...[
-          const SizedBox(height: 16),
-          const LinearProgressIndicator(),
-          const SizedBox(height: 6),
-          const Center(child: Text('正在处理…')),
-        ],
       ],
     );
   }
@@ -679,6 +1035,7 @@ class _SectionTitle extends StatelessWidget {
 class _MemberTile extends StatelessWidget {
   const _MemberTile({
     required this.member,
+    required this.fileTransferService,
     required this.isMe,
     required this.canRemove,
     required this.working,
@@ -688,6 +1045,7 @@ class _MemberTile extends StatelessWidget {
   });
 
   final GroupMemberResponse member;
+  final FileTransferService fileTransferService;
   final bool isMe;
   final bool canRemove;
   final bool working;
@@ -695,9 +1053,74 @@ class _MemberTile extends StatelessWidget {
   final bool isOwner;
   final bool muted;
 
+  Future<void> _showActions(BuildContext context, String name) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: AppAvatar(
+                  name: name,
+                  fileId: member.user?.avatarFileId,
+                  resolveUrl: fileTransferService.downloadUrl,
+                  resolveFile: fileTransferService.downloadAvatar,
+                ),
+                title: Text(name),
+                subtitle: Text('@${member.user?.username ?? member.userId}'),
+              ),
+              const Divider(height: 1),
+              if (isOwner)
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings_outlined),
+                  title: Text(
+                    member.role == GroupMemberResponseRoleEnum.ADMIN
+                        ? '取消管理员'
+                        : '设置管理员',
+                  ),
+                  onTap: () => Navigator.pop(context, 'role'),
+                ),
+              ListTile(
+                leading: Icon(
+                  muted
+                      ? Icons.record_voice_over_outlined
+                      : Icons.voice_over_off_outlined,
+                ),
+                title: Text(muted ? '解除禁言' : '禁言成员'),
+                onTap: () => Navigator.pop(context, muted ? 'unmute' : 'mute'),
+              ),
+              if (isOwner)
+                ListTile(
+                  leading: const Icon(Icons.manage_accounts_outlined),
+                  title: const Text('转让群主'),
+                  subtitle: const Text('转让后你将变为管理员'),
+                  onTap: () => Navigator.pop(context, 'transfer'),
+                ),
+              ListTile(
+                leading: Icon(
+                  Icons.person_remove_outlined,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  '移出群聊',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                onTap: () => Navigator.pop(context, 'remove'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action != null) onAction(action);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final name = member.user?.nickname ?? member.userId;
+    final name = member.nickname ?? member.user?.nickname ?? member.userId;
     final privileged =
         member.role == GroupMemberResponseRoleEnum.OWNER ||
         member.role == GroupMemberResponseRoleEnum.ADMIN;
@@ -707,11 +1130,11 @@ class _MemberTile extends StatelessWidget {
         ? '管理员'
         : '成员';
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: privileged
-            ? Theme.of(context).colorScheme.primaryContainer
-            : null,
-        child: Text(name.trim().isEmpty ? '?' : name.trim().characters.first),
+      leading: AppAvatar(
+        name: name,
+        fileId: member.user?.avatarFileId,
+        resolveUrl: fileTransferService.downloadUrl,
+        resolveFile: fileTransferService.downloadAvatar,
       ),
       title: Row(
         children: [
@@ -736,28 +1159,10 @@ class _MemberTile extends StatelessWidget {
             : role,
       ),
       trailing: canRemove
-          ? PopupMenuButton<String>(
+          ? IconButton(
               tooltip: '管理$name',
-              enabled: !working,
-              onSelected: onAction,
-              itemBuilder: (_) => [
-                if (isOwner)
-                  PopupMenuItem(
-                    value: 'role',
-                    child: Text(
-                      member.role == GroupMemberResponseRoleEnum.ADMIN
-                          ? '取消管理员'
-                          : '设置管理员',
-                    ),
-                  ),
-                PopupMenuItem(
-                  value: muted ? 'unmute' : 'mute',
-                  child: Text(muted ? '解除禁言' : '禁言成员'),
-                ),
-                if (isOwner)
-                  const PopupMenuItem(value: 'transfer', child: Text('转让群主')),
-                const PopupMenuItem(value: 'remove', child: Text('移除成员')),
-              ],
+              onPressed: working ? null : () => _showActions(context, name),
+              icon: const Icon(Icons.more_horiz),
             )
           : privileged
           ? Icon(

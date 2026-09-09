@@ -5,6 +5,49 @@ import 'package:flutter_chat/features/calls/presentation/incoming_call_dialog.da
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('incoming video call presents clear identity and actions', (
+    tester,
+  ) async {
+    final signals = StreamController<ChatCallSignalContent>.broadcast();
+    IncomingCallResult? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                result = await showIncomingCallDialog(
+                  context: context,
+                  callId: 'video-call',
+                  caller: 'Alice',
+                  video: true,
+                  signals: signals.stream,
+                );
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('A'), findsOneWidget);
+    expect(find.text('视频来电'), findsOneWidget);
+    expect(find.byIcon(Icons.videocam_rounded), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('incoming-call-拒绝')), findsOneWidget);
+    expect(find.byKey(const ValueKey('incoming-call-接听')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('incoming-call-拒绝')));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async => Future<void>.delayed(Duration.zero));
+    expect(result, IncomingCallResult.reject);
+    await signals.close();
+  });
+
   testWidgets('another device acceptance closes the matching invitation', (
     tester,
   ) async {

@@ -6,7 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const userId = '10000000-0000-4000-8000-000000000001';
   final blocked = {
-    'user': {'id': userId, 'username': 'alice', 'nickname': '爱丽丝'},
+    'user': {
+      'id': userId,
+      'username': 'alice',
+      'nickname': '爱丽丝',
+      'avatarFileId': '20000000-0000-4000-8000-000000000002',
+    },
     'createdAt': '2026-09-07T08:00:00.000Z',
   };
 
@@ -42,6 +47,10 @@ void main() {
     expect(items.single.user.id, userId);
     expect(items.single.user.username, 'alice');
     expect(items.single.user.nickname, '爱丽丝');
+    expect(
+      items.single.user.avatarFileId,
+      '20000000-0000-4000-8000-000000000002',
+    );
     expect(items.single.createdAt, isNotNull);
     expect(requests.map((request) => '${request.method} ${request.path}'), [
       'GET /api/v1/blocks',

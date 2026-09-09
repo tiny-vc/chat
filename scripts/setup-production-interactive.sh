@@ -90,6 +90,9 @@ fi
 
 configure=true
 if [ -f "$env_file" ]; then
+  if grep -q '^DEPLOYMENT_MODE=external$' "$env_file"; then
+    fail 'External-services mode uses .env.external-services.example and scripts/deploy-production.sh; the interactive all-in-one installer is only for standalone mode.'
+  fi
   if confirm '.env.production already exists. Recreate production configuration and secrets?'; then
     backup_suffix=$(date +%Y%m%d%H%M%S)
     cp "$env_file" "$env_file.backup-$backup_suffix"

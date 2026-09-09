@@ -33,6 +33,55 @@ void main() {
     }
   });
 
+  test(
+    'rejects image formats that are not portable across supported devices',
+    () async {
+      final file = MemoryPlatformFile(
+        name: 'photo.heic',
+        bytes: Uint8List.fromList([1, 2, 3, 4]),
+      );
+      await expectLater(
+        prepareChatImage(file, compress: false),
+        throwsA(isA<UnsupportedError>()),
+      );
+    },
+  );
+
+  test('accepts only portable chat video containers', () {
+    expect(
+      isPortableChatVideo(
+        MemoryPlatformFile(name: 'clip.mp4', bytes: Uint8List(1)),
+      ),
+      isTrue,
+    );
+    expect(
+      isPortableChatVideo(
+        MemoryPlatformFile(name: 'clip.webm', bytes: Uint8List(1)),
+      ),
+      isFalse,
+    );
+  });
+
+  test('creates a bounded JPEG thumbnail for chat history', () async {
+    final sourceImage = img.Image(width: 1600, height: 800)
+      ..clear(img.ColorRgb8(24, 90, 180));
+    final thumbnail = await prepareChatThumbnail(
+      Uint8List.fromList(img.encodePng(sourceImage)),
+      baseName: 'holiday.png',
+    );
+
+    expect(thumbnail, isNotNull);
+    expect(thumbnail!.file.name, 'holiday_thumb.jpg');
+    final decoded = img.decodeImage(await thumbnail.file.readAsBytes())!;
+    expect(decoded.width, 480);
+    expect(decoded.height, 240);
+  });
+
+  test('skips thumbnail generation for an unsupported image payload', () async {
+    final thumbnail = await prepareChatThumbnail(Uint8List.fromList([1, 2, 3]));
+    expect(thumbnail, isNull);
+  });
+
   test('formats file sizes for the confirmation sheet', () {
     expect(formatFileSize(512), '512 B');
     expect(formatFileSize(1536), '1.5 KB');

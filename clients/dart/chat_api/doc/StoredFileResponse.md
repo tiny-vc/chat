@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **originalName** | **String** |  | 
 **mimeType** | **String** |  | 
 **sizeBytes** | **String** |  | 
+**sha256** | **String** |  | [optional] 
 **purpose** | **String** |  | 
 **scope** | **String** |  | 
 **scopeId** | **String** |  | [optional] 

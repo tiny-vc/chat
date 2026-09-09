@@ -22,6 +22,7 @@ export interface GroupMemberResponse {
     'userId': string;
     'role': GroupMemberResponseRoleEnum;
     'status': GroupMemberResponseStatusEnum;
+    'nickname'?: string | null;
     'mutedUntil'?: string | null;
     'joinedAt': string;
     'user'?: UserResponse;

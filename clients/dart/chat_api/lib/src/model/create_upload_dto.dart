@@ -15,6 +15,7 @@ part 'create_upload_dto.g.dart';
 /// * [fileName] 
 /// * [mimeType] 
 /// * [size] 
+/// * [sha256] 
 /// * [purpose] 
 /// * [scope] 
 /// * [scopeId] 
@@ -28,6 +29,9 @@ abstract class CreateUploadDto implements Built<CreateUploadDto, CreateUploadDto
 
   @BuiltValueField(wireName: r'size')
   num get size;
+
+  @BuiltValueField(wireName: r'sha256')
+  String get sha256;
 
   @BuiltValueField(wireName: r'purpose')
   CreateUploadDtoPurposeEnum get purpose;
@@ -77,6 +81,11 @@ class _$CreateUploadDtoSerializer implements PrimitiveSerializer<CreateUploadDto
     yield serializers.serialize(
       object.size,
       specifiedType: const FullType(num),
+    );
+    yield r'sha256';
+    yield serializers.serialize(
+      object.sha256,
+      specifiedType: const FullType(String),
     );
     yield r'purpose';
     yield serializers.serialize(
@@ -138,6 +147,13 @@ class _$CreateUploadDtoSerializer implements PrimitiveSerializer<CreateUploadDto
             specifiedType: const FullType(num),
           ) as num;
           result.size = valueDes;
+          break;
+        case r'sha256':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.sha256 = valueDes;
           break;
         case r'purpose':
           final valueDes = serializers.deserialize(

@@ -1,7 +1,46 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:chat_api_client/chat_api_client.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_chat/core/files/file_transfer_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _DownloadUrlAdapter implements HttpClientAdapter {
+  int calls = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    calls++;
+    return ResponseBody.fromString(
+      jsonEncode({
+        'downloadUrl': 'https://storage.example/file?signature=one',
+        'expiresIn': 600,
+        'file': {
+          'id': 'file-1',
+          'originalName': 'avatar.jpg',
+          'mimeType': 'image/jpeg',
+          'sizeBytes': '10',
+          'purpose': 'AVATAR',
+          'scope': 'PRIVATE',
+          'status': 'READY',
+        },
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   late Directory temporaryDirectory;
@@ -35,10 +74,54 @@ void main() {
     expect(await cachedDownloadIsValid(cached, expectedSize: 4), isFalse);
   });
 
+  test('cache rejects content that does not match its SHA-256', () async {
+    await cached.writeAsBytes([1, 2, 3, 4]);
+    expect(
+      await cachedDownloadIsValid(
+        cached,
+        expectedSize: 4,
+        expectedSha256:
+            '9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a',
+      ),
+      isTrue,
+    );
+    expect(
+      await cachedDownloadIsValid(
+        cached,
+        expectedSize: 4,
+        expectedSha256: '0' * 64,
+      ),
+      isFalse,
+    );
+  });
+
   test('legacy callers without a known size accept non-empty cache', () async {
     await cached.writeAsBytes([1]);
     expect(await cachedDownloadIsValid(cached), isTrue);
   });
+
+  test(
+    'signed download URLs are shared by concurrent and repeated widgets',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://chat.example'));
+      final adapter = _DownloadUrlAdapter();
+      dio.httpClientAdapter = adapter;
+      final service = FileTransferService(
+        ChatApiClient(dio: dio, interceptors: const []),
+      );
+
+      final urls = await Future.wait([
+        service.downloadUrl('file-1'),
+        service.downloadUrl('file-1'),
+        service.downloadUrl('file-1'),
+      ]);
+      expect(adapter.calls, 1);
+      expect(urls.map((item) => item.url).toSet(), hasLength(1));
+      expect((await service.downloadUrl('file-1')).url, urls.first.url);
+      expect(adapter.calls, 1);
+      service.dispose();
+    },
+  );
 
   test('opening a cached file refreshes its eviction timestamp', () async {
     await cached.writeAsBytes([1]);

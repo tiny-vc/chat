@@ -159,6 +159,8 @@ class _$GroupMemberResponse extends GroupMemberResponse {
   @override
   final GroupMemberResponseStatusEnum status;
   @override
+  final String? nickname;
+  @override
   final DateTime? mutedUntil;
   @override
   final DateTime joinedAt;
@@ -174,6 +176,7 @@ class _$GroupMemberResponse extends GroupMemberResponse {
       required this.userId,
       required this.role,
       required this.status,
+      this.nickname,
       this.mutedUntil,
       required this.joinedAt,
       this.user})
@@ -195,6 +198,7 @@ class _$GroupMemberResponse extends GroupMemberResponse {
         userId == other.userId &&
         role == other.role &&
         status == other.status &&
+        nickname == other.nickname &&
         mutedUntil == other.mutedUntil &&
         joinedAt == other.joinedAt &&
         user == other.user;
@@ -207,6 +211,7 @@ class _$GroupMemberResponse extends GroupMemberResponse {
     _$hash = $jc(_$hash, userId.hashCode);
     _$hash = $jc(_$hash, role.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
+    _$hash = $jc(_$hash, nickname.hashCode);
     _$hash = $jc(_$hash, mutedUntil.hashCode);
     _$hash = $jc(_$hash, joinedAt.hashCode);
     _$hash = $jc(_$hash, user.hashCode);
@@ -221,6 +226,7 @@ class _$GroupMemberResponse extends GroupMemberResponse {
           ..add('userId', userId)
           ..add('role', role)
           ..add('status', status)
+          ..add('nickname', nickname)
           ..add('mutedUntil', mutedUntil)
           ..add('joinedAt', joinedAt)
           ..add('user', user))
@@ -248,6 +254,10 @@ class GroupMemberResponseBuilder
   GroupMemberResponseStatusEnum? get status => _$this._status;
   set status(GroupMemberResponseStatusEnum? status) => _$this._status = status;
 
+  String? _nickname;
+  String? get nickname => _$this._nickname;
+  set nickname(String? nickname) => _$this._nickname = nickname;
+
   DateTime? _mutedUntil;
   DateTime? get mutedUntil => _$this._mutedUntil;
   set mutedUntil(DateTime? mutedUntil) => _$this._mutedUntil = mutedUntil;
@@ -271,6 +281,7 @@ class GroupMemberResponseBuilder
       _userId = $v.userId;
       _role = $v.role;
       _status = $v.status;
+      _nickname = $v.nickname;
       _mutedUntil = $v.mutedUntil;
       _joinedAt = $v.joinedAt;
       _user = $v.user?.toBuilder();
@@ -305,6 +316,7 @@ class GroupMemberResponseBuilder
                 role, r'GroupMemberResponse', 'role'),
             status: BuiltValueNullFieldError.checkNotNull(
                 status, r'GroupMemberResponse', 'status'),
+            nickname: nickname,
             mutedUntil: mutedUntil,
             joinedAt: BuiltValueNullFieldError.checkNotNull(
                 joinedAt, r'GroupMemberResponse', 'joinedAt'),

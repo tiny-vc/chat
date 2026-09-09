@@ -25,6 +25,7 @@ class WukongWebhookApi {
   /// 
   ///
   /// Parameters:
+  /// * [event] 
   /// * [token] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
@@ -33,9 +34,10 @@ class WukongWebhookApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltMap<String, JsonObject>] as data
+  /// Returns a [Future]
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<BuiltMap<String, JsonObject>>> wukongWebhookReceive({ 
+  Future<Response<void>> wukongWebhookReceive({ 
+    JsonObject? event,
     JsonObject? token,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -58,6 +60,7 @@ class WukongWebhookApi {
     );
 
     final _queryParameters = <String, dynamic>{
+      if (event != null) r'event': encodeQueryParameter(_serializers, event, const FullType(JsonObject)),
       if (token != null) r'token': encodeQueryParameter(_serializers, token, const FullType(JsonObject)),
     };
 
@@ -70,35 +73,67 @@ class WukongWebhookApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltMap<String, JsonObject>? _responseData;
+    return _response;
+  }
 
-    try {
-      final rawResponse = _response.data;
-      _responseData = rawResponse == null ? null : _serializers.deserialize(
-        rawResponse,
-        specifiedType: const FullType(BuiltMap, [FullType(String), FullType(JsonObject)]),
-      ) as BuiltMap<String, JsonObject>;
-
-    } catch (error, stackTrace) {
-      throw DioException(
-        requestOptions: _response.requestOptions,
-        response: _response,
-        type: DioExceptionType.unknown,
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-
-    return Response<BuiltMap<String, JsonObject>>(
-      data: _responseData,
-      headers: _response.headers,
-      isRedirect: _response.isRedirect,
-      requestOptions: _response.requestOptions,
-      redirects: _response.redirects,
-      statusCode: _response.statusCode,
-      statusMessage: _response.statusMessage,
-      extra: _response.extra,
+  /// wukongWebhookReceiveWithPathToken
+  /// 
+  ///
+  /// Parameters:
+  /// * [token] 
+  /// * [event] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future]
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<void>> wukongWebhookReceiveWithPathToken({ 
+    required String token,
+    JsonObject? event,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/webhooks/wukongim/{token}'.replaceAll('{' r'token' '}', encodeQueryParameter(_serializers, token, const FullType(String)).toString());
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'access-token',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
     );
+
+    final _queryParameters = <String, dynamic>{
+      if (event != null) r'event': encodeQueryParameter(_serializers, event, const FullType(JsonObject)),
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    return _response;
   }
 
 }

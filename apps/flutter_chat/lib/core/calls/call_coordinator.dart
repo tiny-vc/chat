@@ -31,11 +31,20 @@ class CallCoordinator extends ChangeNotifier {
   final Map<String, ({String action, DateTime receivedAt})> _pendingTerminal =
       {};
   static const _terminalTtl = Duration(minutes: 1);
+  VoidCallback? _hangupRequest;
 
   CallLease? get active => _active;
   String? get activeCallId => _active?.callId;
   CoordinatedCallPhase? get phase => _phase;
   bool get hasActiveCall => _active != null;
+
+  void attachHangupHandler(VoidCallback handler) => _hangupRequest = handler;
+
+  void detachHangupHandler(VoidCallback handler) {
+    if (_hangupRequest == handler) _hangupRequest = null;
+  }
+
+  void requestHangup() => _hangupRequest?.call();
 
   CallLease? reserveOutgoing({required bool video}) {
     if (_active != null) return null;
@@ -93,6 +102,7 @@ class CallCoordinator extends ChangeNotifier {
     if (!identical(_active, lease)) return;
     _phase = CoordinatedCallPhase.ended;
     _active = null;
+    _hangupRequest = null;
     notifyListeners();
   }
 

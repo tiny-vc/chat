@@ -16,8 +16,11 @@ import { WuKongImService } from "../integrations/wukongim/wukongim.service";
 import { FriendsService } from "../friends/friends.service";
 import { CreateCallDto } from "./dto/create-call.dto";
 import { CallHistoryPageDto } from "./dto/call-history-page.dto";
+import { ConfigService } from "@nestjs/config";
+import { backgroundJobsEnabled } from "../config/instance-role";
 import {
   MessageType,
+  callRecordMessageSchema,
   callSignalMessageSchema,
 } from "../messages/message-protocol";
 
@@ -48,9 +51,11 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly liveKit: LiveKitService,
     private readonly wuKongIm: WuKongImService,
     private readonly friends: FriendsService,
+    private readonly config: ConfigService,
   ) {}
 
   onApplicationBootstrap() {
+    if (!backgroundJobsEnabled(this.config)) return;
     void this.sweep();
     this.timer = setInterval(() => void this.sweep(), 15_000);
     this.timer.unref();
@@ -180,6 +185,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
               "end",
             ).catch(() => undefined),
           ]);
+          await this.sendCallRecord(call.id).catch(() => undefined);
         }
       } catch {
         // Require a fresh grace window after an unobservable interval.
@@ -226,6 +232,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       this.sendSignal(call, call.initiatorUserId, call.targetUserId, "end"),
       this.sendSignal(call, call.targetUserId, call.initiatorUserId, "end"),
     ]);
+    await this.sendCallRecord(call.id);
     return true;
   }
 
@@ -467,7 +474,12 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     if (call.targetUserId !== userId)
       throw new ForbiddenException("Only the recipient can reject");
     if (call.status === "REJECTED" && call.endReason === "REJECTED") {
-      await this.sendSignal(call, userId, call.initiatorUserId, "reject");
+      await this.sendTerminalSignal(
+        call,
+        userId,
+        call.initiatorUserId,
+        "reject",
+      );
       return this.publicCall(call);
     }
     if (!["INVITING", "RINGING"].includes(call.status)) {
@@ -480,7 +492,12 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       endedAt: new Date(),
       endReason: "REJECTED",
     });
-    await this.sendSignal(updated, userId, call.initiatorUserId, "reject");
+    await this.sendTerminalSignal(
+      updated,
+      userId,
+      call.initiatorUserId,
+      "reject",
+    );
     return this.publicCall(updated);
   }
 
@@ -489,7 +506,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     if (call.targetUserId !== userId)
       throw new ForbiddenException("Only the recipient can be busy");
     if (call.status === "REJECTED" && call.endReason === "BUSY") {
-      await this.sendSignal(call, userId, call.initiatorUserId, "busy");
+      await this.sendTerminalSignal(call, userId, call.initiatorUserId, "busy");
       return this.publicCall(call);
     }
     if (!["INVITING", "RINGING"].includes(call.status))
@@ -499,7 +516,12 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       endedAt: new Date(),
       endReason: "BUSY",
     });
-    await this.sendSignal(updated, userId, call.initiatorUserId, "busy");
+    await this.sendTerminalSignal(
+      updated,
+      userId,
+      call.initiatorUserId,
+      "busy",
+    );
     return this.publicCall(updated);
   }
 
@@ -508,7 +530,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     if (call.initiatorUserId !== userId)
       throw new ForbiddenException("Only the caller can cancel");
     if (call.status === "CANCELLED") {
-      await this.sendSignal(call, userId, call.targetUserId!, "cancel");
+      await this.sendTerminalSignal(call, userId, call.targetUserId!, "cancel");
       return this.publicCall(call);
     }
     if (!["INVITING", "RINGING"].includes(call.status)) {
@@ -521,7 +543,12 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       endedAt: new Date(),
       endReason: "CANCELLED",
     });
-    await this.sendSignal(updated, userId, call.targetUserId!, "cancel");
+    await this.sendTerminalSignal(
+      updated,
+      userId,
+      call.targetUserId!,
+      "cancel",
+    );
     return this.publicCall(updated);
   }
 
@@ -531,7 +558,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       throw new ForbiddenException("Only the caller can mark a call as missed");
     }
     if (call.status === "MISSED") {
-      await this.sendSignal(call, userId, call.targetUserId!, "miss");
+      await this.sendTerminalSignal(call, userId, call.targetUserId!, "miss");
       return this.publicCall(call);
     }
     if (!["INVITING", "RINGING"].includes(call.status))
@@ -541,7 +568,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       endedAt: new Date(),
       endReason: "NO_ANSWER",
     });
-    await this.sendSignal(updated, userId, call.targetUserId!, "miss");
+    await this.sendTerminalSignal(updated, userId, call.targetUserId!, "miss");
     return this.publicCall(updated);
   }
 
@@ -570,7 +597,12 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
         await this.liveKit
           .deleteRoom(call.livekitRoomName)
           .catch(() => undefined);
-        await this.sendSignal(updated, userId, call.targetUserId!, "cancel");
+        await this.sendTerminalSignal(
+          updated,
+          userId,
+          call.targetUserId!,
+          "cancel",
+        );
         return this.publicCall(updated);
       }
       call = await this.requireCall(call.id);
@@ -593,7 +625,7 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       userId === call.initiatorUserId
         ? call.targetUserId!
         : call.initiatorUserId;
-    await this.sendSignal(updated, userId, recipient, "end");
+    await this.sendTerminalSignal(updated, userId, recipient, "end");
     return this.publicCall(updated);
   }
 
@@ -623,13 +655,13 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
       call.initiatorUserId === userId &&
       call.targetUserId
     ) {
-      await this.sendSignal(call, userId, call.targetUserId, "cancel");
+      await this.sendTerminalSignal(call, userId, call.targetUserId, "cancel");
     } else if (call.status === "ENDED" && call.targetUserId) {
       const recipient =
         userId === call.initiatorUserId
           ? call.targetUserId
           : call.initiatorUserId;
-      await this.sendSignal(call, userId, recipient, "end");
+      await this.sendTerminalSignal(call, userId, recipient, "end");
     }
     return true;
   }
@@ -658,13 +690,13 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
     return call;
   }
 
-  private sendSignal(
+  private async sendSignal(
     call: { id: string; type: string; livekitRoomName: string },
     fromUserId: string,
     toUserId: string,
     action: string,
   ) {
-    return this.wuKongIm.sendPersonalMessage({
+    await this.wuKongIm.sendPersonalMessage({
       fromUserId,
       toUserId,
       payload: callSignalMessageSchema.parse({
@@ -676,6 +708,48 @@ export class CallsService implements OnApplicationBootstrap, OnModuleDestroy {
         callType: call.type.toLowerCase(),
         action,
         roomName: call.livekitRoomName,
+      }),
+    });
+  }
+
+  private async sendTerminalSignal(
+    call: { id: string; type: string; livekitRoomName: string },
+    fromUserId: string,
+    toUserId: string,
+    action: "reject" | "busy" | "cancel" | "miss" | "end",
+  ) {
+    await this.sendSignal(call, fromUserId, toUserId, action);
+    await this.sendCallRecord(call.id);
+  }
+
+  private async sendCallRecord(callId: string) {
+    const call = await this.prisma.callSession.findUnique({
+      where: { id: callId },
+    });
+    if (!call?.targetUserId || !call.endedAt) return;
+    const durationSeconds = call.answeredAt
+      ? Math.max(
+          0,
+          Math.floor(
+            (call.endedAt.getTime() - call.answeredAt.getTime()) / 1000,
+          ),
+        )
+      : 0;
+    await this.wuKongIm.sendPersonalMessage({
+      fromUserId: call.initiatorUserId,
+      toUserId: call.targetUserId,
+      persist: true,
+      clientMsgNo: call.id,
+      payload: callRecordMessageSchema.parse({
+        type: MessageType.CALL_RECORD,
+        version: 1,
+        clientMsgNo: call.id,
+        sentAt: call.endedAt.getTime(),
+        callId: call.id,
+        callType: call.type.toLowerCase(),
+        status: call.status,
+        endReason: call.endReason,
+        durationSeconds,
       }),
     });
   }

@@ -6,6 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **string** |  | [optional] [default to undefined]
+**announcement** | **string** |  | [optional] [default to undefined]
 **muteAll** | **boolean** |  | [optional] [default to undefined]
 
 ## Example
@@ -15,6 +16,7 @@ import { UpdateGroupDto } from '@chat/admin-api-client';
 
 const instance: UpdateGroupDto = {
     name,
+    announcement,
     muteAll,
 };
 ```

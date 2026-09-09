@@ -140,88 +140,82 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Card(
                         margin: EdgeInsets.zero,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
+                        clipBehavior: Clip.antiAlias,
+                        child: ExpansionTile(
+                          leading: Icon(
+                            Icons.verified_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          title: Text(
+                            info.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.verified_outlined,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      info.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                  const Text('连接正常'),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              SelectableText(info.address),
-                              const SizedBox(height: 8),
+                              const Text('连接正常'),
                               Text(
                                 'API v${info.apiVersion} · 注册${info.registrationEnabled ? "开放" : "关闭"}',
                               ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: info.capabilities.availability.entries
-                                    .map(
-                                      (entry) => Chip(
-                                        avatar: Icon(
-                                          entry.value
-                                              ? Icons.check_circle_outline
-                                              : Icons.remove_circle_outline,
-                                          size: 16,
-                                        ),
-                                        label: Text(
-                                          '${entry.key} · ${entry.value ? "支持" : "未提供"}',
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '上传大小上限',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              _LimitRow(
-                                label: '头像',
-                                bytes: info.uploadLimits.avatar,
-                              ),
-                              _LimitRow(
-                                label: '聊天图片',
-                                bytes: info.uploadLimits.chatImage,
-                              ),
-                              _LimitRow(
-                                label: '语音消息',
-                                bytes: info.uploadLimits.chatVoice,
-                              ),
-                              _LimitRow(
-                                label: '聊天视频',
-                                bytes: info.uploadLimits.chatVideo,
-                              ),
-                              _LimitRow(
-                                label: '普通文件',
-                                bytes: info.uploadLimits.chatFile,
-                              ),
                             ],
                           ),
+                          childrenPadding: const EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            16,
+                            16,
+                          ),
+                          expandedCrossAxisAlignment:
+                              CrossAxisAlignment.stretch,
+                          children: [
+                            SelectableText(info.address),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: info.capabilities.availability.entries
+                                  .map(
+                                    (entry) => Chip(
+                                      avatar: Icon(
+                                        entry.value
+                                            ? Icons.check_circle_outline
+                                            : Icons.remove_circle_outline,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        '${entry.key} · ${entry.value ? "支持" : "未提供"}',
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              '上传大小上限',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 5),
+                            _LimitRow(
+                              label: '头像',
+                              bytes: info.uploadLimits.avatar,
+                            ),
+                            _LimitRow(
+                              label: '聊天图片',
+                              bytes: info.uploadLimits.chatImage,
+                            ),
+                            _LimitRow(
+                              label: '语音消息',
+                              bytes: info.uploadLimits.chatVoice,
+                            ),
+                            _LimitRow(
+                              label: '聊天视频',
+                              bytes: info.uploadLimits.chatVideo,
+                            ),
+                            _LimitRow(
+                              label: '普通文件',
+                              bytes: info.uploadLimits.chatFile,
+                            ),
+                          ],
                         ),
                       ),
                     ),

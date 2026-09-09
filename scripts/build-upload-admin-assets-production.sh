@@ -67,6 +67,9 @@ cat > "$staging_dir/Dockerfile" <<'DOCKERFILE'
 FROM nginx:1.29-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY dist /usr/share/nginx/html
+EXPOSE 80
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1/healthz || exit 1
 DOCKERFILE
 printf 'CHAT_ADMIN_IMAGE=%s\n' "$admin_image" > "$staging_dir/image.env"
 

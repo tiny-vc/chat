@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:chat_api_client/chat_api_client.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart' show Dio;
 import 'package:wukongimfluttersdk/common/options.dart';
@@ -53,6 +54,10 @@ class ImService extends ChangeNotifier {
     Dio dio, {
     PendingReadStore? pendingReadStore,
     InstallationIdStore? installationIdStore,
+    Stream<List<ConnectivityResult>>? networkChanges,
+    VoidCallback? connectTransport,
+    VoidCallback? clearNetworkUnavailable,
+    bool Function()? hasCredentials,
   }) : _dio = dio,
        _api = ChatApiClient(dio: dio, interceptors: const []),
        _installationIdStore = installationIdStore ?? InstallationIdStore() {
@@ -61,6 +66,17 @@ class ImService extends ChangeNotifier {
       store: pendingReadStore,
       send: _sendRead,
     );
+    _connectTransport =
+        connectTransport ?? WKIM.shared.connectionManager.connect;
+    _clearNetworkUnavailable =
+        clearNetworkUnavailable ??
+        () => WKIM.shared.connectionManager.isNetworkUnavailable = false;
+    _hasCredentials =
+        hasCredentials ??
+        () =>
+            (WKIM.shared.options.uid ?? '').isNotEmpty &&
+            (WKIM.shared.options.token ?? '').isNotEmpty;
+    _networkChanges = networkChanges?.listen(_handleNetworkChange);
   }
 
   static const _listenerKey = 'flutter-chat-app';
@@ -68,6 +84,10 @@ class ImService extends ChangeNotifier {
   final ChatApiClient _api;
   final InstallationIdStore _installationIdStore;
   late final ReadReceiptOutbox _readOutbox;
+  late final VoidCallback _connectTransport;
+  late final VoidCallback _clearNetworkUnavailable;
+  late final bool Function() _hasCredentials;
+  StreamSubscription<List<ConnectivityResult>>? _networkChanges;
   bool _reconciling = false;
   bool get isReconciling => _reconciling;
   DateTime? lastReconciledAt;
@@ -98,6 +118,17 @@ class ImService extends ChangeNotifier {
             (c) => settingFor(c.channelID, c.channelType).archived == archived,
           )
           .toList();
+
+  @visibleForTesting
+  static bool isVisibleConversation(
+    WKUIConversationMsg conversation,
+    String currentUserId,
+  ) =>
+      conversation.channelID.isNotEmpty &&
+      // A personal channel addressed to the current account is transport-only
+      // state from older call signaling and must never be rendered as a chat.
+      !(conversation.channelType == WKChannelType.personal &&
+          conversation.channelID == currentUserId);
   Object? error;
   int historyRevision = 0;
   final _callSignals = StreamController<ChatCallSignalContent>.broadcast();
@@ -112,7 +143,14 @@ class ImService extends ChangeNotifier {
       return;
     }
     if (message.messageContent case ChatSystemContent notice) {
-      if (notice.event == 'group.avatar_changed') {
+      if ({
+        'group.avatar_changed',
+        'group.name_changed',
+        'group.announcement_changed',
+        'group.member_role_changed',
+        'group.owner_transferred',
+        'group.join_request_approved',
+      }.contains(notice.event)) {
         _groupChanges.add(message.channelID);
       }
     }
@@ -170,6 +208,11 @@ class ImService extends ChangeNotifier {
             ChatCallSignalContent().decodeJson(Map<String, dynamic>.from(data)),
       );
       WKIM.shared.messageManager.registerMsgContent(
+        ChatMessageType.callRecord,
+        (data) =>
+            ChatCallRecordContent().decodeJson(Map<String, dynamic>.from(data)),
+      );
+      WKIM.shared.messageManager.registerMsgContent(
         ChatMessageType.system,
         (data) =>
             ChatSystemContent().decodeJson(Map<String, dynamic>.from(data)),
@@ -186,9 +229,27 @@ class ImService extends ChangeNotifier {
     }
   }
 
+  static bool shouldReconnect(ImConnectionState state) =>
+      state == ImConnectionState.disconnected ||
+      state == ImConnectionState.noNetwork;
+
   Future<void> reconnect() async {
+    if (_disposed || !shouldReconnect(connectionState)) return;
+    if (!_hasCredentials()) return;
     error = null;
-    WKIM.shared.connectionManager.connect();
+    connectionState = ImConnectionState.connecting;
+    notifyListeners();
+    // On some Android network transitions connectivity_plus has already
+    // reported an available transport while the SDK still retains its
+    // previous `isNetworkUnavailable` guard. An explicit app/user retry must
+    // be allowed to probe the socket again.
+    _clearNetworkUnavailable();
+    _connectTransport();
+  }
+
+  void _handleNetworkChange(List<ConnectivityResult> results) {
+    if (_disposed || results.contains(ConnectivityResult.none)) return;
+    if (shouldReconnect(connectionState)) unawaited(reconnect());
   }
 
   void prepareCredentialsRefresh(StoredTokens session) {
@@ -405,7 +466,10 @@ class ImService extends ChangeNotifier {
   }
 
   Future<void> _loadConversations() async {
-    conversations = await WKIM.shared.conversationManager.getAll();
+    final currentUserId = WKIM.shared.options.uid ?? '';
+    conversations = (await WKIM.shared.conversationManager.getAll())
+        .where((item) => isVisibleConversation(item, currentUserId))
+        .toList(growable: false);
     _sortConversations();
     notifyListeners();
   }
@@ -616,6 +680,8 @@ class ImService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    unawaited(_networkChanges?.cancel());
+    _networkChanges = null;
     _removeListeners();
     WKIM.shared.connectionManager.disconnect(false);
     _callSignals.close();

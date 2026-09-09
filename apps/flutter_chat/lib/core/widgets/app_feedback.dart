@@ -177,16 +177,51 @@ class AppLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(message, textAlign: TextAlign.center),
-        ],
+    child: Semantics(
+      label: message,
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _LoadingMark(),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    ),
+  );
+}
+
+class _LoadingMark extends StatelessWidget {
+  const _LoadingMark();
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 48,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        const SizedBox.square(
+          dimension: 44,
+          child: CircularProgressIndicator(strokeWidth: 3),
+        ),
+        Icon(
+          Icons.forum_rounded,
+          size: 19,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ],
     ),
   );
 }
@@ -211,8 +246,8 @@ class AppStatus extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 44, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 12),
+          _StatusIllustration(icon: icon),
+          const SizedBox(height: 16),
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium,
@@ -238,4 +273,57 @@ class AppStatus extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _StatusIllustration extends StatelessWidget {
+  const _StatusIllustration({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      image: true,
+      label: '状态提示',
+      child: ExcludeSemantics(
+        child: SizedBox.square(
+          dimension: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                top: 5,
+                right: 4,
+                child: CircleAvatar(
+                  radius: 7,
+                  backgroundColor: colors.tertiaryContainer,
+                ),
+              ),
+              Positioned(
+                left: 3,
+                bottom: 5,
+                child: CircleAvatar(
+                  radius: 5,
+                  backgroundColor: colors.secondaryContainer,
+                ),
+              ),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: .18),
+                  ),
+                ),
+                child: Icon(icon, size: 28, color: colors.onPrimaryContainer),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

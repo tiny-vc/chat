@@ -4,6 +4,7 @@ const configValues: Record<string, string | number> = {
   JOBS_ENABLED: "false",
   CLEANUP_INTERVAL_MINUTES: 60,
   PENDING_UPLOAD_TTL_HOURS: 24,
+  UNREFERENCED_FILE_TTL_HOURS: 24,
   SESSION_RETENTION_DAYS: 30,
   LOGIN_THROTTLE_RETENTION_DAYS: 7,
 };
@@ -45,8 +46,14 @@ describe("JobsService", () => {
     const prisma = {
       jobRun: { create: jest.fn().mockResolvedValue({ id: "run-2" }), update },
       storedFile: {
-        findMany: jest.fn().mockResolvedValue([]),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "source",
+            objectKey: "chat/source",
+            thumbnail: { id: "thumbnail", objectKey: "chat/thumbnail" },
+          },
+        ]),
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
       deviceSession: { deleteMany: jest.fn().mockResolvedValue({ count: 2 }) },
       loginThrottle: { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) },
@@ -79,9 +86,22 @@ describe("JobsService", () => {
     const result = await service.runCleanup("MANUAL");
     expect(result).toMatchObject({
       status: "SUCCESS",
-      metrics: { sessionsDeleted: 2, loginThrottlesDeleted: 3 },
+      metrics: {
+        filesDeleted: 2,
+        objectsDeleted: 2,
+        sessionsDeleted: 2,
+        loginThrottlesDeleted: 3,
+      },
     });
-    expect(files.deleteStoredObjects).toHaveBeenCalledWith([]);
+    expect(files.deleteStoredObjects).toHaveBeenCalledWith([
+      "chat/source",
+      "chat/thumbnail",
+    ]);
+    expect(prisma.storedFile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ OR: expect.any(Array) }),
+      }),
+    );
   });
 
   it("returns filtered job runs with a stable cursor", async () => {

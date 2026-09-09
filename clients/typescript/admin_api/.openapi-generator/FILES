@@ -118,6 +118,7 @@ docs/SyncImReceiptsDto.md
 docs/TransferOwnerDto.md
 docs/UpdateConversationSettingDto.md
 docs/UpdateGroupDto.md
+docs/UpdateGroupNicknameDto.md
 docs/UpdateProfileDto.md
 docs/UpdateRuntimeSettingsDto.md
 docs/UserResponse.md
@@ -211,6 +212,7 @@ models/sync-im-receipts-dto.ts
 models/transfer-owner-dto.ts
 models/update-conversation-setting-dto.ts
 models/update-group-dto.ts
+models/update-group-nickname-dto.ts
 models/update-profile-dto.ts
 models/update-runtime-settings-dto.ts
 models/user-response.ts

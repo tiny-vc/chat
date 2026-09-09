@@ -111,6 +111,7 @@ export 'package:chat_api_client/src/model/sync_im_receipts_dto.dart';
 export 'package:chat_api_client/src/model/transfer_owner_dto.dart';
 export 'package:chat_api_client/src/model/update_conversation_setting_dto.dart';
 export 'package:chat_api_client/src/model/update_group_dto.dart';
+export 'package:chat_api_client/src/model/update_group_nickname_dto.dart';
 export 'package:chat_api_client/src/model/update_profile_dto.dart';
 export 'package:chat_api_client/src/model/update_runtime_settings_dto.dart';
 export 'package:chat_api_client/src/model/user_response.dart';
